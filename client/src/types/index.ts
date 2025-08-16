@@ -1,0 +1,119 @@
+export interface User {
+  id: string;
+  email: string;
+  role: 'admin' | 'client';
+  companyId?: string;
+}
+
+export interface AuthResponse {
+  token: string;
+  user: User;
+}
+
+export interface Company {
+  id: string;
+  name: string;
+  email?: string;
+  cnpj?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  cep?: string;
+  avatar?: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GlobalConfiguration {
+  id: string;
+  logo?: string;
+  favicon?: string;
+  coresPrimaria: string;
+  coresSecundaria: string;
+  coresFundo: string;
+  nomeSistema: string;
+  nomeRodape: string;
+  nomeAbaNavegador: string;
+  updatedAt: string;
+}
+
+export interface EvolutionApiConfiguration {
+  id: string;
+  evolutionURL: string;
+  evolutionToken: string;
+  urlGlobalSistema?: string;
+  status: string;
+  updatedAt: string;
+}
+
+export interface AiConfiguration {
+  id: string;
+  apiKey: string;
+  modelo: string;
+  temperatura: string;
+  numeroTokens: number;
+  updatedAt: string;
+}
+
+export interface WhatsappInstance {
+  id: string;
+  companyId: string;
+  name: string;
+  phone?: string;
+  evolutionInstanceId?: string;
+  status: string;
+  qrCode?: string;
+  aiAgentId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiAgent {
+  id: string;
+  companyId: string;
+  name: string;
+  prompt: string;
+  temperatura: string;
+  numeroTokens: number;
+  modelo: string;
+  trainingFiles?: string[];
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Conversation {
+  id: string;
+  whatsappInstanceId: string;
+  contactName?: string;
+  contactPhone: string;
+  lastMessage?: string;
+  lastMessageAt?: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Message {
+  id: string;
+  conversationId: string;
+  content: string;
+  sender: 'user' | 'ai' | 'agent';
+  messageType: string;
+  evolutionMessageId?: string;
+  createdAt: string;
+}
+
+export interface AdminStats {
+  activeCompanies: number;
+  whatsappInstances: number;
+  aiAgents: number;
+  todayConversations: number;
+}
+
+export interface ClientStats {
+  activeInstances: number;
+  aiAgents: number;
+  todayConversations: number;
+}
