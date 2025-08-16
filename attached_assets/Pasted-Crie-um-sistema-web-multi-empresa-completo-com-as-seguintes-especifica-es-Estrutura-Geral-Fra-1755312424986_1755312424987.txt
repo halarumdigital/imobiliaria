@@ -1,0 +1,154 @@
+Crie um sistema web multi-empresa completo com as seguintes especificações:
+🏗️ Estrutura Geral
+
+Framework: Node.js com Express
+Frontend: HTML, CSS, JavaScript (ou React se preferir)
+Banco de Dados: MySQL (configurado via arquivo .env)
+Autenticação: JWT com níveis de acesso (Admin/Cliente)
+Arquitetura: MVC com separação clara entre admin e cliente
+
+👨‍💼 ÁREA ADMINISTRATIVA
+1. Menu Configurações
+javascript// Campos necessários:
+{
+  logo: "URL/upload da imagem",
+  favicon: "URL/upload do ícone",
+  coresGlobais: {
+    primaria: "#color",
+    secundaria: "#color", 
+    fundo: "#color"
+  },
+  nomeSistema: "string",
+  nomeRodape: "string",
+  nomeAbaNavegador: "string"
+}
+2. Menu Evolution API
+javascript// Configurações globais:
+{
+  evolutionURL: "https://api.evolution.com",
+  evolutionToken: "token_global",
+  estadoConexao: "conectado/desconectado",
+  urlGlobalSistema: "https://meudominio.com"
+}
+3. Menu IA
+javascript// Configurações de IA:
+{
+  apiKey: "openai_api_key",
+  temperatura: 0.7,
+  numeroTokens: 1000,
+  modeloUsado: "gpt-3.5-turbo",
+  campoTeste: "área para testar prompts"
+}
+👤 ÁREA DO CLIENTE
+1. Menu Perfil
+
+Formulário completo de edição de dados pessoais/empresariais
+Upload de avatar
+Configurações de conta
+
+2. Menu WhatsApp
+javascript// Funcionalidades:
+{
+  criarInstancia: "usar dados globais Evolution",
+  configurarIA: "vincular agente IA à instância",
+  configurarWhatsApp: "configurações específicas",
+  verificarStatus: "status da conexão",
+  desconectar: "desconectar instância",
+  excluirInstancia: "remover completamente"
+}
+3. Menu IA
+javascript// Criação de Agente:
+{
+  nomeAgente: "string",
+  temperatura: "number",
+  prompt: "textarea",
+  quantidadeTokens: "number",
+  uploadPDF: "treinamento do agente",
+  // Aba separada:
+  vinculacaoInstancia: "dropdown com instâncias ativas"
+}
+4. Menu Conversas
+
+Seletor de instância
+Lista de conversas da instância selecionada
+Visualização de mensagens
+Filtros e busca
+
+🚨 IMPORTANTE - CONFIGURAÇÕES OBRIGATÓRIAS
+Banco de Dados:
+
+USE EXCLUSIVAMENTE MYSQL - configurado via arquivo .env
+NUNCA TENTE MUDAR O BANCO DE DADOS
+PADRÃO OBRIGATÓRIO: MYSQL
+Configure as conexões usando as variáveis de ambiente do .env
+
+Bibliotecas MySQL necessárias:
+javascript// Package.json dependencies:
+"mysql2": "latest",
+"sequelize": "latest", // ORM recomendado
+// ou
+"mysql": "latest" // driver direto
+
+📋 Requisitos Técnicos
+Backend Requirements:
+
+Middleware para verificação de níveis de acesso
+API RESTful para todas as operações
+Integração com Evolution API
+Sistema de upload de arquivos
+Logs de atividades
+
+Frontend Requirements:
+
+Interface responsiva
+Dashboard administrativo
+Painel do cliente
+Sistema de notificações
+Aplicação das cores/temas globais em tempo real
+
+Banco de Dados MySQL:
+sql-- ⚠️ IMPORTANTE: USE APENAS MYSQL - BANCO CONFIGURADO NO .env
+-- NUNCA ALTERE O BANCO DE DADOS - PADRÃO É MYSQL
+-- Estrutura sugerida:
+Tables: users, companies, configurations, whatsapp_instances, 
+ai_agents, conversations, messages, files
+
+-- Configuração no .env:
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=sua_senha
+DB_NAME=sistema_multiempresa
+DB_PORT=3306
+APIs de Integração:
+
+Evolution API para WhatsApp
+OpenAI API para IA
+Upload de arquivos (PDFs)
+Processamento de documentos
+
+🔧 Funcionalidades Específicas
+
+Multi-tenancy: Isolamento completo entre empresas
+Configurações Dinâmicas: Aplicação instantânea de mudanças visuais
+Status em Tempo Real: WebSockets para status de conexões
+Sistema de Logs: Auditoria completa de ações
+Backup Automático: Configurações e dados importantes
+
+📁 Estrutura de Pastas Sugerida
+/src
+  /controllers (admin, client, auth)
+  /models (database models)
+  /routes (admin, client, api)
+  /middleware (auth, validation)
+  /views (admin, client templates)
+  /public (css, js, uploads)
+  /utils (helpers, integrations)
+🚀 Entregáveis
+
+Sistema completamente funcional
+Documentação da API
+Instruções de instalação
+Dados de teste/demo
+Interface amigável e intuitiva
+
+Priorize a segurança, escalabilidade e uma experiência de usuário fluida. O sistema deve ser facilmente configurável e permitir expansão futura de funcionalidades.
