@@ -71,6 +71,12 @@ nav div.bg-sidebar-primary.text-sidebar-primary-foreground span {
 
 /* Aplicar cores personalizadas apenas quando necessário */
 
+/* APENAS botão de login - muito específico */
+form button[type="submit"] {
+  background-color: hsl(222.2 84% 4.9%) !important;
+  color: hsl(210 40% 98%) !important;
+}
+
 /* Garantir que variáveis CSS sejam atualizadas */
 :root {
   --sidebar-accent: hsl(var(--primary) / 0.15);
