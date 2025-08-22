@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { Building } from "lucide-react";
+import { GlobalConfiguration } from "@/types";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -16,6 +18,12 @@ export default function Login() {
   const { login } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+
+  // Buscar configurações globais para pegar o logo
+  const { data: globalConfig } = useQuery<Partial<GlobalConfiguration>>({
+    queryKey: ["/global-config/public"],
+    queryFn: () => fetch("/api/global-config/public").then(res => res.json()),
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,10 +91,20 @@ export default function Login() {
       <Card className="w-full max-w-md">
         <CardContent className="p-6">
           <div className="text-center mb-6">
-            <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center mx-auto mb-4">
-              <Building className="text-primary-foreground text-xl" />
+            <div className="flex items-center justify-center mx-auto mb-4">
+              {globalConfig?.logo ? (
+                <img 
+                  src={globalConfig.logo} 
+                  alt="Logo" 
+                  className="h-16 w-auto object-contain"
+                />
+              ) : (
+                <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
+                  <Building className="text-primary-foreground text-xl" />
+                </div>
+              )}
             </div>
-            <h2 className="text-2xl font-bold text-foreground">Sistema Multi-Empresa</h2>
+            <h2 className="text-2xl font-bold text-foreground">{globalConfig?.sistema_nome || "Sistema Multi-Empresa"}</h2>
             <p className="text-muted-foreground mt-2">Faça login para continuar</p>
           </div>
           
