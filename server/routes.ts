@@ -1291,12 +1291,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message,
         agentId: agent.id,
         agentPrompt: agent.prompt,
-        agentTrainingContent: agent.trainingContent,
+        agentTrainingContent: agent.trainingContent || undefined,
         temperatura: Number(agent.temperatura) || Number(aiConfig.temperatura) || 0.7,
         modelo: agent.modelo || aiConfig.modelo || "gpt-4o",
         numeroTokens: Number(agent.numeroTokens) || Number(aiConfig.numeroTokens) || 1000,
-        agentType: agent.agentType || 'main',
-        delegationKeywords: agent.delegationKeywords || [],
+        agentType: (agent.agentType as "main" | "secondary") || 'main',
+        delegationKeywords: Array.isArray(agent.delegationKeywords) ? agent.delegationKeywords : [],
         companyId: agent.companyId,
       });
 
@@ -1331,10 +1331,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const testResult = await aiResponseService.testAgent({
         agentId: agent.id,
         agentPrompt: agent.prompt,
-        agentTrainingContent: agent.trainingContent,
-        temperatura: agent.temperatura || aiConfig.temperatura,
-        modelo: agent.modelo || aiConfig.modelo,
-        numeroTokens: agent.numeroTokens || aiConfig.numeroTokens,
+        agentTrainingContent: agent.trainingContent || undefined,
+        temperatura: Number(agent.temperatura) || Number(aiConfig.temperatura) || 0.7,
+        modelo: agent.modelo || aiConfig.modelo || "gpt-4o",
+        numeroTokens: Number(agent.numeroTokens) || Number(aiConfig.numeroTokens) || 1000,
       });
 
       res.json(testResult);
