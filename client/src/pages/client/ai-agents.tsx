@@ -31,12 +31,12 @@ function AgentUsageHistory() {
   });
 
   const { data: conversations = [] } = useQuery({
-    queryKey: ["/api/conversations/by-instance", selectedInstanceId],
+    queryKey: [`/api/conversations/by-instance/${selectedInstanceId}`],
     enabled: !!selectedInstanceId,
   });
 
   const { data: messagesWithAgents = [] } = useQuery({
-    queryKey: ["/api/conversations", selectedConversationId, "messages-with-agents"],
+    queryKey: [`/api/conversations/${selectedConversationId}/messages-with-agents`],
     enabled: !!selectedConversationId,
   });
 
