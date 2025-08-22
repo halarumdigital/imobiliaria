@@ -838,6 +838,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Instância não encontrada" });
       }
 
+      console.log(`🔍 DEBUG - Estado da instância antes das correções:`);
+      console.log(`   - ID: ${instance.id}`);
+      console.log(`   - Name: "${instance.name}"`);
+      console.log(`   - CompanyId: "${instance.companyId}"`);
+      console.log(`   - EvolutionInstanceId: "${instance.evolutionInstanceId}"`);
+
       // Fix for existing instances without companyId
       if (!instance.companyId && req.user?.companyId) {
         console.log("🔧 Corrigindo companyId ausente para configuração");
@@ -851,7 +857,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`🔧 Corrigindo evolutionInstanceId ausente para configuração: ${evolutionInstanceId}`);
         await storage.updateWhatsappInstance(id, { evolutionInstanceId });
         instance.evolutionInstanceId = evolutionInstanceId;
+      } else if (!instance.evolutionInstanceId) {
+        console.log(`❌ Não foi possível corrigir evolutionInstanceId - name: "${instance.name}"`);
+      } else {
+        console.log(`✅ evolutionInstanceId já existe: "${instance.evolutionInstanceId}"`);
       }
+
+      console.log(`🔍 DEBUG - Estado da instância após correções:`);
+      console.log(`   - EvolutionInstanceId: "${instance.evolutionInstanceId}"`);
+      console.log(`   - CompanyId: "${instance.companyId}"`);
+      console.log(`   - Name: "${instance.name}"`);
+      
 
       // Check company access
       if (req.user?.role !== 'admin' && instance.companyId !== req.user?.companyId) {
