@@ -936,6 +936,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Configure AI webhook
+  app.post("/api/whatsapp-instances/:id/webhook", authenticate, requireClient, async (req: AuthRequest, res) => {
+    console.log("🚀 INÍCIO DA ROTA WEBHOOK - ID:", req.params.id);
+    try {
+      const { id } = req.params;
+      console.log("📋 Buscando instância no banco...");
+      const instance = await storage.getWhatsappInstance(id);
+      
+      if (!instance) {
+        console.log("❌ Instância não encontrada no banco");
+        return res.status(404).json({ error: "Instância não encontrada" });
+      }
+
+      console.log(`🔍 DEBUG - Estado da instância para webhook:`);
+      console.log(`   - ID: ${instance.id}`);
+      console.log(`   - Name: "${instance.name}"`);
+      console.log(`   - CompanyId: "${instance.companyId}"`);
+      console.log(`   - EvolutionInstanceId: "${instance.evolutionInstanceId}"`);
+
+      // Fix for existing instances without companyId
+      if (!instance.companyId && req.user?.companyId) {
+        console.log("🔧 Corrigindo companyId ausente para webhook");
+        await storage.updateWhatsappInstance(id, { companyId: req.user.companyId });
+        instance.companyId = req.user.companyId;
+      }
+
+      // Fix for existing instances without evolutionInstanceId
+      if (!instance.evolutionInstanceId && instance.name) {
+        const evolutionInstanceId = instance.name.replace(/\s+/g, '_').toLowerCase();
+        console.log(`🔧 Corrigindo evolutionInstanceId ausente para webhook: ${evolutionInstanceId}`);
+        await storage.updateWhatsappInstance(id, { evolutionInstanceId });
+        instance.evolutionInstanceId = evolutionInstanceId;
+        console.log(`✅ evolutionInstanceId atualizado para: "${instance.evolutionInstanceId}"`);
+      }
+
+      // Check company access
+      if (req.user?.role !== 'admin' && instance.companyId !== req.user?.companyId) {
+        console.log(`❌ Acesso negado para webhook: companyId não confere`);
+        return res.status(403).json({ error: "Acesso negado: instância não pertence à sua empresa" });
+      }
+
+      // Get Evolution API configuration
+      console.log("🔧 Buscando configuração da Evolution API...");
+      const evolutionConfig = await storage.getEvolutionApiConfiguration();
+      if (!evolutionConfig) {
+        console.log("❌ Configuração da Evolution API não encontrada");
+        return res.status(500).json({ error: "Configuração da Evolution API não encontrada" });
+      }
+
+      // Check if instance has evolutionInstanceId
+      if (!instance.evolutionInstanceId) {
+        console.log(`❌ Instância AINDA não tem evolutionInstanceId definido para webhook após correções`);
+        return res.status(400).json({ error: "Instância não está configurada na Evolution API" });
+      }
+
+      const evolutionService = new EvolutionApiService({
+        baseURL: evolutionConfig.evolutionURL,
+        token: evolutionConfig.evolutionToken
+      });
+
+      // Default webhook payload
+      const webhook = {
+        enabled: true,
+        url: "https://webhook.site",
+        headers: {
+          autorization: "Bearer TOKEN",
+          "Content-Type": "application/json"
+        },
+        byEvents: false,
+        base64: true,
+        events: [
+          "MESSAGES_UPSERT",
+          "MESSAGES_UPDATE", 
+          "MESSAGES_DELETE",
+          "SEND_MESSAGE",
+          "CHATS_SET",
+          "CHATS_UPSERT",
+          "CHATS_UPDATE",
+          "CHATS_DELETE"
+        ]
+      };
+
+      console.log(`🤖 Configurando webhook da instância: ${instance.evolutionInstanceId}`);
+      console.log(`📋 Webhook:`, JSON.stringify(webhook, null, 2));
+      
+      // First check if instance exists in Evolution API
+      try {
+        console.log(`🔍 Verificando se instância existe na Evolution API: ${instance.evolutionInstanceId}`);
+        const statusCheck = await evolutionService.getInstanceStatus(instance.evolutionInstanceId);
+        console.log(`✅ Instância encontrada na Evolution API:`, JSON.stringify(statusCheck, null, 2));
+      } catch (statusError) {
+        console.error(`❌ Instância não encontrada na Evolution API:`, statusError);
+        return res.status(400).json({ 
+          error: "Instância não encontrada na Evolution API",
+          details: `A instância '${instance.evolutionInstanceId}' não existe na Evolution API`
+        });
+      }
+      
+      const result = await evolutionService.setWebhook(instance.evolutionInstanceId, webhook);
+      
+      console.log("✅ Webhook configurado com sucesso:", JSON.stringify(result, null, 2));
+      
+      res.json({ success: true, result });
+    } catch (error) {
+      console.error("❌ Erro ao configurar webhook:", error);
+      res.status(500).json({ error: "Erro ao configurar IA" });
+    }
+  });
+
   // AI Agents
   app.get("/api/ai-agents", authenticate, requireClient, async (req: AuthRequest, res) => {
     try {

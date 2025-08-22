@@ -117,6 +117,10 @@ export class EvolutionApiService {
     return this.makeRequest(`/settings/set/${instanceName}`, 'POST', settings);
   }
 
+  async setWebhook(instanceName: string, webhook: any): Promise<any> {
+    return this.makeRequest(`/webhook/set/${instanceName}`, 'POST', webhook);
+  }
+
   async testConnection(): Promise<boolean> {
     try {
       await this.makeRequest('/instance/fetchInstances');

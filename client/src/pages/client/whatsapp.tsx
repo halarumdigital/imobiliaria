@@ -169,6 +169,29 @@ export default function WhatsApp() {
     }
   };
 
+  const handleAIConfig = async (instanceId: string) => {
+    try {
+      toast({
+        title: "Configurando...",
+        description: "Configurando webhook da IA...",
+      });
+
+      await apiPost(`/whatsapp-instances/${instanceId}/webhook`, {});
+      
+      toast({
+        title: "Sucesso",
+        description: "Webhook da IA configurado com sucesso",
+      });
+    } catch (error) {
+      console.error("Error configuring AI:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao configurar IA",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleLinkAgent = (instanceId: string, agentId: string) => {
     const finalAgentId = agentId === "none" ? "" : agentId;
     linkAgentMutation.mutate({ instanceId, agentId: finalAgentId });
@@ -303,12 +326,7 @@ export default function WhatsApp() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                toast({
-                  title: "Configurar IA",
-                  description: "Funcionalidade em desenvolvimento",
-                });
-              }}
+              onClick={() => handleAIConfig(instance.id)}
             >
               <Bot className="w-4 h-4 mr-1" />
               Configurar IA
