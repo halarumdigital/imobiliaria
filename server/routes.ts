@@ -996,26 +996,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         token: evolutionConfig.evolutionToken
       });
 
-      // Default webhook payload
+      // Default webhook payload - wrapped in webhook property as required by Evolution API
       const webhook = {
-        enabled: true,
-        url: "https://webhook.site",
-        headers: {
-          autorization: "Bearer TOKEN",
-          "Content-Type": "application/json"
-        },
-        byEvents: false,
-        base64: true,
-        events: [
-          "MESSAGES_UPSERT",
-          "MESSAGES_UPDATE", 
-          "MESSAGES_DELETE",
-          "SEND_MESSAGE",
-          "CHATS_SET",
-          "CHATS_UPSERT",
-          "CHATS_UPDATE",
-          "CHATS_DELETE"
-        ]
+        webhook: {
+          enabled: true,
+          url: "https://webhook.site",
+          headers: {
+            autorization: "Bearer TOKEN",
+            "Content-Type": "application/json"
+          },
+          byEvents: false,
+          base64: true,
+          events: [
+            "MESSAGES_UPSERT",
+            "MESSAGES_UPDATE", 
+            "MESSAGES_DELETE",
+            "SEND_MESSAGE",
+            "CHATS_SET",
+            "CHATS_UPSERT",
+            "CHATS_UPDATE",
+            "CHATS_DELETE"
+          ]
+        }
       };
 
       console.log(`🤖 Configurando webhook da instância: ${instance.evolutionInstanceId}`);
