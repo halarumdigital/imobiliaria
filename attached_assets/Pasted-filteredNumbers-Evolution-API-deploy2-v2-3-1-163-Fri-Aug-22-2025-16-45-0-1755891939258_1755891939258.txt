@@ -1,0 +1,166 @@
+filteredNumbers []
+
+
+
+]
+
+[Evolution API]  [deploy2]  v2.3.1  163   -  Fri Aug 22 2025 16:45:08     VERBOSE   [ChannelStartupService]  [string]  Sending message to 5514981856962@s.whatsapp.net 
+
+[Evolution API]  [deploy2]  v2.3.1  163   -  Fri Aug 22 2025 16:45:08     LOG   [ChannelStartupService]  [object]   
+
+{
+
+  key: MessageKey {
+
+    remoteJid: '5514981856962@s.whatsapp.net',
+
+    fromMe: true,
+
+    id: '3EB095B77CD1BF8FCCECC9CC3A647977F0A6D249'
+
+  },
+
+  pushName: 'Você',
+
+  status: 'PENDING',
+
+  message: {
+
+    conversation: 'Desculpe, o serviço de IA não está configurado. Entre em contato com o administrador.'
+
+  },
+
+  contextInfo: null,
+
+  messageType: 'conversation',
+
+  messageTimestamp: 1755891908,
+
+  instanceId: 'e5b71c35-276b-417e-a1c3-267f904b2b98',
+
+  source: 'unknown'
+
+} 
+
+[Evolution API]    v2.3.1  163   -  Fri Aug 22 2025 16:45:08     LOG   [WebsocketController]  [object]   
+
+{
+
+  local: 'p.sendData-WebsocketGlobal',
+
+  event: 'send.message',
+
+  instance: 'deploy2',
+
+
+
+{
+
+    key: MessageKey {
+
+      remoteJid: '5514981856962@s.whatsapp.net',
+
+      fromMe: true,
+
+      id: '3EB095B77CD1BF8FCCECC9CC3A647977F0A6D249'
+
+    },
+
+    pushName: 'Você',
+
+    status: 'PENDING',
+
+    message: {
+
+      conversation: 'Desculpe, o serviço de IA não está configurado. Entre em contato com o administrador.'
+
+    },
+
+    contextInfo: null,
+
+    messageType: 'conversation',
+
+    messageTimestamp: 1755891908,
+
+    instanceId: 'e5b71c35-276b-417e-a1c3-267f904b2b98',
+
+    source: 'unknown'
+
+  },
+
+  server_url: 'https://apizap.halarum.com.br',
+
+  date_time: '2025-08-22T16:45:08.458Z',
+
+  sender: '5514981856962@s.whatsapp.net',
+
+  apikey: '94eff8b9da7b6c86e50b5c43334f6f69'
+
+} 
+
+[Evolution API]  [deploy2]  v2.3.1  163   -  Fri Aug 22 2025 16:45:08     LOG   [ChannelStartupService]  [string]  Update messages [
+
+  {
+
+    "key": {
+
+      "remoteJid": "5514981856962@s.whatsapp.net",
+
+      "id": "3EB095B77CD1BF8FCCECC9CC3A647977F0A6D249",
+
+      "fromMe": true
+
+    },
+
+    "update": {
+
+      "status": 2
+
+    }
+
+  }
+
+] 
+
+[Evolution API]    v2.3.1  163   -  Fri Aug 22 2025 16:45:08     LOG   [WebsocketController]  [object]   
+
+{
+
+  local: 'p.sendData-WebsocketGlobal',
+
+  event: 'messages.update',
+
+  instance: 'deploy2',
+
+
+
+{
+
+    messageId: 'cmen8pfmr0bzdlh4jmhf5hwn1',
+
+    keyId: '3EB095B77CD1BF8FCCECC9CC3A647977F0A6D249',
+
+    remoteJid: '5514981856962@s.whatsapp.net',
+
+    fromMe: true,
+
+    participant: '5514981856962@s.whatsapp.net',
+
+    status: 'SERVER_ACK',
+
+    pollUpdates: undefined,
+
+    instanceId: 'e5b71c35-276b-417e-a1c3-267f904b2b98'
+
+  },
+
+  server_url: 'https://apizap.halarum.com.br',
+
+  date_time: '2025-08-22T16:45:08.986Z',
+
+  sender: '5514981856962@s.whatsapp.net',
+
+  apikey: '94eff8b9da7b6c86e50b5c43334f6f69'
+
+} 
+
