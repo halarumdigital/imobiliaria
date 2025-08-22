@@ -1098,6 +1098,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           base64: true,
           events: [
             "MESSAGES_UPSERT",
+            "MESSAGE_UPSERT", 
             "MESSAGES_UPDATE", 
             "MESSAGES_DELETE",
             "SEND_MESSAGE",
@@ -1188,6 +1189,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           base64: true,
           events: [
             "MESSAGES_UPSERT",
+            "MESSAGE_UPSERT", 
             "MESSAGES_UPDATE", 
             "MESSAGES_DELETE",
             "SEND_MESSAGE",
@@ -1679,6 +1681,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("❌ Evolution webhook error:", error);
       res.status(500).json({ error: "Erro ao processar webhook" });
+    }
+  });
+
+  // Endpoint para forçar reconfiguração do webhook
+  app.post("/api/reconfigure-webhook/:instanceId", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { instanceId } = req.params;
+      const storage = getStorage();
+      
+      const instance = await storage.getWhatsappInstance(instanceId);
+      if (!instance || instance.companyId !== req.user!.companyId) {
+        return res.status(404).json({ error: "Instância não encontrada" });
+      }
+
+      // Buscar configuração global
+      const globalConfig = await storage.getGlobalConfig();
+      if (!globalConfig || !globalConfig.urlGlobalSistema) {
+        return res.status(400).json({ error: "URL global do sistema não configurada" });
+      }
+
+      const evolutionConfig = await storage.getEvolutionApiConfig();
+      if (!evolutionConfig) {
+        return res.status(400).json({ error: "Evolution API não configurada" });
+      }
+
+      const evolutionService = new EvolutionApiService({
+        baseURL: evolutionConfig.evolutionURL,
+        token: evolutionConfig.evolutionToken
+      });
+
+      const webhookUrl = `${globalConfig.urlGlobalSistema}/api/webhook/messages`;
+      console.log(`🔧 [FORCE] Reconfigurando webhook para: ${webhookUrl}`);
+      
+      const webhook = {
+        webhook: {
+          enabled: true,
+          url: webhookUrl,
+          headers: {
+            "Content-Type": "application/json"
+          },
+          byEvents: true,
+          base64: true,
+          events: [
+            "MESSAGES_UPSERT",
+            "MESSAGE_UPSERT", 
+            "MESSAGES_UPDATE", 
+            "MESSAGES_DELETE",
+            "SEND_MESSAGE",
+            "CHATS_SET",
+            "CHATS_UPSERT",
+            "CHATS_UPDATE",
+            "CHATS_DELETE"
+          ]
+        }
+      };
+
+      await evolutionService.setWebhook(instance.evolutionInstanceId, webhook);
+      console.log(`✅ [FORCE] Webhook reconfigurado com sucesso para instância: ${instance.evolutionInstanceId}`);
+      
+      res.json({ 
+        success: true, 
+        message: "Webhook reconfigurado com sucesso",
+        webhookUrl: webhookUrl
+      });
+    } catch (error) {
+      console.error("❌ [FORCE] Erro ao reconfigurar webhook:", error);
+      res.status(500).json({ error: "Erro ao reconfigurar webhook" });
     }
   });
 
