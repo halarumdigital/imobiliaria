@@ -1059,22 +1059,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: "Configuração da Evolution API não encontrada" });
       }
 
-      // Use configured system URL from admin settings or current Replit URL
-      console.log("🔧 Buscando URL do sistema das configurações do administrador...");
-      let systemUrl = evolutionConfig.urlGlobalSistema;
+      // Use configured system URL from admin settings
+      console.log("🔧 Buscando URL global do sistema das configurações do administrador...");
+      const systemUrl = evolutionConfig.urlGlobalSistema;
       
-      // If not configured by admin, use current Replit URL
-      if (!systemUrl && process.env.REPLIT_DEV_DOMAIN) {
-        systemUrl = `https://${process.env.REPLIT_DEV_DOMAIN}`;
-        console.log("🔧 URL do administrador não configurada, usando URL atual do Replit:", systemUrl);
-      } else if (!systemUrl) {
-        console.log("❌ URL do sistema não configurada pelo administrador e não está no Replit");
+      if (!systemUrl) {
+        console.log("❌ URL global do sistema não configurada pelo administrador");
         return res.status(400).json({ 
-          error: "URL do sistema não configurada", 
+          error: "URL global do sistema não configurada", 
           details: "O administrador precisa configurar a URL global do sistema nas configurações da Evolution API" 
         });
       }
-      console.log("✅ URL do webhook a ser configurada:", systemUrl);
+      console.log("✅ URL global do sistema encontrada:", systemUrl);
 
       // Check if instance has evolutionInstanceId
       if (!instance.evolutionInstanceId) {
