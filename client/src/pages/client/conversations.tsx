@@ -34,67 +34,6 @@ function AgentUsageHistory() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold mb-2">📊 Estatísticas de Uso dos Agentes</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          Veja qual agente (principal ou secundário) foi usado em cada conversa
-        </p>
-        
-        {usageStats.length === 0 ? (
-          <div className="text-center py-8">
-            <BarChart3 className="w-12 h-12 mx-auto text-muted-foreground mb-2" />
-            <p className="text-muted-foreground">Nenhuma conversa encontrada ainda</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-            {usageStats.map((stat: any, index: number) => (
-              <Card key={stat.agentId} className="p-4">
-                <div className="flex items-center space-x-3 mb-3">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    stat.agentType === 'secondary' ? 'bg-blue-100 dark:bg-blue-900' : 'bg-purple-100 dark:bg-purple-900'
-                  }`}>
-                    {stat.agentType === 'secondary' ? 
-                      <Bot className="text-blue-600 dark:text-blue-400" /> : 
-                      <Bot className="text-purple-600 dark:text-purple-400" />
-                    }
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-medium flex items-center gap-2">
-                      {stat.agentName}
-                      <Badge variant={stat.agentType === 'secondary' ? "default" : "secondary"} className={
-                        stat.agentType === 'secondary' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
-                      }>
-                        {stat.agentType === 'secondary' ? 'Secundário' : 'Principal'}
-                      </Badge>
-                    </h4>
-                    <p className="text-sm text-muted-foreground">
-                      {stat.messageCount} mensagens
-                    </p>
-                  </div>
-                </div>
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <div className="flex justify-between">
-                    <span>Última atividade:</span>
-                    <span>
-                      {stat.lastUsed && stat.lastUsed !== 'N/A' ? 
-                        (() => {
-                          try {
-                            const date = new Date(stat.lastUsed);
-                            return isNaN(date.getTime()) ? 'N/A' : format(date, "dd/MM HH:mm", { locale: ptBR });
-                          } catch {
-                            return 'N/A';
-                          }
-                        })() : 'N/A'
-                      }
-                    </span>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Instance Selector & Conversations */}
         <Card>
