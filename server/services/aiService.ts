@@ -118,15 +118,29 @@ export class AIService {
       });
       console.log(`✅ Agent found: ${mainAgent.name}, ID: ${mainAgent.id}`);
 
-      // Buscar histórico da conversa
-      console.log(`📚 Carregando histórico da conversa para ${context.phone}...`);
-      const conversationHistory = await this.getConversationHistory(context.instanceId, context.phone);
+      // Buscar histórico da conversa ANTES de gerar resposta
+      console.log(`📚 [DEBUG] Carregando histórico da conversa para ${context.phone}...`);
+      console.log(`📚 [DEBUG] InstanceId recebido: ${context.instanceId}`);
+      
+      let conversationHistory = [];
+      try {
+        conversationHistory = await this.getConversationHistory(context.instanceId, context.phone);
+        console.log(`📚 [DEBUG] Histórico carregado com SUCESSO: ${conversationHistory.length} mensagens`);
+        
+        if (conversationHistory.length > 0) {
+          console.log(`📚 [DEBUG] Últimas mensagens do histórico:`, conversationHistory.slice(-3));
+        }
+      } catch (error) {
+        console.error(`❌ [DEBUG] Erro ao carregar histórico:`, error);
+        conversationHistory = [];
+      }
+      
       const contextWithHistory = {
         ...context,
         conversationHistory
       };
       
-      console.log(`📚 Histórico carregado: ${conversationHistory.length} mensagens`);
+      console.log(`📚 [DEBUG] Context com histórico preparado - Total mensagens: ${conversationHistory.length}`);
       
       // Gerar resposta usando OpenAI
       console.log(`🤖 Gerando resposta com agente ativo: ${activeAgent.name} (Tipo: ${activeAgent.agentType || 'main'})`);
@@ -146,31 +160,42 @@ export class AIService {
 
   private async getConversationHistory(evolutionInstanceId: string, phone: string): Promise<Array<{role: 'user' | 'assistant', content: string}>> {
     try {
+      console.log(`📚 [HISTORY] Iniciando busca de histórico para evolutionId: ${evolutionInstanceId}, phone: ${phone}`);
       const storage = getStorage();
       
       // PRIMEIRO: Encontrar a instância do nosso banco usando o evolutionInstanceId
+      console.log(`📚 [HISTORY] Buscando instância do banco...`);
       const dbInstanceId = await this.findDatabaseInstanceId(evolutionInstanceId);
       if (!dbInstanceId) {
-        console.log(`📚 Instância do banco não encontrada para evolutionId: ${evolutionInstanceId}`);
+        console.log(`❌ [HISTORY] Instância do banco não encontrada para evolutionId: ${evolutionInstanceId}`);
         return [];
       }
       
-      console.log(`📚 Instância do banco encontrada: ${dbInstanceId} (evolutionId: ${evolutionInstanceId})`);
+      console.log(`✅ [HISTORY] Instância do banco encontrada: ${dbInstanceId} (evolutionId: ${evolutionInstanceId})`);
       
       // Buscar conversa existente usando o ID correto do banco
+      console.log(`📚 [HISTORY] Buscando conversas na instância ${dbInstanceId}...`);
       const conversations = await storage.getConversationsByInstance(dbInstanceId);
+      console.log(`📚 [HISTORY] Total de conversas encontradas: ${conversations.length}`);
+      
       const conversation = conversations.find(c => c.contactPhone === phone);
       
       if (!conversation) {
-        console.log(`📚 Nenhuma conversa encontrada para ${phone} na instância ${dbInstanceId}`);
+        console.log(`❌ [HISTORY] Nenhuma conversa encontrada para ${phone} na instância ${dbInstanceId}`);
+        console.log(`📚 [HISTORY] Conversas disponíveis:`, conversations.map(c => ({ id: c.id, phone: c.contactPhone })));
         return [];
       }
       
-      console.log(`📚 Conversa encontrada: ${conversation.id}`);
+      console.log(`✅ [HISTORY] Conversa encontrada: ${conversation.id} para telefone ${phone}`);
       
       // Buscar mensagens da conversa
+      console.log(`📚 [HISTORY] Buscando mensagens da conversa ${conversation.id}...`);
       const messages = await storage.getMessagesByConversation(conversation.id);
-      console.log(`📚 Encontradas ${messages.length} mensagens na conversa`);
+      console.log(`📚 [HISTORY] Encontradas ${messages.length} mensagens na conversa`);
+      
+      if (messages.length > 0) {
+        console.log(`📚 [HISTORY] Primeiras mensagens:`, messages.slice(0, 3).map(m => ({ sender: m.sender, content: m.content.substring(0, 50) + '...' })));
+      }
       
       // Converter para formato OpenAI (últimas 10 mensagens para não sobrecarregar)
       const history = messages
@@ -181,11 +206,16 @@ export class AIService {
           content: msg.content
         }));
       
-      console.log(`📚 Histórico formatado: ${history.length} mensagens`);
+      console.log(`✅ [HISTORY] Histórico formatado com SUCESSO: ${history.length} mensagens`);
+      if (history.length > 0) {
+        console.log(`📚 [HISTORY] Histórico formatado:`, history);
+      }
+      
       return history;
       
     } catch (error) {
-      console.error("❌ Erro ao carregar histórico da conversa:", error);
+      console.error("❌ [HISTORY] Erro ao carregar histórico da conversa:", error);
+      console.error("❌ [HISTORY] Stack trace:", error.stack);
       return [];
     }
   }
