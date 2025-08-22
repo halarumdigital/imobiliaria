@@ -753,6 +753,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         instance.companyId = req.user.companyId;
       }
 
+      // Fix for existing instances without evolutionInstanceId
+      if (!instance.evolutionInstanceId && instance.name) {
+        const evolutionInstanceId = instance.name.replace(/\s+/g, '_').toLowerCase();
+        console.log(`🔧 Corrigindo evolutionInstanceId ausente: ${evolutionInstanceId}`);
+        await storage.updateWhatsappInstance(id, { evolutionInstanceId });
+        instance.evolutionInstanceId = evolutionInstanceId;
+      }
+
       // Check company access
       console.log(`🔒 Verificando acesso da empresa:`);
       console.log(`   - User role: ${req.user?.role}`);
@@ -1079,6 +1087,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         evolutionInstanceId: instanceName, // Nome usado na Evolution API
         status: 'disconnected' as const
       };
+      
+      console.log(`💾 Salvando instância com evolutionInstanceId: ${instanceName}`);
       
       const savedInstance = await storage.createWhatsappInstance(instanceData);
       
