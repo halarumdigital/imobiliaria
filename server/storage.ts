@@ -770,7 +770,35 @@ export class MySQLStorage implements IStorage {
       'SELECT * FROM conversations WHERE whatsapp_instance_id = ? ORDER BY last_message_at DESC',
       [instanceId]
     );
-    return rows as Conversation[];
+    
+    // Debug: verificar o que está sendo retornado do MySQL
+    const rawResults = rows as any[];
+    console.log(`🔍 [STORAGE] Raw MySQL results for instance ${instanceId}:`, 
+      rawResults.map(r => ({ 
+        id: r.id, 
+        contact_phone: r.contact_phone, 
+        contactPhone: r.contactPhone,
+        raw_keys: Object.keys(r)
+      }))
+    );
+    
+    // Mapear manualmente se necessário (corrigir snake_case para camelCase)
+    const mappedRows = rawResults.map(row => ({
+      id: row.id,
+      whatsappInstanceId: row.whatsapp_instance_id,
+      contactName: row.contact_name,
+      contactPhone: row.contact_phone, // Mapear explicitamente
+      lastMessage: row.last_message,
+      lastMessageAt: row.last_message_at,
+      status: row.status,
+      createdAt: row.created_at
+    }));
+    
+    console.log(`🔍 [STORAGE] Mapped results:`, 
+      mappedRows.map(r => ({ id: r.id, contactPhone: r.contactPhone }))
+    );
+    
+    return mappedRows as Conversation[];
   }
 
   async createConversation(conversation: InsertConversation): Promise<Conversation> {
