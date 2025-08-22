@@ -144,7 +144,7 @@ export default function AiAgents() {
   const handleFileUpload = async () => {
     return {
       method: 'PUT' as const,
-      url: await apiGet("/objects/upload").then(res => res.uploadURL),
+      url: await apiPost("/api/objects/upload", {}).then(res => res.uploadURL),
     };
   };
 
