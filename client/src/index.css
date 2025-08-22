@@ -21,22 +21,28 @@ select:focus,
   --tw-ring-color: hsl(var(--primary)) !important;
 }
 
-/* Ajustar cores do menu sidebar - hover */
+/* Menu sidebar - hover */
 .hover\:bg-sidebar-accent:hover {
-  background-color: hsl(var(--primary) / 0.1) !important;
+  background-color: hsl(var(--primary) / 0.15) !important;
 }
 
 .hover\:text-sidebar-accent-foreground:hover {
   color: hsl(var(--primary)) !important;
 }
 
-/* Item ativo do menu sidebar */
+/* Menu sidebar - item ativo/selecionado */
 .bg-sidebar-primary {
   background-color: hsl(var(--primary)) !important;
 }
 
 .text-sidebar-primary-foreground {
-  color: hsl(var(--primary-foreground)) !important;
+  color: white !important;
+}
+
+/* Garantir que variáveis CSS sejam atualizadas */
+:root {
+  --sidebar-accent: hsl(var(--primary) / 0.15);
+  --sidebar-accent-foreground: hsl(var(--primary));
 }
 
 :root {
