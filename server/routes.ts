@@ -510,6 +510,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/whatsapp-instances/:id/qr", authenticate, requireClient, async (req: AuthRequest, res) => {
+    console.log("=== QR CODE REQUEST DEBUG ===");
+    console.log("URL requested:", req.originalUrl);
+    console.log("Method:", req.method);
+    console.log("Headers:", JSON.stringify({
+      authorization: req.headers.authorization ? 'Bearer ***' : 'missing',
+      contentType: req.headers['content-type']
+    }));
+    console.log("User from token:", req.user ? {
+      id: req.user.id,
+      companyId: req.user.companyId,
+      role: req.user.role
+    } : 'null');
+    
     try {
       const { id } = req.params;
       console.log("QR Code request for instance ID:", id);

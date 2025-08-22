@@ -109,8 +109,14 @@ export default function WhatsApp() {
       setIsQrModalOpen(true);
       setQrCode(null);
       
+      console.log("=== FRONTEND QR REQUEST ===");
+      console.log("Instance ID:", instanceId);
+      console.log("Token exists:", !!localStorage.getItem("token"));
+      console.log("URL will be:", `/whatsapp-instances/${instanceId}/qr`);
+      
       // Call Evolution API to generate QR code
       const response = await apiGet(`/whatsapp-instances/${instanceId}/qr`);
+      console.log("QR Response received:", response);
       setQrCode(response.qrCode);
     } catch (error) {
       toast({
