@@ -1085,6 +1085,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Default webhook payload - wrapped in webhook property as required by Evolution API
       const webhookUrl = `${systemUrl}/api/webhook/messages`;
+      console.log(`🔗 [WEBHOOK] Configurando webhook URL: ${webhookUrl}`);
       const webhook = {
         webhook: {
           enabled: true,
@@ -1093,7 +1094,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             autorization: "Bearer TOKEN",
             "Content-Type": "application/json"
           },
-          byEvents: false,
+          byEvents: true,
           base64: true,
           events: [
             "MESSAGES_UPSERT",
@@ -1175,6 +1176,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const webhookUrl = `${systemUrl}/api/webhook/messages`;
+      console.log(`🔗 [WEBHOOK] Configurando webhook URL: ${webhookUrl}`);
       const webhook = {
         webhook: {
           enabled: true,
@@ -1182,7 +1184,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           headers: {
             "Content-Type": "application/json"
           },
-          byEvents: false,
+          byEvents: true,
           base64: true,
           events: [
             "MESSAGES_UPSERT",
@@ -1629,6 +1631,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/webhook/messages", async (req, res) => {
     try {
       console.log("🔥 WEBHOOK DEBUG - Full request body:", JSON.stringify(req.body, null, 2));
+      console.log("🔍 [WEBHOOK] Event type:", req.body.event);
+      console.log("🔍 [WEBHOOK] Has message data:", !!req.body.data?.message);
+      console.log("🔍 [WEBHOOK] FromMe value:", req.body.data?.fromMe || req.body.data?.key?.fromMe);
+      console.log("🔍 [WEBHOOK] Message type:", req.body.data?.messageType);
       
       // Verificar se temos dados válidos
       if (!req.body.data || !req.body.sender) {
