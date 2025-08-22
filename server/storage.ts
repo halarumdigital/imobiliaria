@@ -383,8 +383,18 @@ export class MySQLStorage implements IStorage {
   async getEvolutionApiConfiguration(): Promise<EvolutionApiConfiguration | undefined> {
     if (!this.connection) throw new Error('No database connection');
     
-    const [rows] = await this.connection.execute('SELECT * FROM evolution_api_configurations LIMIT 1');
-    return (rows as EvolutionApiConfiguration[])[0];
+    const [rows] = await this.connection.execute('SELECT * FROM evolution_api_configurations LIMIT 1') as any;
+    const rawData = rows[0];
+    if (!rawData) return undefined;
+    
+    // Mapeamento dos campos do banco para o frontend
+    return {
+      id: rawData.id,
+      evolutionURL: rawData.evolution_url,
+      evolutionToken: rawData.evolution_token,
+      urlGlobalSistema: rawData.url_global_sistema,
+      updatedAt: rawData.updated_at,
+    } as EvolutionApiConfiguration;
   }
 
   async saveEvolutionApiConfiguration(config: InsertEvolutionApiConfiguration): Promise<EvolutionApiConfiguration> {

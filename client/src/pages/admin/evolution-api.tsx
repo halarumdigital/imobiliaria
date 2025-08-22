@@ -17,7 +17,7 @@ export default function EvolutionApiSettings() {
   const [showToken, setShowToken] = useState(false);
 
   const { data: config, isLoading } = useQuery<EvolutionApiConfiguration>({
-    queryKey: ["/evolution-config"],
+    queryKey: ["/api/evolution-config"],
   });
 
   useEffect(() => {
@@ -29,7 +29,7 @@ export default function EvolutionApiSettings() {
   const saveMutation = useMutation({
     mutationFn: (data: Partial<EvolutionApiConfiguration>) => apiPost("/evolution-config", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/evolution-config"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/evolution-config"] });
       toast({
         title: "Sucesso",
         description: "Configurações salvas com sucesso!",
