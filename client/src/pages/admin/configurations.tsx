@@ -87,15 +87,22 @@ export default function Configurations() {
     
     try {
       const filePath = await handleFileUpload(field, file);
-      handleInputChange(field, filePath);
+      
+      // Atualiza o formData local
+      const updatedFormData = { ...formData, [field]: filePath };
+      setFormData(updatedFormData);
+      
+      // Salva automaticamente no banco de dados
+      await mutation.mutateAsync(updatedFormData);
+      
       toast({
         title: "Sucesso",
-        description: `${field === 'logo' ? 'Logo' : 'Favicon'} enviado com sucesso!`,
+        description: `${field === 'logo' ? 'Logo' : 'Favicon'} salvo com sucesso!`,
       });
     } catch (error) {
       toast({
         title: "Erro",
-        description: `Erro ao fazer upload do ${field === 'logo' ? 'logo' : 'favicon'}`,
+        description: `Erro ao salvar ${field === 'logo' ? 'logo' : 'favicon'}`,
         variant: "destructive",
       });
     }
