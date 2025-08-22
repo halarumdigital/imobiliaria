@@ -481,6 +481,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const instances = await storage.getWhatsappInstancesByCompany(req.user.companyId);
+      
+      // Debug: Verificar o que está sendo retornado para o frontend
+      console.log("📋 Instances being returned to frontend:");
+      instances.forEach(instance => {
+        console.log(`  - ID: ${instance.id}, Name: ${instance.name}, EvolutionID: ${instance.evolutionInstanceId}`);
+      });
+      
       res.json(instances);
     } catch (error) {
       console.error("Get WhatsApp instances error:", error);
@@ -1446,9 +1453,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: 'disconnected' as const
       };
       
-      console.log(`💾 Salvando instância com evolutionInstanceId: ${instanceName}`);
+      console.log(`💾 DADOS SENDO SALVOS NO BANCO:`);
+      console.log(`  - name (display): "${name}"`);
+      console.log(`  - evolutionInstanceId (API): "${instanceName}"`);
+      console.log(`  - phone: "${phone}"`);
+      console.log(`  - companyId: "${req.user.companyId}"`);
       
       const savedInstance = await storage.createWhatsappInstance(instanceData);
+      
+      console.log(`✅ INSTÂNCIA SALVA NO BANCO:`);
+      console.log(`  - id: ${savedInstance.id}`);
+      console.log(`  - name: "${savedInstance.name}"`);
+      console.log(`  - evolutionInstanceId: "${savedInstance.evolutionInstanceId}"`);
+      console.log(`  - phone: "${savedInstance.phone}"`);
       
       res.json({
         success: true,
