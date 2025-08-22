@@ -36,7 +36,7 @@ export default function AiSettings() {
   }, [error]);
 
   const saveMutation = useMutation({
-    mutationFn: (data: Partial<AiConfiguration>) => apiPost("/api/ai-config", data),
+    mutationFn: (data: Partial<AiConfiguration>) => apiPost("/ai-config", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/ai-config"] });
       toast({
@@ -54,7 +54,7 @@ export default function AiSettings() {
   });
 
   const testMutation = useMutation({
-    mutationFn: (prompt: string) => apiPost("/api/ai-config/test", { prompt }),
+    mutationFn: (prompt: string) => apiPost("/ai-config/test", { prompt }),
     onSuccess: (data) => {
       toast({
         title: "✅ Teste bem-sucedido!",
