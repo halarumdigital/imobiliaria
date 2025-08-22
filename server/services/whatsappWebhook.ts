@@ -30,6 +30,12 @@ export interface WebhookData {
 
 export interface EvolutionWebhookData {
   data: {
+    key?: {
+      remoteJid: string;
+      fromMe: boolean;
+      id: string;
+      senderLid?: string;
+    };
     message: {
       conversation?: string;
       extendedTextMessage?: {
@@ -70,14 +76,16 @@ export class WhatsAppWebhookService {
         return;
       }
 
-      // Extrair o número do remetente CORRETO da mensagem
-      const senderPhone = evolutionData.sender?.replace('@s.whatsapp.net', '');
+      // Extrair o número do remetente CORRETO da mensagem - usar data.key.remoteJid
+      const senderPhone = (evolutionData.data as any).key?.remoteJid?.replace('@s.whatsapp.net', '');
       if (!senderPhone) {
         console.log("❌ Could not extract sender phone from Evolution message");
+        console.log("❌ Debug - data.key:", (evolutionData.data as any).key);
+        console.log("❌ Debug - evolutionData.sender:", evolutionData.sender);
         return;
       }
       
-      console.log(`📞 Sender phone extracted: ${senderPhone} (from ${evolutionData.sender})`);
+      console.log(`📞 Sender phone extracted: ${senderPhone} (from remoteJid: ${(evolutionData.data as any).key?.remoteJid})`);
 
       // Buscar o nome da instância no Evolution API pela instanceId
       console.log(`🔍 About to search for instance ID: ${data.instanceId}`);
@@ -221,9 +229,13 @@ export class WhatsAppWebhookService {
     const data = evolutionData.data;
     
     // CRÍTICO: Verificar se a mensagem foi enviada por nós (evitar loop infinito)
-    // Note: Evolution API não envia key.fromMe em todos os casos, então vamos verificar outros sinais
+    if (data.key?.fromMe === true) {
+      console.log("❌ Evolution message ignored - message sent by us (fromMe: true)");
+      return false;
+    }
+    
+    // Verificação adicional para mensagens PENDING com destination
     if (data.status === 'PENDING' && evolutionData.destination) {
-      // Esta é nossa própria mensagem sendo enviada
       console.log("❌ Evolution message ignored - message sent by us (detected via status and destination)");
       return false;
     }
