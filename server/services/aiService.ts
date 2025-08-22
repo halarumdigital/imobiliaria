@@ -2,7 +2,6 @@ import OpenAI from "openai";
 import { getStorage } from "../storage";
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export interface MessageContext {
   phone: string;
@@ -114,9 +113,13 @@ export class AIService {
 
   private async generateResponse(agent: any, context: MessageContext, aiConfig: any): Promise<string> {
     try {
-      if (!process.env.OPENAI_API_KEY) {
+      // Verificar se temos a chave OpenAI na configuração do administrador
+      if (!aiConfig.chaveApi) {
         return "Desculpe, o serviço de IA não está configurado. Entre em contato com o administrador.";
       }
+
+      // Criar instância do OpenAI com a chave da configuração
+      const openai = new OpenAI({ apiKey: aiConfig.chaveApi });
 
       // Construir o prompt do sistema baseado no agente
       let systemPrompt = `Você é ${agent.name}, um assistente de IA especializado.`;
@@ -125,7 +128,7 @@ export class AIService {
         systemPrompt += `\n\nDescrição: ${agent.description}`;
       }
       
-      if (agent.specialization && agent.specialization.length > 0) {
+      if (agent.specialization && Array.isArray(agent.specialization) && agent.specialization.length > 0) {
         systemPrompt += `\n\nEspecializações: ${agent.specialization.join(', ')}`;
       }
       

@@ -1475,6 +1475,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // WhatsApp Webhook para receber mensagens
+  app.post("/webhook/whatsapp", async (req, res) => {
+    try {
+      const { whatsappWebhookService } = await import("./services/whatsappWebhook");
+      await whatsappWebhookService.handleMessage(req.body);
+      res.status(200).json({ success: true });
+    } catch (error) {
+      console.error("Webhook error:", error);
+      res.status(500).json({ error: "Erro ao processar webhook" });
+    }
+  });
+
+  // Endpoint de teste para simular mensagem
+  app.post("/api/test-message", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { instanceId, phone, message } = req.body;
+      
+      if (!instanceId || !phone || !message) {
+        return res.status(400).json({ error: "instanceId, phone e message são obrigatórios" });
+      }
+
+      const { messageProcessorService } = await import("./services/messageProcessor");
+      const result = await messageProcessorService.testMessage(instanceId, phone, message);
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Test message error:", error);
+      res.status(500).json({ error: "Erro ao testar mensagem" });
+    }
+  });
+
   // Conversations
   app.get("/api/conversations", authenticate, requireClient, async (req: AuthRequest, res) => {
     try {
