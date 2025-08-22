@@ -430,43 +430,6 @@ export default function WhatsApp() {
         </Card>
       </div>
 
-      {/* QR Code Panel - Hidden on mobile, replaced by modal */}
-      <div className="hidden lg:block">
-        <Card>
-          <CardHeader>
-            <CardTitle>QR Code</CardTitle>
-          </CardHeader>
-          <CardContent className="text-center">
-            {qrCode ? (
-              <div>
-                <div className="w-48 h-48 mx-auto mb-4 bg-muted rounded-lg flex items-center justify-center">
-                  <img src={qrCode} alt="QR Code" className="max-w-full max-h-full" />
-                </div>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Escaneie o QR Code com seu WhatsApp para conectar a instância
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => selectedInstance && handleGenerateQR(selectedInstance)}
-                >
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Atualizar QR
-                </Button>
-              </div>
-            ) : (
-              <div className="w-48 h-48 mx-auto mb-4 bg-muted rounded-lg flex items-center justify-center">
-                <QrCode className="w-16 h-16 text-muted-foreground" />
-              </div>
-            )}
-            {!qrCode && (
-              <p className="text-sm text-muted-foreground">
-                Clique em "QR Code" em uma instância para gerar o código
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
 
       {/* QR Code Modal */}
       <Dialog open={isQrModalOpen} onOpenChange={setIsQrModalOpen}>
