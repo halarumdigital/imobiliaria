@@ -146,28 +146,6 @@ export default function Login() {
               {isLoading ? "Entrando..." : "Entrar"}
             </Button>
           </form>
-          
-          <div className="mt-4 text-center">
-            <p className="text-sm text-muted-foreground">Acesso Demo:</p>
-            <div className="flex gap-2 mt-2">
-              <Button 
-                variant="outline" 
-                className="flex-1" 
-                onClick={() => loginAsDemo("admin")}
-                disabled={isLoading}
-              >
-                Login como Admin
-              </Button>
-              <Button 
-                variant="outline" 
-                className="flex-1" 
-                onClick={() => loginAsDemo("client")}
-                disabled={isLoading}
-              >
-                Login como Cliente
-              </Button>
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>
