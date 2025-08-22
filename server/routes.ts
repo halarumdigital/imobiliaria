@@ -1,6 +1,14 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 import { getStorage } from "./storage";
+
+interface MulterRequest extends Request {
+  file?: Express.Multer.File;
+}
 import { 
   authenticate, requireAdmin, requireClient, requireCompanyAccess, 
   generateToken, hashPassword, comparePassword, AuthRequest 
@@ -18,6 +26,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize storage connection
   const storage = getStorage();
   await storage.init();
+
+  // Configure multer for file uploads
+  const storage_config = multer.diskStorage({
+    destination: (req, file, cb) => {
+      const uploadType = req.path.includes('logo') ? 'logos' : 'favicons';
+      const uploadPath = path.join(process.cwd(), 'uploads', uploadType);
+      
+      // Ensure directory exists
+      if (!fs.existsSync(uploadPath)) {
+        fs.mkdirSync(uploadPath, { recursive: true });
+      }
+      
+      cb(null, uploadPath);
+    },
+    filename: (req, file, cb) => {
+      const uploadType = req.path.includes('logo') ? 'logo' : 'favicon';
+      const timestamp = Date.now();
+      const ext = path.extname(file.originalname);
+      cb(null, `${uploadType}-${timestamp}${ext}`);
+    }
+  });
+
+  const upload = multer({ 
+    storage: storage_config,
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+    fileFilter: (req, file, cb) => {
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/x-icon', 'image/vnd.microsoft.icon'];
+      if (allowedTypes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Tipo de arquivo não permitido'));
+      }
+    }
+  });
+
+  // Serve static files from uploads directory
+  app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
   
   // Authentication routes
   app.post("/api/auth/login", async (req, res) => {
@@ -110,6 +155,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Save global config error:", error);
       res.status(500).json({ error: "Erro ao salvar configurações" });
+    }
+  });
+
+  // File upload endpoints for global configuration
+  app.post("/api/upload/logo", authenticate, requireAdmin, upload.single('logo'), async (req: MulterRequest, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "Nenhum arquivo enviado" });
+      }
+      
+      const filePath = `/uploads/logos/${req.file.filename}`;
+      res.json({ 
+        success: true, 
+        filePath,
+        message: "Logo enviado com sucesso"
+      });
+    } catch (error) {
+      console.error("Upload logo error:", error);
+      res.status(500).json({ error: "Erro ao fazer upload do logo" });
+    }
+  });
+
+  app.post("/api/upload/favicon", authenticate, requireAdmin, upload.single('favicon'), async (req: MulterRequest, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "Nenhum arquivo enviado" });
+      }
+      
+      const filePath = `/uploads/favicons/${req.file.filename}`;
+      res.json({ 
+        success: true, 
+        filePath,
+        message: "Favicon enviado com sucesso"
+      });
+    } catch (error) {
+      console.error("Upload favicon error:", error);
+      res.status(500).json({ error: "Erro ao fazer upload do favicon" });
     }
   });
 

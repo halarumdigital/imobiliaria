@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,13 +9,14 @@ import { useTheme } from "@/components/theme-provider";
 import { queryClient } from "@/lib/queryClient";
 import { apiGet, apiPost } from "@/lib/api";
 import { GlobalConfiguration } from "@/types";
-import { ObjectUploader } from "@/components/ObjectUploader";
-import { Upload } from "lucide-react";
+import { Upload, Image } from "lucide-react";
 
 export default function Configurations() {
   const { toast } = useToast();
   const { applyTheme } = useTheme();
   const [formData, setFormData] = useState<Partial<GlobalConfiguration>>({});
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const faviconInputRef = useRef<HTMLInputElement>(null);
 
   const { data: config, isLoading } = useQuery<GlobalConfiguration>({
     queryKey: ["/global-config"],
@@ -55,17 +56,48 @@ export default function Configurations() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleFileUpload = async (field: 'logo' | 'favicon') => {
-    return {
-      method: 'PUT' as const,
-      url: await apiGet("/objects/upload").then(res => res.uploadURL),
-    };
+  const handleFileUpload = async (field: 'logo' | 'favicon', file: File) => {
+    const formData = new FormData();
+    formData.append(field, file);
+    
+    try {
+      const response = await fetch(`/api/upload/${field}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: formData
+      });
+      
+      if (!response.ok) {
+        throw new Error('Erro no upload');
+      }
+      
+      const result = await response.json();
+      return result.filePath;
+    } catch (error) {
+      console.error('Upload error:', error);
+      throw error;
+    }
   };
 
-  const handleFileComplete = (field: 'logo' | 'favicon') => (result: any) => {
-    if (result.successful && result.successful[0]) {
-      const uploadURL = result.successful[0].uploadURL;
-      handleInputChange(field, uploadURL);
+  const handleFileChange = async (field: 'logo' | 'favicon', event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    try {
+      const filePath = await handleFileUpload(field, file);
+      handleInputChange(field, filePath);
+      toast({
+        title: "Sucesso",
+        description: `${field === 'logo' ? 'Logo' : 'Favicon'} enviado com sucesso!`,
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: `Erro ao fazer upload do ${field === 'logo' ? 'logo' : 'favicon'}`,
+        variant: "destructive",
+      });
     }
   };
 
@@ -88,36 +120,60 @@ export default function Configurations() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div>
               <Label className="text-sm font-medium mb-2 block">Logo do Sistema</Label>
-              <ObjectUploader
-                maxNumberOfFiles={1}
-                maxFileSize={10485760}
-                onGetUploadParameters={() => handleFileUpload('logo')}
-                onComplete={handleFileComplete('logo')}
-                buttonClassName="w-full h-32 border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 bg-muted/25"
+              <div 
+                onClick={() => logoInputRef.current?.click()}
+                className="w-full h-32 border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 bg-muted/25 cursor-pointer flex flex-col items-center justify-center space-y-2 rounded-lg transition-colors"
               >
-                <div className="flex flex-col items-center space-y-2">
-                  <Upload className="w-8 h-8 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Upload do logo</span>
-                  <span className="text-xs text-muted-foreground">PNG, JPG até 10MB</span>
-                </div>
-              </ObjectUploader>
+                {formData.logo ? (
+                  <div className="flex flex-col items-center space-y-2">
+                    <Image className="w-8 h-8 text-green-600" />
+                    <span className="text-sm text-green-600">Logo carregado</span>
+                    <span className="text-xs text-muted-foreground">Clique para alterar</span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center space-y-2">
+                    <Upload className="w-8 h-8 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Upload do logo</span>
+                    <span className="text-xs text-muted-foreground">PNG, JPG até 10MB</span>
+                  </div>
+                )}
+              </div>
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleFileChange('logo', e)}
+                className="hidden"
+              />
             </div>
 
             <div>
               <Label className="text-sm font-medium mb-2 block">Favicon</Label>
-              <ObjectUploader
-                maxNumberOfFiles={1}
-                maxFileSize={10485760}
-                onGetUploadParameters={() => handleFileUpload('favicon')}
-                onComplete={handleFileComplete('favicon')}
-                buttonClassName="w-full h-32 border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 bg-muted/25"
+              <div 
+                onClick={() => faviconInputRef.current?.click()}
+                className="w-full h-32 border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 bg-muted/25 cursor-pointer flex flex-col items-center justify-center space-y-2 rounded-lg transition-colors"
               >
-                <div className="flex flex-col items-center space-y-2">
-                  <Upload className="w-8 h-8 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Upload do favicon</span>
-                  <span className="text-xs text-muted-foreground">ICO, PNG 32x32px</span>
-                </div>
-              </ObjectUploader>
+                {formData.favicon ? (
+                  <div className="flex flex-col items-center space-y-2">
+                    <Image className="w-8 h-8 text-green-600" />
+                    <span className="text-sm text-green-600">Favicon carregado</span>
+                    <span className="text-xs text-muted-foreground">Clique para alterar</span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center space-y-2">
+                    <Upload className="w-8 h-8 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Upload do favicon</span>
+                    <span className="text-xs text-muted-foreground">ICO, PNG 32x32px</span>
+                  </div>
+                )}
+              </div>
+              <input
+                ref={faviconInputRef}
+                type="file"
+                accept="image/*,.ico"
+                onChange={(e) => handleFileChange('favicon', e)}
+                className="hidden"
+              />
             </div>
           </div>
 
