@@ -104,7 +104,7 @@ export default function Login() {
                 </div>
               )}
             </div>
-            <h2 className="text-2xl font-bold text-foreground">{globalConfig?.sistema_nome || "Sistema Multi-Empresa"}</h2>
+            <h2 className="text-2xl font-bold text-foreground">{globalConfig?.nomeSistema || "Sistema Multi-Empresa"}</h2>
             <p className="text-muted-foreground mt-2">Faça login para continuar</p>
           </div>
           

@@ -137,7 +137,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Global configurations - Public view for branding
-  app.get("/api/global-config/public", authenticate, async (req, res) => {
+  app.get("/api/global-config/public", async (req, res) => {
     try {
       const config = await storage.getGlobalConfiguration();
       if (config) {
