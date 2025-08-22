@@ -737,7 +737,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get connection status for WhatsApp instance
-  app.get("/api/whatsapp-instances/:id/status", authenticate, requireClient, requireCompanyAccess, async (req, res) => {
+  app.get("/api/whatsapp-instances/:id/status", authenticate, requireClient, async (req: AuthRequest, res) => {
     try {
       const { id } = req.params;
       const instance = await storage.getWhatsappInstance(id);
@@ -745,6 +745,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!instance) {
         return res.status(404).json({ error: "Instância não encontrada" });
       }
+
+      // Fix for existing instances without companyId (similar to other routes)
+      if (!instance.companyId && req.user?.companyId) {
+        console.log("🔧 Corrigindo companyId ausente para instância");
+        await storage.updateWhatsappInstance(id, { companyId: req.user.companyId });
+        instance.companyId = req.user.companyId;
+      }
+
+      // Check company access
+      console.log(`🔒 Verificando acesso da empresa:`);
+      console.log(`   - User role: ${req.user?.role}`);
+      console.log(`   - User companyId: ${req.user?.companyId}`);
+      console.log(`   - Instance companyId: ${instance.companyId}`);
+      
+      if (req.user?.role !== 'admin' && instance.companyId !== req.user?.companyId) {
+        console.log(`❌ Acesso negado: companyId não confere`);
+        return res.status(403).json({ error: "Acesso negado: instância não pertence à sua empresa" });
+      }
+      
+      console.log(`✅ Acesso liberado para status`);
+      
 
       console.log(`🔍 Buscando status da instância: ${instance.name} (${instance.evolutionInstance})`);
 

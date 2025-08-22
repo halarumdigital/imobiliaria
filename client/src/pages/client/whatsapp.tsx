@@ -37,7 +37,7 @@ export default function WhatsApp() {
   const getConnectionStatus = (instanceId: string) => {
     return useQuery({
       queryKey: ["/api/whatsapp-instances", instanceId, "status"],
-      queryFn: () => apiGet(`/api/whatsapp-instances/${instanceId}/status`),
+      queryFn: () => apiGet(`/whatsapp-instances/${instanceId}/status`),
       refetchInterval: 30000, // Refresh every 30 seconds
       enabled: !!instanceId,
     });
