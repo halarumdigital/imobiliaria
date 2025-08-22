@@ -1213,6 +1213,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
   // AI Agents
   app.get("/api/ai-agents", authenticate, requireClient, async (req: AuthRequest, res) => {
     try {
