@@ -343,8 +343,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/companies", authenticate, requireAdmin, async (req, res) => {
     try {
-      const companyData = insertCompanySchema.parse(req.body);
-      const company = await storage.createCompany(companyData);
+      const { userEmail, userPassword, ...companyData } = req.body;
+      
+      // Validar dados da empresa
+      const validatedCompanyData = insertCompanySchema.parse(companyData);
+      
+      // Criar empresa
+      const company = await storage.createCompany(validatedCompanyData);
+      
+      // Criar usuário administrador da empresa (se fornecido)
+      if (userEmail && userPassword) {
+        const hashedPassword = await hashPassword(userPassword);
+        const userData = {
+          email: userEmail,
+          password: hashedPassword,
+          role: 'client' as const,
+          companyId: company.id
+        };
+        
+        await storage.createUser(userData);
+      }
+      
       res.status(201).json(company);
     } catch (error) {
       console.error("Create company error:", error);

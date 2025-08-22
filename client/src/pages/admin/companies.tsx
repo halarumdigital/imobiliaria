@@ -28,16 +28,18 @@ export default function Companies() {
     address: "",
     city: "",
     cep: "",
+    userEmail: "",
+    userPassword: "",
   });
 
   const { data: companies = [], isLoading } = useQuery<Company[]>({
-    queryKey: ["/companies"],
+    queryKey: ["/api/companies"],
   });
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiPost("/companies", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/companies"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
       setIsDialogOpen(false);
       resetForm();
       toast({
@@ -57,7 +59,7 @@ export default function Companies() {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) => apiPut(`/companies/${id}`, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/companies"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
       setIsDialogOpen(false);
       resetForm();
       toast({
@@ -77,7 +79,7 @@ export default function Companies() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiDelete(`/companies/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/companies"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
       toast({
         title: "Sucesso",
         description: "Empresa excluída com sucesso!",
@@ -101,6 +103,8 @@ export default function Companies() {
       address: "",
       city: "",
       cep: "",
+      userEmail: "",
+      userPassword: "",
     });
     setEditingCompany(null);
   };
@@ -109,7 +113,9 @@ export default function Companies() {
     e.preventDefault();
     
     if (editingCompany) {
-      updateMutation.mutate({ id: editingCompany.id, data: formData });
+      // Na edição, não enviar os campos de usuário
+      const { userEmail, userPassword, ...updateData } = formData;
+      updateMutation.mutate({ id: editingCompany.id, data: updateData });
     } else {
       createMutation.mutate(formData);
     }
@@ -227,6 +233,45 @@ export default function Companies() {
                   onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
                 />
               </div>
+
+              {/* Campos de usuário apenas na criação */}
+              {!editingCompany && (
+                <div className="pt-4 border-t">
+                  <h4 className="text-sm font-medium mb-3">Usuário Administrador da Empresa</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="userEmail">Email do Usuário *</Label>
+                      <Input
+                        id="userEmail"
+                        type="email"
+                        value={formData.userEmail}
+                        onChange={(e) => setFormData(prev => ({ ...prev, userEmail: e.target.value }))}
+                        placeholder="usuario@empresa.com"
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Este será o email para login do administrador da empresa
+                      </p>
+                    </div>
+                    <div>
+                      <Label htmlFor="userPassword">Senha *</Label>
+                      <Input
+                        id="userPassword"
+                        type="password"
+                        value={formData.userPassword}
+                        onChange={(e) => setFormData(prev => ({ ...prev, userPassword: e.target.value }))}
+                        placeholder="Digite a senha"
+                        minLength={6}
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Mínimo de 6 caracteres
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <div className="flex justify-end space-x-2">
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancelar
