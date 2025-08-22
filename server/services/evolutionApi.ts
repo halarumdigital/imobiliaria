@@ -65,6 +65,7 @@ export class EvolutionApiService {
     const instanceData = {
       qrcode: true,
       integration: "WHATSAPP-BUSINESS",
+      token: this.config.token, // Adicionar token obrigatório
       ...request
     };
     
