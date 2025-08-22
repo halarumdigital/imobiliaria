@@ -426,18 +426,26 @@ export class MySQLStorage implements IStorage {
   async saveAiConfiguration(config: InsertAiConfiguration): Promise<AiConfiguration> {
     if (!this.connection) throw new Error('No database connection');
     
+    console.log('Save AI config:', config);
+    
     const existing = await this.getAiConfiguration();
+    
+    // Garantir que os valores não sejam undefined
+    const apiKey = config.apiKey || null;
+    const modelo = config.modelo || 'gpt-4o';
+    const temperatura = config.temperatura ? parseFloat(config.temperatura.toString()) : 0.7;
+    const numeroTokens = config.numeroTokens ? parseInt(config.numeroTokens.toString()) : 1000;
     
     if (existing) {
       await this.connection.execute(
         'UPDATE ai_configurations SET api_key = ?, modelo = ?, temperatura = ?, numero_tokens = ? WHERE id = ?',
-        [config.apiKey, config.modelo, config.temperatura, config.numeroTokens, existing.id]
+        [apiKey, modelo, temperatura, numeroTokens, existing.id]
       );
     } else {
       const id = randomUUID();
       await this.connection.execute(
         'INSERT INTO ai_configurations (id, api_key, modelo, temperatura, numero_tokens) VALUES (?, ?, ?, ?, ?)',
-        [id, config.apiKey, config.modelo, config.temperatura, config.numeroTokens]
+        [id, apiKey, modelo, temperatura, numeroTokens]
       );
     }
     

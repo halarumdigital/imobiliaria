@@ -134,10 +134,11 @@ export default function AiSettings() {
                   <SelectValue placeholder="Selecionar modelo" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
-                  <SelectItem value="gpt-4">GPT-4</SelectItem>
-                  <SelectItem value="gpt-4o">GPT-4o</SelectItem>
-                  <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
+                  <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo (Rápido e Econômico)</SelectItem>
+                  <SelectItem value="gpt-4">GPT-4 (Mais Preciso)</SelectItem>
+                  <SelectItem value="gpt-4o">GPT-4o (Recomendado - Mais Recente)</SelectItem>
+                  <SelectItem value="gpt-4-turbo">GPT-4 Turbo (Balanceado)</SelectItem>
+                  <SelectItem value="gpt-4o-mini">GPT-4o Mini (Econômico)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -153,6 +154,9 @@ export default function AiSettings() {
                 value={formData.temperatura || "0.7"}
                 onChange={(e) => handleInputChange("temperatura", e.target.value)}
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                0 = Mais preciso, 2 = Mais criativo
+              </p>
             </div>
 
             <div>
@@ -160,33 +164,55 @@ export default function AiSettings() {
               <Input
                 id="numeroTokens"
                 type="number"
-                min="1"
-                max="4000"
+                min="100"
+                max="8000"
                 value={formData.numeroTokens || 1000}
                 onChange={(e) => handleInputChange("numeroTokens", parseInt(e.target.value))}
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Máximo de tokens por resposta (mais tokens = respostas mais longas)
+              </p>
             </div>
           </div>
 
-          <div>
-            <Label htmlFor="testPrompt">Teste de Prompt</Label>
+          <div className="bg-muted rounded-lg p-4">
+            <h4 className="text-sm font-medium mb-3">Teste de Funcionamento</h4>
+            <Label htmlFor="testPrompt">Digite um prompt para testar</Label>
             <Textarea
               id="testPrompt"
-              rows={4}
+              rows={3}
               value={testPrompt}
               onChange={(e) => setTestPrompt(e.target.value)}
-              placeholder="Digite um prompt para testar a conexão com a IA..."
-              className="mb-2"
+              placeholder="Exemplo: Explique o que é inteligência artificial em poucas palavras"
+              className="mb-3"
             />
-            <Button
-              type="button"
-              onClick={handleTestAI}
-              disabled={testMutation.isPending}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              <Play className="w-4 h-4 mr-2" />
-              {testMutation.isPending ? "Testando..." : "Testar Prompt"}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                onClick={() => setTestPrompt("Olá! Como você está funcionando?")}
+                variant="outline"
+                size="sm"
+              >
+                Teste Básico
+              </Button>
+              <Button
+                type="button"
+                onClick={() => setTestPrompt("Analise este texto e resuma os pontos principais: A inteligência artificial está revolucionando diversos setores.")}
+                variant="outline"
+                size="sm"
+              >
+                Teste Análise
+              </Button>
+              <Button
+                type="button"
+                onClick={handleTestAI}
+                disabled={testMutation.isPending}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <Play className="w-4 h-4 mr-2" />
+                {testMutation.isPending ? "Testando..." : "Executar Teste"}
+              </Button>
+            </div>
           </div>
 
           <div className="flex justify-end space-x-3">
