@@ -32,12 +32,15 @@ export default function Login() {
     setIsLoading(true);
     
     try {
-      await login(email, password);
+      const result = await login(email, password);
       toast({
         title: "Sucesso",
         description: "Login realizado com sucesso!",
       });
-      setLocation("/");
+      // Aguardar um momento para garantir que o estado foi atualizado
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 100);
     } catch (error) {
       toast({
         title: "Erro",
@@ -51,7 +54,7 @@ export default function Login() {
 
   const loginAsDemo = async (role: "admin" | "client") => {
     const demoCredentials = {
-      admin: { email: "admin@sistema.com", password: "admin123" },
+      admin: { email: "admin@admin.com", password: "admin123" },
       client: { email: "cliente@empresa.com", password: "cliente123" }
     };
 
@@ -61,7 +64,9 @@ export default function Login() {
     setIsLoading(true);
     try {
       await login(demoCredentials[role].email, demoCredentials[role].password);
-      setLocation("/");
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 100);
     } catch (error) {
       toast({
         title: "Erro",

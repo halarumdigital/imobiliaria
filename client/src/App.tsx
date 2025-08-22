@@ -60,7 +60,7 @@ function ProtectedRoute({ component: Component, requiredRole, title, subtitle }:
 }
 
 function Router() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
 
   return (
     <Switch>
@@ -68,7 +68,9 @@ function Router() {
       
       {/* Default redirect */}
       <Route path="/">
-        {user ? (
+        {isLoading ? (
+          <div className="min-h-screen flex items-center justify-center">Carregando...</div>
+        ) : user ? (
           <Redirect to={user.role === 'admin' ? '/admin' : '/client'} />
         ) : (
           <Redirect to="/login" />
