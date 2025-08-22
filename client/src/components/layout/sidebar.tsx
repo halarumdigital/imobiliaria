@@ -41,6 +41,11 @@ export function Sidebar() {
 
   const { data: globalConfig } = useQuery<Partial<GlobalConfiguration>>({
     queryKey: ["/global-config/public"],
+    queryFn: () => fetch("/api/global-config/public", {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("token")}`
+      }
+    }).then(res => res.json()),
     enabled: !!user
   });
 
