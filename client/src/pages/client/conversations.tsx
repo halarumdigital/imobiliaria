@@ -82,7 +82,18 @@ function AgentUsageHistory() {
                 <div className="space-y-2 text-sm text-muted-foreground">
                   <div className="flex justify-between">
                     <span>Última atividade:</span>
-                    <span>{stat.lastUsed ? format(new Date(stat.lastUsed), "dd/MM HH:mm", { locale: ptBR }) : 'N/A'}</span>
+                    <span>
+                      {stat.lastUsed && stat.lastUsed !== 'N/A' ? 
+                        (() => {
+                          try {
+                            const date = new Date(stat.lastUsed);
+                            return isNaN(date.getTime()) ? 'N/A' : format(date, "dd/MM HH:mm", { locale: ptBR });
+                          } catch {
+                            return 'N/A';
+                          }
+                        })() : 'N/A'
+                      }
+                    </span>
                   </div>
                 </div>
               </Card>
@@ -192,7 +203,14 @@ function AgentUsageHistory() {
                         )}
                       </div>
                       <span className="text-xs text-muted-foreground">
-                        {format(new Date(message.createdAt), "HH:mm", { locale: ptBR })}
+                        {(() => {
+                          try {
+                            const date = new Date(message.createdAt);
+                            return isNaN(date.getTime()) ? '--:--' : format(date, "HH:mm", { locale: ptBR });
+                          } catch {
+                            return '--:--';
+                          }
+                        })()}
                       </span>
                     </div>
                     <p className="text-sm">{message.content}</p>
