@@ -1457,13 +1457,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name, // Nome original sem timestamp 
         phone,
         companyId: req.user.companyId,
-        evolutionInstanceId: instanceName, // Nome único com timestamp para Evolution API
+        evolutionInstanceId: name.replace(/\s+/g, '_').toLowerCase(), // Mesmo nome sem timestamp
         status: 'disconnected' as const
       };
       
       console.log(`💾 DADOS SENDO SALVOS NO BANCO:`);
       console.log(`  - name (display): "${name}"`);
-      console.log(`  - evolutionInstanceId (API): "${instanceName}"`);
+      console.log(`  - evolutionInstanceId (DB): "${name.replace(/\s+/g, '_').toLowerCase()}"`);
+      console.log(`  - evolutionAPIName (API): "${instanceName}"`);
       console.log(`  - phone: "${phone}"`);
       console.log(`  - companyId: "${req.user.companyId}"`);
       

@@ -300,11 +300,13 @@ export default function WhatsApp() {
     const instanceName = instance.name; // Sempre usar o nome limpo do banco de dados
     
     // Debug log para verificar os dados
-    console.log('🔍 Instance status debug:', {
+    console.log('🔍 Instance name debug:', {
       instanceId: instance.id,
-      statusData,
-      finalStatus: connectionStatus,
-      rawStatus: instance.status
+      instanceFromDB: instance.name,
+      instanceNameUsed: instanceName,
+      statusDataInstanceName: statusData?.instance?.instanceName,
+      fullStatusData: statusData,
+      wholeInstance: instance
     });
     
     return (
