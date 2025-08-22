@@ -845,6 +845,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         instance.companyId = req.user.companyId;
       }
 
+      // Fix for existing instances without evolutionInstanceId
+      if (!instance.evolutionInstanceId && instance.name) {
+        const evolutionInstanceId = instance.name.replace(/\s+/g, '_').toLowerCase();
+        console.log(`🔧 Corrigindo evolutionInstanceId ausente para configuração: ${evolutionInstanceId}`);
+        await storage.updateWhatsappInstance(id, { evolutionInstanceId });
+        instance.evolutionInstanceId = evolutionInstanceId;
+      }
+
       // Check company access
       if (req.user?.role !== 'admin' && instance.companyId !== req.user?.companyId) {
         console.log(`❌ Acesso negado para configuração: companyId não confere`);
