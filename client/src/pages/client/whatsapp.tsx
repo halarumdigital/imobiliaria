@@ -163,6 +163,8 @@ export default function WhatsApp() {
         queryKey: ["/api/whatsapp-instances", instance.id, "status"] 
       });
     });
+    // Também invalida a lista de instâncias
+    queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-instances"] });
     toast({
       title: "Status atualizado",
       description: "Status de conexão atualizado para todas as instâncias",
@@ -196,7 +198,7 @@ export default function WhatsApp() {
       case 'disconnected':
         return 'Desconectado';
       default:
-        return 'Indefinido';
+        return `Indefinido (${status})`;
     }
   };
 
@@ -218,8 +220,16 @@ export default function WhatsApp() {
   const InstanceCard = ({ instance }: { instance: WhatsappInstance }) => {
     const { data: statusData, isLoading: statusLoading, error } = getConnectionStatus(instance.id);
     
-    const connectionStatus = statusData?.state || instance.status || 'disconnected';
+    const connectionStatus = statusData?.state || statusData?.instance?.state || instance.status || 'disconnected';
     const instanceName = statusData?.instance?.instanceName || instance.name;
+    
+    // Debug log para verificar os dados
+    console.log('🔍 Instance status debug:', {
+      instanceId: instance.id,
+      statusData,
+      finalStatus: connectionStatus,
+      rawStatus: instance.status
+    });
     
     return (
       <div key={instance.id} className="border rounded-lg p-4">
