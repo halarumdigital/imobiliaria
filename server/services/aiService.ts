@@ -122,7 +122,7 @@ export class AIService {
       console.log(`📚 [DEBUG] Carregando histórico da conversa para ${context.phone}...`);
       console.log(`📚 [DEBUG] InstanceId recebido: ${context.instanceId}`);
       
-      let conversationHistory = [];
+      let conversationHistory: Array<{role: 'user' | 'assistant', content: string}> = [];
       try {
         conversationHistory = await this.getConversationHistory(context.instanceId, context.phone);
         console.log(`📚 [DEBUG] Histórico carregado com SUCESSO: ${conversationHistory.length} mensagens`);
@@ -199,7 +199,11 @@ export class AIService {
       
       // Converter para formato OpenAI (últimas 10 mensagens para não sobrecarregar)
       const history = messages
-        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+        .sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateA - dateB;
+        })
         .slice(-10)
         .map(msg => ({
           role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
@@ -215,7 +219,7 @@ export class AIService {
       
     } catch (error) {
       console.error("❌ [HISTORY] Erro ao carregar histórico da conversa:", error);
-      console.error("❌ [HISTORY] Stack trace:", error.stack);
+      console.error("❌ [HISTORY] Stack trace:", error instanceof Error ? error.stack : 'No stack trace');
       return [];
     }
   }
