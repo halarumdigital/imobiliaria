@@ -431,11 +431,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // WhatsApp instances
   app.get("/api/whatsapp-instances", authenticate, requireClient, async (req: AuthRequest, res) => {
     try {
+      console.log('User data:', req.user);
+      console.log('CompanyId:', req.user?.companyId);
+      
       if (!req.user?.companyId) {
+        console.log('No company ID found for user');
         return res.status(404).json({ error: "Empresa não encontrada" });
       }
 
       const instances = await storage.getWhatsappInstancesByCompany(req.user.companyId);
+      console.log('Found instances:', instances.length);
       res.json(instances);
     } catch (error) {
       console.error("Get WhatsApp instances error:", error);
@@ -611,7 +616,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Criar instância via Evolution API
   app.post("/api/whatsapp-instances/create-evolution", authenticate, requireClient, async (req: AuthRequest, res) => {
     try {
+      console.log('Create instance - User data:', req.user);
+      console.log('Create instance - CompanyId:', req.user?.companyId);
+      
       if (!req.user?.companyId) {
+        console.log('No company ID found for user in create instance');
         return res.status(404).json({ error: "Empresa não encontrada" });
       }
 
