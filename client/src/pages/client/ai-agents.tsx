@@ -71,7 +71,7 @@ export default function AiAgents() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => apiPost("/api/ai-agents", data),
+    mutationFn: (data: any) => apiPost("/ai-agents", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/ai-agents"] });
       resetForm();
@@ -91,7 +91,7 @@ export default function AiAgents() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => apiPut(`/api/ai-agents/${id}`, data),
+    mutationFn: ({ id, data }: { id: string; data: any }) => apiPut(`/ai-agents/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/ai-agents"] });
       resetForm();
@@ -111,7 +111,7 @@ export default function AiAgents() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiDelete(`/api/ai-agents/${id}`),
+    mutationFn: (id: string) => apiDelete(`/ai-agents/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/ai-agents"] });
       toast({
@@ -129,7 +129,7 @@ export default function AiAgents() {
   });
 
   const testMutation = useMutation({
-    mutationFn: (id: string) => apiPost(`/api/ai-agents/${id}/test`),
+    mutationFn: (id: string) => apiPost(`/ai-agents/${id}/test`),
     onSuccess: (data) => {
       toast({
         title: data.success ? "Sucesso" : "Erro no teste",
@@ -148,7 +148,7 @@ export default function AiAgents() {
 
   const chatMutation = useMutation({
     mutationFn: ({ id, message }: { id: string; message: string }) => 
-      apiPost(`/api/ai-agents/${id}/chat`, { message }),
+      apiPost(`/ai-agents/${id}/chat`, { message }),
     onSuccess: (data, variables) => {
       const newEntry = {
         message: variables.message,
