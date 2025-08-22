@@ -30,8 +30,21 @@ export async function apiRequest(
   }
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || "Request failed");
+    let errorMessage = `Request failed: ${response.status}`;
+    try {
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
+      } else {
+        const errorText = await response.text();
+        errorMessage = errorText || errorMessage;
+      }
+    } catch (e) {
+      // Se falhar ao ler o body, usa mensagem padrão
+      errorMessage = `Request failed: ${response.status} ${response.statusText}`;
+    }
+    throw new Error(errorMessage);
   }
 
   return response;

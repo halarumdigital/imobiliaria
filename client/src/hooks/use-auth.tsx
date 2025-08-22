@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { User, AuthResponse } from "@/types";
 import { apiPost, apiGet } from "@/lib/api";
+import { queryClient } from "@/lib/queryClient";
 
 interface AuthContextType {
   user: User | null;
@@ -39,12 +40,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const response: AuthResponse = await apiPost("/auth/login", { email, password });
     localStorage.setItem("token", response.token);
     setUser(response.user);
+    // Limpar cache de queries antigas após login
+    queryClient.clear();
     return response.user;
   };
 
   const logout = () => {
     localStorage.removeItem("token");
     setUser(null);
+    // Limpar cache de queries ao fazer logout
+    queryClient.clear();
   };
 
   return (

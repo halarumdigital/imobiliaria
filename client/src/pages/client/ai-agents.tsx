@@ -142,10 +142,16 @@ export default function AiAgents() {
   };
 
   const handleFileUpload = async () => {
-    return {
-      method: 'PUT' as const,
-      url: await apiPost("/api/objects/upload", {}).then(res => res.uploadURL),
-    };
+    try {
+      const response = await apiPost("/api/objects/upload", {});
+      return {
+        method: 'PUT' as const,
+        url: response.uploadURL,
+      };
+    } catch (error) {
+      console.error("Erro ao obter URL de upload:", error);
+      throw error;
+    }
   };
 
   const handleFileComplete = (result: any) => {
