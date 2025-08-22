@@ -53,14 +53,26 @@ export default function AiAgents() {
   });
 
   const { data: instances = [] } = useQuery<WhatsappInstance[]>({
-    queryKey: ["/whatsapp-instances"],
+    queryKey: ["/api/whatsapp-instances"],
   });
 
   // Filter connected instances and main agents for linking
-  const connectedInstances = instances.filter(instance => 
-    instance.status === "connected" || 
-    (instance.evolutionInstanceId && instance.status !== "disconnected")
-  );
+  // Include instances with evolutionInstanceId (they are created and potentially connectable)
+  const connectedInstances = instances.filter(instance => {
+    console.log('🔍 Debug instance:', {
+      id: instance.id,
+      name: instance.name, 
+      status: instance.status,
+      evolutionInstanceId: instance.evolutionInstanceId,
+      aiAgentId: instance.aiAgentId
+    });
+    return instance.evolutionInstanceId && // Must have evolutionInstanceId
+           instance.status !== "disconnected"; // Any status except disconnected
+  });
+  
+  console.log('📱 Total instances:', instances.length);
+  console.log('✅ Connected instances:', connectedInstances.length);
+  console.log('🔗 Available for linking:', connectedInstances.filter(i => !i.aiAgentId).length);
   
   const mainAgentsForLinking = agents.filter(agent => 
     agent.agentType === "main" || !agent.agentType
