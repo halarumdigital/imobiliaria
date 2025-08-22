@@ -30,22 +30,42 @@ select:focus,
   color: hsl(var(--primary)) !important;
 }
 
-/* Menu sidebar - item ativo/selecionado */
-.bg-sidebar-primary {
+/* Menu sidebar - item ativo/selecionado com máxima especificidade */
+div.bg-sidebar-primary.text-sidebar-primary-foreground {
   background-color: hsl(var(--primary)) !important;
   color: white !important;
+}
+
+div.bg-sidebar-primary.text-sidebar-primary-foreground * {
+  color: white !important;
+}
+
+div.bg-sidebar-primary.text-sidebar-primary-foreground svg {
+  color: white !important;
+}
+
+div.bg-sidebar-primary.text-sidebar-primary-foreground span {
+  color: white !important;
+}
+
+/* Fallback para qualquer item com essas classes */
+.bg-sidebar-primary {
+  background-color: hsl(var(--primary)) !important;
+  background-color: #bd64dd !important; /* Fallback direto */
 }
 
 .text-sidebar-primary-foreground {
   color: white !important;
 }
 
-/* Forçar estilo do item ativo com seletor mais específico */
-nav .bg-sidebar-primary {
-  background-color: hsl(var(--primary)) !important;
+/* CSS de emergência com seletor super específico */
+nav div.bg-sidebar-primary.text-sidebar-primary-foreground {
+  background-color: #bd64dd !important;
+  color: white !important;
 }
 
-nav .bg-sidebar-primary * {
+nav div.bg-sidebar-primary.text-sidebar-primary-foreground svg,
+nav div.bg-sidebar-primary.text-sidebar-primary-foreground span {
   color: white !important;
 }
 
