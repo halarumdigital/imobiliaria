@@ -134,9 +134,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/auth/me", authenticate, async (req: AuthRequest, res) => {
     try {
+      console.log('Auth/me - Token user:', req.user);
+      
       // Buscar dados completos do usuário no banco
       const fullUser = await storage.getUser(req.user!.id);
+      console.log('Auth/me - Full user from DB:', fullUser);
+      
       if (fullUser && fullUser.companyId && !req.user!.companyId) {
+        console.log('Auth/me - Generating new token with companyId');
         // Se o usuário tem companyId no banco mas não no token, gerar novo token
         const newToken = generateToken(fullUser);
         res.header('X-New-Token', newToken);
@@ -146,6 +151,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           newToken
         });
       } else {
+        console.log('Auth/me - No token refresh needed');
         res.json({ user: req.user });
       }
     } catch (error) {
