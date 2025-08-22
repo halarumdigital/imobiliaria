@@ -56,7 +56,7 @@ export function authenticate(req: AuthRequest, res: Response, next: NextFunction
     req.user = decoded;
     next();
   } catch (error) {
-    console.log("Authentication failed: token verification error:", error.message);
+    console.log("Authentication failed: token verification error:", (error as Error).message);
     return res.status(403).json({ error: 'Token inválido' });
   }
 }

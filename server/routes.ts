@@ -509,7 +509,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/whatsapp-instances/:id/qr", authenticate, requireClient, async (req: AuthRequest, res) => {
+  app.get("/api/whatsapp-instances/:id/qr", (req, res, next) => {
+    console.log("ROUTE HIT - QR endpoint called!");
+    next();
+  }, authenticate, requireClient, async (req: AuthRequest, res) => {
     console.log("=== QR CODE REQUEST DEBUG ===");
     console.log("URL requested:", req.originalUrl);
     console.log("Method:", req.method);
