@@ -22,7 +22,8 @@ export interface AgentResponse {
 export class AIService {
   async processMessage(context: MessageContext): Promise<AgentResponse | null> {
     try {
-      console.log(`🚀 AIService.processMessage called for instance: ${context.instanceId}`);
+      console.log(`🚀 [MAIN] AIService.processMessage called for instance: ${context.instanceId}`);
+      console.log(`🚀 [MAIN] Context:`, { phone: context.phone, message: context.message.substring(0, 50) + '...' });
       const storage = getStorage();
       
       // Buscar todas as instâncias para encontrar a correta por evolutionInstanceId
