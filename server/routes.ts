@@ -572,16 +572,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const instanceNameToUse = instance.evolutionInstanceId || instance.id;
       console.log("Generating QR for instance:", instanceNameToUse);
+      console.log("Instance details:", { evolutionInstanceId: instance.evolutionInstanceId, id: instance.id });
       
-      const qrResponse = await evolutionService.generateQRCode(instanceNameToUse);
-      console.log("QR Response from Evolution API:", JSON.stringify(qrResponse, null, 2));
-      
-      // Update instance with QR code
-      await storage.updateWhatsappInstance(id, {
-        qrCode: qrResponse.qrcode?.base64 || qrResponse.base64
-      });
+      try {
+        // First try to get QR Code
+        const qrResponse = await evolutionService.generateQRCode(instanceNameToUse);
+        console.log("QR Response from Evolution API:", JSON.stringify(qrResponse, null, 2));
+        
+        // Update instance with QR code
+        await storage.updateWhatsappInstance(id, {
+          qrCode: qrResponse.qrcode?.base64 || qrResponse.base64
+        });
 
-      res.json({ qrCode: qrResponse.qrcode?.base64 || qrResponse.base64 });
+        res.json({ qrCode: qrResponse.qrcode?.base64 || qrResponse.base64 });
+      } catch (qrError) {
+        console.log("QR generation failed, trying to recreate instance...");
+        console.error("QR Error:", qrError);
+        
+        // If QR fails, try to recreate the instance in Evolution API
+        try {
+          const evolutionResponse = await evolutionService.createInstance({
+            instanceName: instance.id,
+            qrcode: true
+          });
+          
+          console.log("Instance recreated:", evolutionResponse);
+          
+          // Update database with new Evolution instance ID
+          await storage.updateWhatsappInstance(id, {
+            evolutionInstanceId: evolutionResponse.instance?.instanceName || instance.id
+          });
+          
+          // Now try QR Code again
+          const newQrResponse = await evolutionService.generateQRCode(instance.id);
+          console.log("New QR Response:", JSON.stringify(newQrResponse, null, 2));
+          
+          res.json({ qrCode: newQrResponse.qrcode?.base64 || newQrResponse.base64 });
+        } catch (recreateError) {
+          console.error("Failed to recreate instance:", recreateError);
+          throw qrError; // Throw original error
+        }
+      }
     } catch (error) {
       console.error("Generate QR code error:", error);
       res.status(500).json({ error: "Erro ao gerar QR Code" });
