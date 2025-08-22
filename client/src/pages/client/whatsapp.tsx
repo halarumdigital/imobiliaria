@@ -159,6 +159,23 @@ export default function WhatsApp() {
     }
   };
 
+  const handleFixNames = async () => {
+    try {
+      const response = await apiPost("/whatsapp-instances/fix-names", {});
+      toast({
+        title: "Sucesso",
+        description: response.message || "Nomes das instâncias corrigidos!",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-instances"] });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao corrigir nomes das instâncias",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleWhatsAppConfig = async (instanceId: string) => {
     try {
       toast({
@@ -393,6 +410,14 @@ export default function WhatsApp() {
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleFixNames}
+                data-testid="fix-names-button"
+              >
+                🔧 Corrigir Nomes
+              </Button>
               <Button
                 variant="outline"
                 size="sm"

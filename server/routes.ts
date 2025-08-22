@@ -1301,6 +1301,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Endpoint temporário para corrigir nomes de instâncias
+  app.post("/api/whatsapp-instances/fix-names", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const instances = await storage.getWhatsappInstancesByCompany(req.user?.companyId || '');
+      let corrected = 0;
+      
+      for (const instance of instances) {
+        // Se o nome contém underscore e números (timestamp), corrigir
+        if (instance.name.match(/_\d{6}$/)) {
+          const originalName = instance.name.replace(/_\d{6}$/, '');
+          console.log(`🔧 Corrigindo nome: ${instance.name} -> ${originalName}`);
+          
+          await storage.updateWhatsappInstance(instance.id, { 
+            name: originalName 
+          });
+          corrected++;
+        }
+      }
+      
+      res.json({ 
+        message: `${corrected} instâncias corrigidas`,
+        corrected 
+      });
+    } catch (error) {
+      console.error("Fix names error:", error);
+      res.status(500).json({ error: "Erro ao corrigir nomes" });
+    }
+  });
+
   // Criar instância via Evolution API
   app.post("/api/whatsapp-instances/create-evolution", authenticate, requireClient, async (req: AuthRequest, res) => {
     try {
@@ -1359,10 +1388,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Salvar instância no banco de dados local
       const instanceData = {
-        name,
+        name, // Nome original sem timestamp 
         phone,
         companyId: req.user.companyId,
-        evolutionInstanceId: instanceName, // Nome usado na Evolution API
+        evolutionInstanceId: instanceName, // Nome único com timestamp para Evolution API
         status: 'disconnected' as const
       };
       
