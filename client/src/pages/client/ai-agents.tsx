@@ -143,13 +143,20 @@ export default function AiAgents() {
 
   const handleFileUpload = async () => {
     try {
+      console.log("🚀 Iniciando upload request...");
+      console.log("Token:", localStorage.getItem("token")?.substring(0, 50) + "...");
+      
       const response = await apiPost("/api/objects/upload", {});
+      console.log("✅ Upload response:", response);
+      
       return {
         method: 'PUT' as const,
         url: response.uploadURL,
       };
     } catch (error) {
-      console.error("Erro ao obter URL de upload:", error);
+      console.error("❌ Erro detalhado ao obter URL de upload:", error);
+      console.error("❌ Error message:", error.message);
+      console.error("❌ Error stack:", error.stack);
       throw error;
     }
   };
