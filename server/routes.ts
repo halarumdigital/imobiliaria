@@ -1637,8 +1637,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Verificar se é uma mensagem enviada por nós (evitar loop infinito)
-      if (req.body.event === "send.message" || 
-          (req.body.data && req.body.data.fromMe === true) ||
+      // IMPORTANTE: Não filtrar por event === "send.message" pois inclui mensagens do usuário
+      if ((req.body.data && req.body.data.fromMe === true) ||
           (req.body.data && req.body.data.key && req.body.data.key.fromMe === true)) {
         console.log("📤 Message sent by us, ignoring to prevent loop");
         return res.status(200).json({ 
