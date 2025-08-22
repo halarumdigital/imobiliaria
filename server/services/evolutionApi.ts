@@ -61,12 +61,10 @@ export class EvolutionApiService {
   }
 
   async createInstance(request: CreateInstanceRequest): Promise<any> {
-    // Adicionar configurações padrão obrigatórias
+    // Payload simples baseado na documentação da Evolution API
     const instanceData = {
-      qrcode: true,
-      integration: "WHATSAPP-BAILEYS", // Usar BAILEYS para WhatsApp Web com QR Code
-      token: this.config.token, // Adicionar token obrigatório
-      ...request
+      instanceName: request.instanceName,
+      integration: "WHATSAPP-BAILEYS" // Para WhatsApp Web com QR Code
     };
     
     console.log("Creating instance with data:", JSON.stringify(instanceData, null, 2));

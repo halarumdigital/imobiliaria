@@ -1084,9 +1084,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const evolutionResponse = await evolutionService.createInstance({
-        instanceName,
-        qrcode: true,
-        number: phone
+        instanceName
       });
 
       // Salvar instância no banco de dados local
