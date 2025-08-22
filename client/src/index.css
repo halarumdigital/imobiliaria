@@ -21,6 +21,24 @@ select:focus,
   --tw-ring-color: hsl(var(--primary)) !important;
 }
 
+/* Ajustar cores do menu sidebar - hover */
+.hover\:bg-sidebar-accent:hover {
+  background-color: hsl(var(--primary) / 0.1) !important;
+}
+
+.hover\:text-sidebar-accent-foreground:hover {
+  color: hsl(var(--primary)) !important;
+}
+
+/* Item ativo do menu sidebar */
+.bg-sidebar-primary {
+  background-color: hsl(var(--primary)) !important;
+}
+
+.text-sidebar-primary-foreground {
+  color: hsl(var(--primary-foreground)) !important;
+}
+
 :root {
   --background: hsl(0 0% 100%);
   --foreground: hsl(210 25% 7.8431%);
