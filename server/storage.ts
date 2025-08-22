@@ -44,6 +44,9 @@ export interface IStorage {
   // AI Agents
   getAiAgent(id: string): Promise<AiAgent | undefined>;
   getAiAgentsByCompany(companyId: string): Promise<AiAgent[]>;
+  getMainAgentsByCompany(companyId: string): Promise<AiAgent[]>;
+  getSecondaryAgentsByParent(parentAgentId: string): Promise<AiAgent[]>;
+  getSecondaryAgentsByCompany(companyId: string): Promise<AiAgent[]>;
   createAiAgent(agent: InsertAiAgent): Promise<AiAgent>;
   updateAiAgent(id: string, updates: Partial<AiAgent>): Promise<AiAgent>;
   deleteAiAgent(id: string): Promise<void>;
@@ -186,6 +189,11 @@ export class MySQLStorage implements IStorage {
         numero_tokens INT DEFAULT 1000,
         modelo VARCHAR(50) DEFAULT 'gpt-4o',
         training_files JSON,
+        training_content TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+        agent_type VARCHAR(20) DEFAULT 'main',
+        parent_agent_id VARCHAR(36),
+        specialization VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+        delegation_keywords JSON,
         status VARCHAR(20) DEFAULT 'active',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -226,14 +234,19 @@ export class MySQLStorage implements IStorage {
     if (!this.connection) return;
     
     try {
-      // Fix ai_agents table charset
+      // Fix ai_agents table charset and add hierarchy columns
       await this.connection.execute(`
         ALTER TABLE ai_agents 
         MODIFY name VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
-        MODIFY prompt TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+        MODIFY prompt TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+        ADD COLUMN IF NOT EXISTS training_content TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+        ADD COLUMN IF NOT EXISTS agent_type VARCHAR(20) DEFAULT 'main',
+        ADD COLUMN IF NOT EXISTS parent_agent_id VARCHAR(36),
+        ADD COLUMN IF NOT EXISTS specialization VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+        ADD COLUMN IF NOT EXISTS delegation_keywords JSON
       `);
       console.log('Fixed ai_agents table charset');
-    } catch (error) {
+    } catch (error: any) {
       console.log('Table charset fix not needed or already applied:', error.message);
     }
   }
@@ -403,7 +416,7 @@ export class MySQLStorage implements IStorage {
       const id = randomUUID();
       await this.connection.execute(
         'INSERT INTO global_configurations (id, logo, favicon, cores_primaria, cores_secundaria, cores_fundo, nome_sistema, nome_rodape, nome_aba_navegador) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [id, config.logo, config.favicon, config.coresPrimaria, config.coresSecundaria, config.coresFundo, config.nomeSistema, config.nomeRodape, config.nomeAbaNavegador]
+        [id, config.logo, config.favicon, config.cores_primaria, config.cores_secundaria, config.cores_fundo, config.nome_sistema, config.nome_rodape, config.nome_aba_navegador]
       );
       return this.getGlobalConfiguration() as Promise<GlobalConfiguration>;
     }
@@ -578,7 +591,8 @@ export class MySQLStorage implements IStorage {
       'SELECT * FROM ai_agents WHERE id = ?',
       [id]
     );
-    return (rows as AiAgent[])[0];
+    const parsedAgents = this.parseAiAgents(rows as any[]);
+    return parsedAgents[0];
   }
 
   async getAiAgentsByCompany(companyId: string): Promise<AiAgent[]> {
@@ -588,7 +602,22 @@ export class MySQLStorage implements IStorage {
       'SELECT * FROM ai_agents WHERE company_id = ? ORDER BY created_at DESC',
       [companyId]
     );
-    return rows as AiAgent[];
+    return this.parseAiAgents(rows as any[]);
+  }
+
+  private parseAiAgents(rows: any[]): AiAgent[] {
+    return rows.map(row => ({
+      ...row,
+      trainingFiles: row.training_files ? JSON.parse(row.training_files) : [],
+      delegationKeywords: row.delegation_keywords ? JSON.parse(row.delegation_keywords) : [],
+      agentType: row.agent_type,
+      parentAgentId: row.parent_agent_id,
+      trainingContent: row.training_content,
+      companyId: row.company_id,
+      numeroTokens: row.numero_tokens,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    }));
   }
 
   async createAiAgent(agent: InsertAiAgent): Promise<AiAgent> {
@@ -596,8 +625,22 @@ export class MySQLStorage implements IStorage {
     
     const id = randomUUID();
     await this.connection.execute(
-      'INSERT INTO ai_agents (id, company_id, name, prompt, temperatura, numero_tokens, modelo, training_files, training_content) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, agent.companyId, agent.name, agent.prompt, agent.temperatura, agent.numeroTokens, agent.modelo, JSON.stringify(agent.trainingFiles), agent.trainingContent || null]
+      'INSERT INTO ai_agents (id, company_id, name, prompt, temperatura, numero_tokens, modelo, training_files, training_content, agent_type, parent_agent_id, specialization, delegation_keywords) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        id, 
+        agent.companyId, 
+        agent.name, 
+        agent.prompt, 
+        agent.temperatura, 
+        agent.numeroTokens, 
+        agent.modelo, 
+        JSON.stringify(agent.trainingFiles || []), 
+        agent.trainingContent || null,
+        agent.agentType || 'main',
+        agent.parentAgentId || null,
+        agent.specialization || null,
+        JSON.stringify(agent.delegationKeywords || [])
+      ]
     );
     return this.getAiAgent(id) as Promise<AiAgent>;
   }
@@ -605,14 +648,29 @@ export class MySQLStorage implements IStorage {
   async updateAiAgent(id: string, updates: Partial<AiAgent>): Promise<AiAgent> {
     if (!this.connection) throw new Error('No database connection');
     
+    const fieldMapping: Record<string, string> = {
+      companyId: 'company_id',
+      numeroTokens: 'numero_tokens',
+      trainingFiles: 'training_files',
+      trainingContent: 'training_content',
+      agentType: 'agent_type',
+      parentAgentId: 'parent_agent_id',
+      delegationKeywords: 'delegation_keywords',
+      createdAt: 'created_at',
+      updatedAt: 'updated_at'
+    };
+    
     const fields = Object.keys(updates).filter(key => updates[key as keyof AiAgent] !== undefined);
     const values = fields.map(key => {
       const value = updates[key as keyof AiAgent];
-      return key === 'training_files' ? JSON.stringify(value) : value;
+      if (key === 'trainingFiles' || key === 'delegationKeywords') {
+        return JSON.stringify(value);
+      }
+      return value;
     });
     
     if (fields.length > 0) {
-      const setClause = fields.map(field => `${field} = ?`).join(', ');
+      const setClause = fields.map(field => `${fieldMapping[field] || field} = ?`).join(', ');
       await this.connection.execute(
         `UPDATE ai_agents SET ${setClause} WHERE id = ?`,
         [...values, id]
@@ -622,9 +680,42 @@ export class MySQLStorage implements IStorage {
     return this.getAiAgent(id) as Promise<AiAgent>;
   }
 
+  async getMainAgentsByCompany(companyId: string): Promise<AiAgent[]> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM ai_agents WHERE company_id = ? AND (agent_type = "main" OR agent_type IS NULL) ORDER BY created_at DESC',
+      [companyId]
+    );
+    return this.parseAiAgents(rows as any[]);
+  }
+
+  async getSecondaryAgentsByParent(parentAgentId: string): Promise<AiAgent[]> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM ai_agents WHERE parent_agent_id = ? AND agent_type = "secondary" ORDER BY created_at DESC',
+      [parentAgentId]
+    );
+    return this.parseAiAgents(rows as any[]);
+  }
+
+  async getSecondaryAgentsByCompany(companyId: string): Promise<AiAgent[]> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM ai_agents WHERE company_id = ? AND agent_type = "secondary" ORDER BY created_at DESC',
+      [companyId]
+    );
+    return this.parseAiAgents(rows as any[]);
+  }
+
   async deleteAiAgent(id: string): Promise<void> {
     if (!this.connection) throw new Error('No database connection');
     
+    // First delete all secondary agents that have this agent as parent
+    await this.connection.execute('DELETE FROM ai_agents WHERE parent_agent_id = ?', [id]);
+    // Then delete the agent itself
     await this.connection.execute('DELETE FROM ai_agents WHERE id = ?', [id]);
   }
 

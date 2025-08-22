@@ -19,12 +19,17 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 export default function AiAgents() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("list");
+  const [viewMode, setViewMode] = useState<"all" | "main" | "secondary">("all");
   const [editingAgent, setEditingAgent] = useState<AiAgent | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     prompt: "",
     temperatura: "0.7",
     trainingFiles: [] as string[],
+    agentType: "main" as "main" | "secondary",
+    parentAgentId: "",
+    specialization: "",
+    delegationKeywords: [] as string[],
   });
 
   // Chat test modal state
@@ -34,6 +39,10 @@ export default function AiAgents() {
 
   const { data: agents = [], isLoading } = useQuery<AiAgent[]>({
     queryKey: ["/api/ai-agents"],
+  });
+
+  const { data: mainAgents = [] } = useQuery<AiAgent[]>({
+    queryKey: ["/api/ai-agents/main"],
   });
 
   const { data: instances = [] } = useQuery<WhatsappInstance[]>({
@@ -152,6 +161,10 @@ export default function AiAgents() {
       prompt: "",
       temperatura: "0.7",
       trainingFiles: [],
+      agentType: "main",
+      parentAgentId: "",
+      specialization: "",
+      delegationKeywords: [],
     });
     setEditingAgent(null);
   };
@@ -195,6 +208,10 @@ export default function AiAgents() {
       prompt: agent.prompt,
       temperatura: agent.temperatura.toString(),
       trainingFiles: agent.trainingFiles || [],
+      agentType: agent.agentType || "main",
+      parentAgentId: agent.parentAgentId || "",
+      specialization: agent.specialization || "",
+      delegationKeywords: agent.delegationKeywords || [],
     });
     setActiveTab("create");
   };

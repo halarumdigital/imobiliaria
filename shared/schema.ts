@@ -82,6 +82,10 @@ export const aiAgents = mysqlTable("ai_agents", {
   modelo: varchar("modelo", { length: 50 }).default("gpt-4o"),
   trainingFiles: json("training_files"), // Array of file paths
   trainingContent: text("training_content"), // Extracted content from PDFs
+  agentType: varchar("agent_type", { length: 20 }).default("main"), // 'main' | 'secondary'
+  parentAgentId: varchar("parent_agent_id", { length: 36 }), // References another agent
+  specialization: varchar("specialization", { length: 255 }), // What this secondary agent specializes in
+  delegationKeywords: json("delegation_keywords"), // Array of keywords that trigger this agent
   status: varchar("status", { length: 20 }).default("active"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
@@ -168,6 +172,10 @@ export const insertAiAgentSchema = createInsertSchema(aiAgents).pick({
   modelo: true,
   trainingFiles: true,
   trainingContent: true,
+  agentType: true,
+  parentAgentId: true,
+  specialization: true,
+  delegationKeywords: true,
 });
 
 export const insertConversationSchema = createInsertSchema(conversations).pick({

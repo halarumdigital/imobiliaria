@@ -751,6 +751,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get main agents only
+  app.get("/api/ai-agents/main", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+
+      const mainAgents = await storage.getMainAgentsByCompany(req.user.companyId);
+      res.json(mainAgents);
+    } catch (error) {
+      console.error("Get main AI agents error:", error);
+      res.status(500).json({ error: "Erro ao buscar agentes principais" });
+    }
+  });
+
+  // Get secondary agents by parent
+  app.get("/api/ai-agents/:parentId/secondary", authenticate, requireClient, requireCompanyAccess, async (req, res) => {
+    try {
+      const { parentId } = req.params;
+      const secondaryAgents = await storage.getSecondaryAgentsByParent(parentId);
+      res.json(secondaryAgents);
+    } catch (error) {
+      console.error("Get secondary AI agents error:", error);
+      res.status(500).json({ error: "Erro ao buscar agentes secundários" });
+    }
+  });
+
+  // Get all secondary agents for company
+  app.get("/api/ai-agents/secondary", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+
+      const secondaryAgents = await storage.getSecondaryAgentsByCompany(req.user.companyId);
+      res.json(secondaryAgents);
+    } catch (error) {
+      console.error("Get secondary AI agents error:", error);
+      res.status(500).json({ error: "Erro ao buscar agentes secundários" });
+    }
+  });
+
   app.post("/api/ai-agents", authenticate, requireClient, async (req: AuthRequest, res) => {
     try {
       if (!req.user?.companyId) {
@@ -852,15 +894,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create AI response service
       const aiResponseService = new AiResponseService(aiConfig.apiKey);
 
-      // Generate response using agent's prompt and training content
+      // Generate response using agent's prompt and training content with hierarchy support
       const response = await aiResponseService.generateResponse({
         message,
         agentId: agent.id,
         agentPrompt: agent.prompt,
         agentTrainingContent: agent.trainingContent,
-        temperatura: agent.temperatura || aiConfig.temperatura,
-        modelo: agent.modelo || aiConfig.modelo,
-        numeroTokens: agent.numeroTokens || aiConfig.numeroTokens,
+        temperatura: Number(agent.temperatura) || Number(aiConfig.temperatura) || 0.7,
+        modelo: agent.modelo || aiConfig.modelo || "gpt-4o",
+        numeroTokens: Number(agent.numeroTokens) || Number(aiConfig.numeroTokens) || 1000,
+        agentType: agent.agentType || 'main',
+        delegationKeywords: agent.delegationKeywords || [],
+        companyId: agent.companyId,
       });
 
       res.json({ response });
