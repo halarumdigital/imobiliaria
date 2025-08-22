@@ -303,39 +303,6 @@ export default function WhatsApp() {
           </div>
         </div>
 
-        {/* Agent Linking */}
-        {agents.length > 0 && (
-          <div className="mt-3 pt-3 border-t">
-            <div className="flex items-center space-x-2">
-              <Select
-                value={instance.aiAgentId || "none"}
-                onValueChange={(value) => handleLinkAgent(instance.id, value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Selecionar agente IA" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Nenhum agente</SelectItem>
-                  {agents.map((agent) => (
-                    <SelectItem key={agent.id} value={agent.id}>
-                      {agent.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => queryClient.invalidateQueries({ 
-                  queryKey: ["/api/whatsapp-instances", instance.id, "status"] 
-                })}
-                disabled={statusLoading}
-              >
-                <RefreshCw className={`w-4 h-4 ${statusLoading ? 'animate-spin' : ''}`} />
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
     );
   };
