@@ -97,6 +97,7 @@ export class EvolutionApiService {
   }
 
   async sendMessage(instanceName: string, number: string, message: string): Promise<any> {
+    console.log(`🎯 EvolutionApiService.sendMessage called with instance: ${instanceName}, number: ${number}`);
     return this.makeRequest(`/message/sendText/${instanceName}`, 'POST', {
       number,
       text: message  // Evolution API expects simple format with "text" field

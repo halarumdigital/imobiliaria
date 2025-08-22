@@ -70,12 +70,15 @@ export class WhatsAppWebhookService {
         return;
       }
 
-      // Extrair o número do remetente
-      const senderPhone = evolutionData.sender.replace('@s.whatsapp.net', '');
+      // Extrair o número do remetente CORRETO da mensagem
+      const senderPhone = data.key?.remoteJid?.replace('@s.whatsapp.net', '') || 
+                          evolutionData.sender?.replace('@s.whatsapp.net', '');
       if (!senderPhone) {
         console.log("❌ Could not extract sender phone from Evolution message");
         return;
       }
+      
+      console.log(`📞 Sender phone extracted: ${senderPhone} (from ${data.key?.remoteJid || evolutionData.sender})`);
 
       // Buscar o nome da instância no Evolution API pela instanceId
       console.log(`🔍 About to search for instance ID: ${data.instanceId}`);
@@ -111,6 +114,7 @@ export class WhatsAppWebhookService {
       console.log(`🤖 AI Response for Evolution message: "${aiResponse.response}"`);
 
       // Enviar resposta via Evolution API
+      console.log(`🚀 About to call sendResponse with instance: ${instanceName}, phone: ${senderPhone}`);
       await this.sendResponse(instanceName, senderPhone, aiResponse.response);
 
       // Salvar conversa no banco de dados
@@ -311,6 +315,8 @@ export class WhatsAppWebhookService {
 
   private async sendResponse(instanceId: string, phone: string, response: string): Promise<void> {
     try {
+      console.log(`🎯 sendResponse called with instanceId: ${instanceId}, phone: ${phone}`);
+      
       const storage = getStorage();
       
       // Buscar configuração da Evolution API
@@ -327,6 +333,7 @@ export class WhatsAppWebhookService {
       });
 
       // Enviar mensagem
+      console.log(`📡 Calling evolutionService.sendMessage with instance: ${instanceId}, phone: ${phone}`);
       await evolutionService.sendMessage(instanceId, phone, response);
       
       console.log(`📤 Response sent to ${phone}`);
