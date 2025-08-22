@@ -140,13 +140,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const fullUser = await storage.getUser(req.user!.id);
       console.log('Auth/me - Full user from DB:', fullUser);
       
-      if (fullUser && fullUser.companyId && !req.user!.companyId) {
+      if (fullUser && fullUser.company_id && !req.user!.companyId) {
         console.log('Auth/me - Generating new token with companyId');
         // Se o usuário tem companyId no banco mas não no token, gerar novo token
-        const newToken = generateToken(fullUser);
+        const userWithMappedFields = {
+          ...fullUser,
+          companyId: fullUser.company_id
+        };
+        const newToken = generateToken(userWithMappedFields);
         res.header('X-New-Token', newToken);
         res.json({ 
-          user: fullUser,
+          user: userWithMappedFields,
           needsTokenRefresh: true,
           newToken
         });
