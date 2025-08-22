@@ -130,12 +130,12 @@ export const insertCompanySchema = createInsertSchema(companies).pick({
 export const insertGlobalConfigSchema = createInsertSchema(globalConfigurations).pick({
   logo: true,
   favicon: true,
-  coresPrimaria: true,
-  coresSecundaria: true,
-  coresFundo: true,
-  nomeSistema: true,
-  nomeRodape: true,
-  nomeAbaNavegador: true,
+  cores_primaria: true,
+  cores_secundaria: true,
+  cores_fundo: true,
+  nome_sistema: true,
+  nome_rodape: true,
+  nome_aba_navegador: true,
 });
 
 export const insertEvolutionConfigSchema = createInsertSchema(evolutionApiConfigurations).pick({

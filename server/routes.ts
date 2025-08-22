@@ -175,11 +175,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/global-config", authenticate, requireAdmin, async (req, res) => {
     try {
-      console.log("Dados recebidos no POST /api/global-config:", JSON.stringify(req.body, null, 2));
       const configData = insertGlobalConfigSchema.parse(req.body);
-      console.log("Dados após validação do schema:", JSON.stringify(configData, null, 2));
       const config = await storage.saveGlobalConfiguration(configData);
-      console.log("Dados salvos retornados:", JSON.stringify(config, null, 2));
       res.json(config);
     } catch (error) {
       console.error("Save global config error:", error);
