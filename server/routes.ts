@@ -619,7 +619,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/whatsapp-instances/:id", authenticate, requireClient, requireCompanyAccess, async (req, res) => {
+  app.delete("/api/whatsapp-instances/:id", authenticate, requireClient, async (req: AuthRequest, res) => {
     try {
       const { id } = req.params;
       const instance = await storage.getWhatsappInstance(id);
@@ -628,7 +628,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Instância não encontrada" });
       }
 
-      // Delete from Evolution API
+      // Fix for existing instances without companyId
+      if (!instance.companyId && req.user?.companyId) {
+        console.log("Fixing missing companyId for delete operation");
+        await storage.updateWhatsappInstance(id, { companyId: req.user.companyId });
+        instance.companyId = req.user.companyId;
+      }
+      
+      // Check company access manually
+      if (instance.companyId !== req.user?.companyId) {
+        console.log("Company mismatch for delete - Instance:", instance.companyId, "User:", req.user?.companyId);
+        return res.status(404).json({ error: "Instância não encontrada" });
+      }
+
+      console.log("Deleting WhatsApp instance:", instance.name, "ID:", instance.id);
+
+      // Delete from Evolution API first
       try {
         const evolutionConfig = await storage.getEvolutionApiConfiguration();
         if (evolutionConfig) {
@@ -637,13 +652,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
             token: evolutionConfig.evolutionToken
           });
 
-          await evolutionService.deleteInstance(instance.evolutionInstanceId || instance.id);
+          const instanceNameToDelete = instance.evolutionInstanceId || instance.id;
+          console.log("Deleting from Evolution API:", instanceNameToDelete);
+          
+          await evolutionService.deleteInstance(instanceNameToDelete);
+          console.log("Successfully deleted from Evolution API");
         }
       } catch (evolutionError) {
         console.error("Evolution API delete error:", evolutionError);
+        // Continue with database deletion even if Evolution API fails
       }
 
+      // Delete from database
       await storage.deleteWhatsappInstance(id);
+      console.log("Successfully deleted from database");
+      
       res.status(204).send();
     } catch (error) {
       console.error("Delete WhatsApp instance error:", error);
