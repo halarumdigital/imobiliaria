@@ -1,0 +1,128 @@
+    status: 'SERVER_ACK',
+
+    pollUpdates: undefined,
+
+    instanceId: 'e5b71c35-276b-417e-a1c3-267f904b2b98'
+
+  },
+
+  server_url: 'https://apizap.halarum.com.br',
+
+  date_time: '2025-08-22T16:36:13.442Z',
+
+  sender: '5514981856962@s.whatsapp.net',
+
+  apikey: '94eff8b9da7b6c86e50b5c43334f6f69'
+
+} 
+
+[Evolution API]    v2.3.1  163   -  Fri Aug 22 2025 16:36:13     LOG   [WebhookController]  [object]   
+
+{
+
+  local: 'p.sendData-Webhook',
+
+  url: 'https://apizap.halarum.com.br/api/webhook/messages',
+
+  event: 'messages.update',
+
+  instance: 'deploy2',
+
+
+
+{
+
+    messageId: 'cmen8a2cx0bxtlh4j15685fdq',
+
+    keyId: '3EB081574A8868B9D648F716632E13493BA44EF3',
+
+    remoteJid: '5514981856962@s.whatsapp.net',
+
+    fromMe: true,
+
+    participant: '5514981856962@s.whatsapp.net',
+
+    status: 'SERVER_ACK',
+
+    pollUpdates: undefined,
+
+    instanceId: 'e5b71c35-276b-417e-a1c3-267f904b2b98'
+
+  },
+
+  destination: 'https://apizap.halarum.com.br/api/webhook/messages',
+
+  date_time: '2025-08-22T16:36:13.442Z',
+
+  sender: '5514981856962@s.whatsapp.net',
+
+  server_url: 'https://apizap.halarum.com.br',
+
+  apikey: '94eff8b9da7b6c86e50b5c43334f6f69'
+
+} 
+
+[Evolution API]    v2.3.1  163   -  Fri Aug 22 2025 16:36:13     ERROR   [WebhookController]  [object]   
+
+{
+
+  local: 'p.sendData-Webhook',
+
+  message: 'Erro não recuperável (404): Request failed with status code 404. Cancelando retentativas.',
+
+  statusCode: 404,
+
+  url: 'https://apizap.halarum.com.br/api/webhook/messages',
+
+  server_url: 'https://apizap.halarum.com.br'
+
+} 
+
+[Evolution API]    v2.3.1  163   -  Fri Aug 22 2025 16:36:13     ERROR   [WebhookController]  [object]   
+
+{
+
+  local: 'p.sendData-Webhook',
+
+  message: 'Todas as tentativas falharam: Request failed with status code 404',
+
+  hostName: undefined,
+
+  syscall: undefined,
+
+  code: 'ERR_BAD_REQUEST',
+
+  error: undefined,
+
+  stack: 'AxiosError: Request failed with status code 404\n' +
+
+    '    at settle (/evolution/node_modules/axios/dist/node/axios.cjs:2053:12)\n' +
+
+    '    at IncomingMessage.handleStreamEnd (/evolution/node_modules/axios/dist/node/axios.cjs:3170:11)\n' +
+
+    '    at IncomingMessage.emit (node:events:536:35)\n' +
+
+    '    at endReadableNT (node:internal/streams/readable:1698:12)\n' +
+
+    '    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)\n' +
+
+    '    at Axios.request (/evolution/node_modules/axios/dist/node/axios.cjs:4280:41)\n' +
+
+    '    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n' +
+
+    '    at async co.retryWebhookRequest (/evolution/dist/main.js:275:56866)\n' +
+
+    '    at async co.emit (/evolution/dist/main.js:275:55677)\n' +
+
+    '    at async lo.emit (/evolution/dist/main.js:275:61286)\n' +
+
+    '    at async $s.sendDataWebhook (/evolution/dist/main.js:156:16881)',
+
+  name: 'AxiosError',
+
+  url: 'https://apizap.halarum.com.br/api/webhook/messages',
+
+  server_url: 'https://apizap.halarum.com.br'
+
+} 
+

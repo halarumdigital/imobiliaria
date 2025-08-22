@@ -1026,16 +1026,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: "Configuração da Evolution API não encontrada" });
       }
 
-      // Use Evolution API URL as base for webhook
-      console.log("🔧 Configurando URL do webhook baseada na Evolution API...");
-      let systemUrl = evolutionConfig.urlGlobalSistema;
-      if (!systemUrl) {
-        // Use the Evolution API URL itself as base
-        systemUrl = evolutionConfig.evolutionURL; // Use Evolution API URL
-        console.log("⚠️ URL do sistema não configurada, usando URL da Evolution API:", systemUrl);
-      } else {
-        console.log("✅ URL do sistema encontrada:", systemUrl);
-      }
+      // Use correct system URL for webhook
+      console.log("🔧 Configurando URL do webhook para servidor correto...");
+      const systemUrl = "https://apizap.halarum.com.br"; // Our server URL
+      console.log("✅ URL do webhook configurada:", systemUrl);
 
       // Check if instance has evolutionInstanceId
       if (!instance.evolutionInstanceId) {
