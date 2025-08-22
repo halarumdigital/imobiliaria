@@ -64,6 +64,11 @@ export default function Login() {
       // Garantir que o botão tenha contraste adequado
       root.style.setProperty("--button-primary", primaryHsl);
       root.style.setProperty("--button-primary-foreground", "255 255 255");
+      
+      // Aplicar título da aba globalmente
+      if (globalConfig.nomeAbaNavegador) {
+        document.title = globalConfig.nomeAbaNavegador;
+      }
     }
   }, [globalConfig]);
 
