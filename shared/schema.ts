@@ -32,13 +32,13 @@ export const globalConfigurations = mysqlTable("global_configurations", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
   logo: text("logo"),
   favicon: text("favicon"),
-  coresPrimaria: varchar("cores_primaria", { length: 7 }).default("#3B82F6"),
-  coresSecundaria: varchar("cores_secundaria", { length: 7 }).default("#6366F1"),
-  coresFundo: varchar("cores_fundo", { length: 7 }).default("#F8FAFC"),
-  nomeSistema: varchar("nome_sistema", { length: 255 }).default("Sistema Multi-Empresa"),
-  nomeRodape: varchar("nome_rodape", { length: 255 }).default("© 2024 Multi-Empresa System"),
-  nomeAbaNavegador: varchar("nome_aba_navegador", { length: 255 }).default("Multi-Empresa Dashboard"),
-  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+  cores_primaria: varchar("cores_primaria", { length: 7 }).default("#3B82F6"),
+  cores_secundaria: varchar("cores_secundaria", { length: 7 }).default("#6366F1"),
+  cores_fundo: varchar("cores_fundo", { length: 7 }).default("#F8FAFC"),
+  nome_sistema: varchar("nome_sistema", { length: 255 }).default("Sistema Multi-Empresa"),
+  nome_rodape: varchar("nome_rodape", { length: 255 }).default("© 2024 Multi-Empresa System"),
+  nome_aba_navegador: varchar("nome_aba_navegador", { length: 255 }).default("Multi-Empresa Dashboard"),
+  updated_at: timestamp("updated_at").defaultNow().onUpdateNow(),
 });
 
 export const evolutionApiConfigurations = mysqlTable("evolution_api_configurations", {
