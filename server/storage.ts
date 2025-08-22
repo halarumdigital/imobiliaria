@@ -216,6 +216,7 @@ export class MySQLStorage implements IStorage {
         conversation_id VARCHAR(36) NOT NULL,
         content TEXT NOT NULL,
         sender VARCHAR(20) NOT NULL,
+        agent_id VARCHAR(36),
         message_type VARCHAR(20) DEFAULT 'text',
         evolution_message_id VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -224,6 +225,20 @@ export class MySQLStorage implements IStorage {
 
     for (const table of tables) {
       await this.connection.execute(table);
+    }
+
+    // Add agent_id column to existing messages table if it doesn't exist
+    try {
+      await this.connection.execute(`
+        ALTER TABLE messages ADD COLUMN agent_id VARCHAR(36)
+      `);
+      console.log('✅ Added agent_id column to messages table');
+    } catch (error: any) {
+      if (error.code === 'ER_DUP_FIELDNAME') {
+        console.log('✅ agent_id column already exists in messages table');
+      } else {
+        console.error('❌ Error adding agent_id column:', error);
+      }
     }
 
     // Insert default configurations if they don't exist
