@@ -614,34 +614,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         res.json({ qrCode: qrResponse.qrcode?.base64 || qrResponse.base64 });
       } catch (qrError) {
-        console.log("QR generation failed, trying to recreate instance...");
+        console.log("❌ QR generation failed, trying recovery steps...");
         console.error("QR Error:", qrError);
         
-        // If QR fails, try to recreate the instance in Evolution API
+        const newInstanceName = instance.name?.replace(/\s+/g, '_').toLowerCase() || instance.id;
+        
         try {
-          const newInstanceName = instance.name?.replace(/\s+/g, '_').toLowerCase() || instance.id;
-          console.log(`🔄 Recreating instance with name: ${newInstanceName}`);
+          // Step 1: Try to list instances to see what exists
+          console.log("🔍 Listing all instances...");
+          const allInstances = await evolutionService.listInstances();
+          console.log("📋 All instances:", JSON.stringify(allInstances, null, 2));
           
+          // Step 2: Try to disconnect/logout the instance first
+          console.log(`🔌 Trying to disconnect instance: ${instanceNameToUse}`);
+          try {
+            await evolutionService.disconnectInstance(instanceNameToUse);
+            console.log("✅ Instance disconnected successfully");
+          } catch (disconnectError) {
+            console.log("⚠️  Disconnect failed (instance may not be connected):", disconnectError);
+          }
+          
+          // Step 3: Try to delete the existing instance
+          console.log(`🗑️  Trying to delete instance: ${instanceNameToUse}`);
+          try {
+            await evolutionService.deleteInstance(instanceNameToUse);
+            console.log("✅ Instance deleted successfully");
+          } catch (deleteError) {
+            console.log("⚠️  Delete failed:", deleteError);
+          }
+          
+          // Step 4: Create a fresh instance
+          console.log(`🆕 Creating fresh instance: ${newInstanceName}`);
           const evolutionResponse = await evolutionService.createInstance({
             instanceName: newInstanceName,
             qrcode: true
           });
           
-          console.log("✅ Instance recreated:", evolutionResponse);
+          console.log("✅ Fresh instance created:", evolutionResponse);
           
           // Update database with new Evolution instance ID
           await storage.updateWhatsappInstance(id, {
             evolutionInstanceId: newInstanceName
           });
           
-          // Now try QR Code again
+          // Step 5: Get QR Code from fresh instance
+          console.log(`📱 Getting QR from fresh instance: ${newInstanceName}`);
           const newQrResponse = await evolutionService.generateQRCode(newInstanceName);
-          console.log("New QR Response:", JSON.stringify(newQrResponse, null, 2));
+          console.log("✅ Fresh QR Response:", JSON.stringify(newQrResponse, null, 2));
           
           res.json({ qrCode: newQrResponse.qrcode?.base64 || newQrResponse.base64 });
-        } catch (recreateError) {
-          console.error("Failed to recreate instance:", recreateError);
-          throw qrError; // Throw original error
+        } catch (recoveryError) {
+          console.error("❌ All recovery steps failed:", recoveryError);
+          res.status(500).json({ 
+            error: "Erro ao gerar QR Code. Tente criar uma nova instância.",
+            details: "A instância pode estar em um estado inconsistente na Evolution API"
+          });
         }
       }
     } catch (error) {

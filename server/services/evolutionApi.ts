@@ -77,7 +77,8 @@ export class EvolutionApiService {
   }
 
   async generateQRCode(instanceName: string): Promise<QRCodeResponse> {
-    return this.makeRequest(`/instance/qrcode/${instanceName}`);
+    // Use the correct endpoint that generates AND returns QR code
+    return this.makeRequest(`/instance/connect/${instanceName}`);
   }
 
   async deleteInstance(instanceName: string): Promise<any> {
@@ -86,6 +87,14 @@ export class EvolutionApiService {
 
   async disconnectInstance(instanceName: string): Promise<any> {
     return this.makeRequest(`/instance/logout/${instanceName}`, 'DELETE');
+  }
+
+  async listInstances(): Promise<any> {
+    return this.makeRequest(`/instance/fetchInstances`);
+  }
+
+  async connectInstance(instanceName: string): Promise<any> {
+    return this.makeRequest(`/instance/connect/${instanceName}`);
   }
 
   async sendMessage(instanceName: string, number: string, message: string): Promise<any> {
@@ -105,15 +114,6 @@ export class EvolutionApiService {
     return this.makeRequest(`/chat/findMessages/${instanceName}`);
   }
 
-  async listInstances(): Promise<any[]> {
-    try {
-      const response = await this.makeRequest('/instance/fetchInstances');
-      return response || [];
-    } catch (error) {
-      console.error("Error listing instances:", error);
-      return [];
-    }
-  }
 
   async testConnection(): Promise<boolean> {
     try {
