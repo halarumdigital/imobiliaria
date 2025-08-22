@@ -69,16 +69,8 @@ nav div.bg-sidebar-primary.text-sidebar-primary-foreground span {
   color: white !important;
 }
 
-/* Aplicar cores personalizadas apenas onde necessário */
-
-/* Botões primários - apenas os que têm classe bg-primary */
+/* Aplicar cores personalizadas APENAS onde especificado */
 .bg-primary {
-  background-color: hsl(var(--primary)) !important;
-  color: white !important;
-}
-
-/* Botão de login específico */
-button[type="submit"]:not([variant="outline"]):not([variant="ghost"]):not([variant="link"]):not([variant="secondary"]):not([variant="destructive"]) {
   background-color: hsl(var(--primary)) !important;
   color: white !important;
 }
