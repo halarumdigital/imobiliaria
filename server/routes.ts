@@ -1307,15 +1307,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const instances = await storage.getWhatsappInstancesByCompany(req.user?.companyId || '');
       let corrected = 0;
       
+      // Buscar configurações da Evolution API
+      const evolutionConfig = await storage.getEvolutionApiConfiguration();
+      if (!evolutionConfig?.evolutionURL || !evolutionConfig?.evolutionToken) {
+        return res.status(404).json({ error: "Configurações da Evolution API não encontradas" });
+      }
+
+      // Listar instâncias na Evolution API
+      const evolutionService = new EvolutionApiService({
+        baseURL: evolutionConfig.evolutionURL,
+        token: evolutionConfig.evolutionToken
+      });
+
+      let evolutionInstances: any[] = [];
+      try {
+        evolutionInstances = await evolutionService.listInstances();
+        console.log(`📋 Instâncias na Evolution API:`, evolutionInstances.map(i => i.instanceName));
+      } catch (e) {
+        console.log(`⚠️ Não foi possível listar instâncias da Evolution API`);
+      }
+      
       for (const instance of instances) {
-        // Se o nome contém underscore e números (timestamp), corrigir
+        let needsUpdate = false;
+        const updates: any = {};
+        
+        // Corrigir nome se contém timestamp
         if (instance.name.match(/_\d{6}$/)) {
           const originalName = instance.name.replace(/_\d{6}$/, '');
           console.log(`🔧 Corrigindo nome: ${instance.name} -> ${originalName}`);
-          
-          await storage.updateWhatsappInstance(instance.id, { 
-            name: originalName 
-          });
+          updates.name = originalName;
+          needsUpdate = true;
+        }
+        
+        // Corrigir evolutionInstanceId baseado nas instâncias existentes na Evolution API
+        const baseName = (updates.name || instance.name).replace(/\s+/g, '_').toLowerCase();
+        
+        // Procurar a instância correspondente na Evolution API
+        const matchingEvolutionInstance = evolutionInstances.find(evi => 
+          evi.instanceName === baseName || 
+          evi.instanceName.startsWith(baseName + '_')
+        );
+        
+        if (matchingEvolutionInstance) {
+          const correctEvolutionId = matchingEvolutionInstance.instanceName;
+          if (instance.evolutionInstanceId !== correctEvolutionId) {
+            console.log(`🔧 Corrigindo evolutionInstanceId: ${instance.evolutionInstanceId} -> ${correctEvolutionId}`);
+            updates.evolutionInstanceId = correctEvolutionId;
+            needsUpdate = true;
+          }
+        } else {
+          // Se não encontrou correspondência, usar nome base como fallback
+          if (!instance.evolutionInstanceId || instance.evolutionInstanceId !== baseName) {
+            console.log(`🔧 Definindo evolutionInstanceId padrão: ${baseName}`);
+            updates.evolutionInstanceId = baseName;
+            needsUpdate = true;
+          }
+        }
+        
+        if (needsUpdate) {
+          await storage.updateWhatsappInstance(instance.id, updates);
           corrected++;
         }
       }
