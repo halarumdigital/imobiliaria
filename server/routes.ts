@@ -1434,9 +1434,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         token: evolutionConfig.evolutionToken
       });
 
-      // Nome da instância será único baseado no timestamp para evitar conflitos
-      const timestamp = Date.now().toString().slice(-6); // Últimos 6 dígitos do timestamp
-      const instanceName = `${name.replace(/\s+/g, '_').toLowerCase()}_${timestamp}`;
+      // Nome da instância será exatamente igual ao nome fornecido (sem timestamp)
+      const instanceName = name.replace(/\s+/g, '_').toLowerCase();
       
       console.log(`🚀 Creating Evolution instance with name: ${instanceName}`);
       
@@ -1464,7 +1463,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`💾 DADOS SENDO SALVOS NO BANCO:`);
       console.log(`  - name (display): "${name}"`);
       console.log(`  - evolutionInstanceId (DB): "${name.replace(/\s+/g, '_').toLowerCase()}"`);
-      console.log(`  - evolutionAPIName (API): "${instanceName}"`);
+      console.log(`  - evolutionAPIName (API): "${instanceName}" (IGUAL AO DB - SEM TIMESTAMP)`);
       console.log(`  - phone: "${phone}"`);
       console.log(`  - companyId: "${req.user.companyId}"`);
       

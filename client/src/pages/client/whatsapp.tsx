@@ -299,15 +299,7 @@ export default function WhatsApp() {
     const connectionStatus = statusData?.state || statusData?.instance?.state || instance.status || 'disconnected';
     const instanceName = instance.name; // Sempre usar o nome limpo do banco de dados
     
-    // Debug log para verificar os dados
-    console.log('🔍 Instance name debug:', {
-      instanceId: instance.id,
-      instanceFromDB: instance.name,
-      instanceNameUsed: instanceName,
-      statusDataInstanceName: statusData?.instance?.instanceName,
-      fullStatusData: statusData,
-      wholeInstance: instance
-    });
+    // Nome sempre vem limpo do banco de dados
     
     return (
       <div key={instance.id} className="border rounded-lg p-4">
