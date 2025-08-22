@@ -69,36 +69,7 @@ nav div.bg-sidebar-primary.text-sidebar-primary-foreground span {
   color: white !important;
 }
 
-/* Reset de botões - remover qualquer override problemático */
-button {
-  all: unset;
-}
-
-/* Reestabelecer estilos básicos do shadcn */
-button.inline-flex.items-center.justify-center {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  border-radius: calc(var(--radius) - 2px) !important;
-  font-size: 0.875rem !important;
-  font-weight: 500 !important;
-  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke !important;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
-  transition-duration: 150ms !important;
-  cursor: pointer !important;
-  padding: 0.5rem 1rem !important;
-}
-
-/* Botão primário específico */
-button[type="submit"] {
-  background-color: hsl(214.3 31.8% 91.4%) !important;
-  color: hsl(222.2 84% 4.9%) !important;
-  border: 1px solid hsl(214.3 31.8% 91.4%) !important;
-}
-
-button[type="submit"]:hover {
-  background-color: hsl(210 40% 86%) !important;
-}
+/* Aplicar cores personalizadas apenas quando necessário */
 
 /* Garantir que variáveis CSS sejam atualizadas */
 :root {
