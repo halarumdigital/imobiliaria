@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { apiGet, apiPost, apiDelete } from "@/lib/api";
 import { WhatsappInstance, AiAgent } from "@/types";
-import { MessageSquare, Plus, Settings, Unlink, QrCode, RefreshCw, Trash2, CheckCircle, XCircle, Clock } from "lucide-react";
+import { MessageSquare, Plus, Settings, Unlink, QrCode, RefreshCw, Trash2, CheckCircle, XCircle, Clock, Bot } from "lucide-react";
 
 export default function WhatsApp() {
   const { toast } = useToast();
@@ -277,6 +277,32 @@ export default function WhatsApp() {
 
         <div className="flex items-center justify-end">
           <div className="flex space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                toast({
+                  title: "Configurar IA",
+                  description: "Funcionalidade em desenvolvimento",
+                });
+              }}
+            >
+              <Bot className="w-4 h-4 mr-1" />
+              Configurar IA
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                toast({
+                  title: "Configurar WhatsApp",
+                  description: "Funcionalidade em desenvolvimento",
+                });
+              }}
+            >
+              <Settings className="w-4 h-4 mr-1" />
+              Configurar WhatsApp
+            </Button>
             <Button
               variant="outline"
               size="sm"
