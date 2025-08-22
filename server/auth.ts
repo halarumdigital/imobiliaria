@@ -33,18 +33,30 @@ export async function comparePassword(password: string, hash: string): Promise<b
 }
 
 export function authenticate(req: AuthRequest, res: Response, next: NextFunction) {
+  console.log("=== AUTHENTICATE MIDDLEWARE ===");
+  console.log("URL:", req.originalUrl);
+  console.log("Authorization header exists:", !!req.headers.authorization);
+  
   const authHeader = req.headers.authorization;
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
+    console.log("Authentication failed: no token found");
     return res.status(401).json({ error: 'Token de acesso requerido' });
   }
 
   try {
+    console.log("Verifying token...");
     const decoded = verifyToken(token);
+    console.log("Token decoded successfully, user:", {
+      id: decoded.id,
+      role: decoded.role,
+      companyId: decoded.companyId
+    });
     req.user = decoded;
     next();
   } catch (error) {
+    console.log("Authentication failed: token verification error:", error.message);
     return res.status(403).json({ error: 'Token inválido' });
   }
 }
@@ -57,9 +69,14 @@ export function requireAdmin(req: AuthRequest, res: Response, next: NextFunction
 }
 
 export function requireClient(req: AuthRequest, res: Response, next: NextFunction) {
+  console.log("=== REQUIRE CLIENT MIDDLEWARE ===");
+  console.log("User:", req.user ? { id: req.user.id, role: req.user.role } : null);
+  
   if (!req.user || req.user.role !== 'client') {
+    console.log("Client access denied - user role:", req.user?.role);
     return res.status(403).json({ error: 'Acesso negado: requer permissões de cliente' });
   }
+  console.log("Client access granted");
   next();
 }
 
