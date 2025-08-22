@@ -313,9 +313,19 @@ export class MySQLStorage implements IStorage {
     if (!this.connection) throw new Error('No database connection');
     
     const id = randomUUID();
+    
+    // Garantir que valores undefined sejam convertidos para null
+    const email = company.email || null;
+    const cnpj = company.cnpj || null;
+    const phone = company.phone || null;
+    const address = company.address || null;
+    const city = company.city || null;
+    const cep = company.cep || null;
+    const avatar = company.avatar || null;
+    
     await this.connection.execute(
       'INSERT INTO companies (id, name, email, cnpj, phone, address, city, cep, avatar) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, company.name, company.email, company.cnpj, company.phone, company.address, company.city, company.cep, company.avatar]
+      [id, company.name, email, cnpj, phone, address, city, cep, avatar]
     );
     return this.getCompany(id) as Promise<Company>;
   }
