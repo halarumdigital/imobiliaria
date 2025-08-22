@@ -1,0 +1,148 @@
+  name: 'AxiosError',
+
+  url: 'https://template.gilliard.dev.br/api/webhook/messages',
+
+  server_url: 'https://apizap.halarum.com.br'
+
+} 
+
+[Evolution API]    v2.3.1  163   -  Fri Aug 22 2025 18:44:48     LOG   [WebhookController]  [object]   
+
+{
+
+  local: 'p.sendData-Webhook',
+
+  message: 'Aguardando 11.9 segundos antes da próxima tentativa',
+
+  url: 'https://template.gilliard.dev.br/api/webhook/messages'
+
+} 
+
+[Evolution API]    v2.3.1  163   -  Fri Aug 22 2025 18:44:50     ERROR   [WebhookController]  [object]   
+
+{
+
+  local: 'p.sendData-Webhook',
+
+  message: 'Tentativa 2/10 falhou: Request failed with status code 503',
+
+  hostName: undefined,
+
+  syscall: undefined,
+
+  code: 'ERR_BAD_RESPONSE',
+
+  isTimeout: false,
+
+  statusCode: 503,
+
+  error: undefined,
+
+  stack: 'AxiosError: Request failed with status code 503\n' +
+
+    '    at settle (/evolution/node_modules/axios/dist/node/axios.cjs:2053:12)\n' +
+
+    '    at IncomingMessage.handleStreamEnd (/evolution/node_modules/axios/dist/node/axios.cjs:3170:11)\n' +
+
+    '    at IncomingMessage.emit (node:events:536:35)\n' +
+
+    '    at endReadableNT (node:internal/streams/readable:1698:12)\n' +
+
+    '    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)\n' +
+
+    '    at Axios.request (/evolution/node_modules/axios/dist/node/axios.cjs:4280:41)\n' +
+
+    '    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n' +
+
+    '    at async co.retryWebhookRequest (/evolution/dist/main.js:275:56866)\n' +
+
+    '    at async co.emit (/evolution/dist/main.js:275:55677)\n' +
+
+    '    at async lo.emit (/evolution/dist/main.js:275:61286)\n' +
+
+    '    at async $s.sendDataWebhook (/evolution/dist/main.js:156:16881)',
+
+  name: 'AxiosError',
+
+  url: 'https://template.gilliard.dev.br/api/webhook/messages',
+
+  server_url: 'https://apizap.halarum.com.br'
+
+} 
+
+[Evolution API]    v2.3.1  163   -  Fri Aug 22 2025 18:44:50     LOG   [WebhookController]  [object]   
+
+{
+
+  local: 'p.sendData-Webhook',
+
+  message: 'Aguardando 10.5 segundos antes da próxima tentativa',
+
+  url: 'https://template.gilliard.dev.br/api/webhook/messages'
+
+} 
+
+[Evolution API]    v2.3.1  163   -  Fri Aug 22 2025 18:44:52     ERROR   [WebhookController]  [object]   
+
+{
+
+  local: 'p.sendData-Webhook',
+
+  message: 'Tentativa 8/10 falhou: Request failed with status code 503',
+
+  hostName: undefined,
+
+  syscall: undefined,
+
+  code: 'ERR_BAD_RESPONSE',
+
+  isTimeout: false,
+
+  statusCode: 503,
+
+  error: undefined,
+
+  stack: 'AxiosError: Request failed with status code 503\n' +
+
+    '    at settle (/evolution/node_modules/axios/dist/node/axios.cjs:2053:12)\n' +
+
+    '    at IncomingMessage.handleStreamEnd (/evolution/node_modules/axios/dist/node/axios.cjs:3170:11)\n' +
+
+    '    at IncomingMessage.emit (node:events:536:35)\n' +
+
+    '    at endReadableNT (node:internal/streams/readable:1698:12)\n' +
+
+    '    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)\n' +
+
+    '    at Axios.request (/evolution/node_modules/axios/dist/node/axios.cjs:4280:41)\n' +
+
+    '    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n' +
+
+    '    at async co.retryWebhookRequest (/evolution/dist/main.js:275:56866)\n' +
+
+    '    at async co.emit (/evolution/dist/main.js:275:55677)\n' +
+
+    '    at async lo.emit (/evolution/dist/main.js:275:61286)\n' +
+
+    '    at async $s.sendDataWebhook (/evolution/dist/main.js:156:16881)',
+
+  name: 'AxiosError',
+
+  url: 'https://fecb1582-d6f5-4bf1-9db9-0bc9739f56af-00-1t55xg9nw8qv.riker.replit.dev/api/webhook/messages',
+
+  server_url: 'https://apizap.halarum.com.br'
+
+} 
+
+[Evolution API]    v2.3.1  163   -  Fri Aug 22 2025 18:44:52     LOG   [WebhookController]  [object]   
+
+{
+
+  local: 'p.sendData-Webhook',
+
+  message: 'Aguardando 323.4 segundos antes da próxima tentativa',
+
+  url: 'https://fecb1582-d6f5-4bf1-9db9-0bc9739f56af-00-1t55xg9nw8qv.riker.replit.dev/api/webhook/messages'
+
+} 
+
