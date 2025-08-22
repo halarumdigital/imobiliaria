@@ -1213,6 +1213,118 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
 
+  // Conversations with agent tracking routes
+  app.get('/api/conversations/by-instance/:instanceId', authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { instanceId } = req.params;
+      
+      const conversations = await storage.getConversationsByInstance(instanceId);
+      res.json(conversations);
+    } catch (error) {
+      console.error('Error fetching conversations:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  });
+
+  app.get('/api/conversations/:conversationId/messages-with-agents', authenticate, requireClient, async (req, res) => {
+    try {
+      const { conversationId } = req.params;
+      
+      // Buscar mensagens com informações dos agentes
+      const messages = await storage.getMessagesByConversation(conversationId);
+      
+      // Para cada mensagem de AI, buscar informações do agente
+      const messagesWithAgents = await Promise.all(
+        messages.map(async (message) => {
+          if (message.sender === 'assistant' && message.agentId) {
+            try {
+              const agent = await storage.getAiAgent(message.agentId);
+              return {
+                ...message,
+                agent: agent ? {
+                  id: agent.id,
+                  name: agent.name,
+                  agentType: agent.agentType || 'main',
+                  specialization: agent.specialization
+                } : null
+              };
+            } catch (error) {
+              console.error(`Error fetching agent ${message.agentId}:`, error);
+              return { ...message, agent: null };
+            }
+          }
+          return { ...message, agent: null };
+        })
+      );
+      
+      res.json(messagesWithAgents);
+    } catch (error) {
+      console.error('Error fetching messages with agents:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  });
+
+  app.get('/api/agents/usage-stats', authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const user = req.user;
+      if (!user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+      
+      // Buscar todas as instâncias da empresa
+      const instances = await storage.getWhatsappInstancesByCompany(user.companyId);
+      
+      let totalStats: any = {};
+      
+      for (const instance of instances) {
+        // Buscar conversas da instância
+        const conversations = await storage.getConversationsByInstance(instance.id);
+        
+        for (const conversation of conversations) {
+          // Buscar mensagens da conversa
+          const messages = await storage.getMessagesByConversation(conversation.id);
+          
+          // Contar uso de agentes
+          for (const message of messages) {
+            if (message.sender === 'assistant' && message.agentId) {
+              try {
+                const agent = await storage.getAiAgent(message.agentId);
+                if (agent) {
+                  const agentKey = `${agent.id}|${agent.name}|${agent.agentType || 'main'}`;
+                  if (!totalStats[agentKey]) {
+                    totalStats[agentKey] = {
+                      agentId: agent.id,
+                      agentName: agent.name,
+                      agentType: agent.agentType || 'main',
+                      specialization: agent.specialization,
+                      messageCount: 0,
+                      conversationCount: new Set()
+                    };
+                  }
+                  totalStats[agentKey].messageCount++;
+                  totalStats[agentKey].conversationCount.add(conversation.id);
+                }
+              } catch (error) {
+                console.error(`Error processing agent ${message.agentId}:`, error);
+              }
+            }
+          }
+        }
+      }
+      
+      // Converter Sets em contadores
+      const stats = Object.values(totalStats).map((stat: any) => ({
+        ...stat,
+        conversationCount: stat.conversationCount.size
+      }));
+      
+      res.json(stats);
+    } catch (error) {
+      console.error('Error fetching agent usage stats:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  });
+
   // AI Agents
   app.get("/api/ai-agents", authenticate, requireClient, async (req: AuthRequest, res) => {
     try {

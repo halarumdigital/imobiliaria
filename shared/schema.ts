@@ -108,6 +108,7 @@ export const messages = mysqlTable("messages", {
   conversationId: varchar("conversation_id", { length: 36 }).notNull(),
   content: text("content").notNull(),
   sender: varchar("sender", { length: 20 }).notNull(), // 'user' | 'ai' | 'agent'
+  agentId: varchar("agent_id", { length: 36 }), // Which AI agent responded (if sender is 'ai')
   messageType: varchar("message_type", { length: 20 }).default("text"), // 'text' | 'image' | 'document'
   evolutionMessageId: varchar("evolution_message_id", { length: 255 }),
   createdAt: timestamp("created_at").defaultNow(),
@@ -191,6 +192,7 @@ export const insertMessageSchema = createInsertSchema(messages).pick({
   conversationId: true,
   content: true,
   sender: true,
+  agentId: true,
   messageType: true,
   evolutionMessageId: true,
 });

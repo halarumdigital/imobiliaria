@@ -17,6 +17,9 @@ export interface AgentResponse {
   response: string;
   shouldDelegate?: boolean;
   delegatedAgentId?: string;
+  activeAgentId?: string;
+  activeAgentName?: string;
+  activeAgentType?: string;
 }
 
 export class AIService {
@@ -150,7 +153,10 @@ export class AIService {
       return {
         response,
         shouldDelegate: !!delegatedAgent,
-        delegatedAgentId: delegatedAgent?.id
+        delegatedAgentId: delegatedAgent?.id,
+        activeAgentId: activeAgent.id, // ID do agente que realmente respondeu
+        activeAgentName: activeAgent.name,
+        activeAgentType: activeAgent.agentType || 'main'
       };
 
     } catch (error) {
@@ -393,6 +399,7 @@ export class AIService {
         conversationId: conversation.id,
         content: aiResponse,
         sender: 'assistant',
+        agentId: agentId, // Rastrear qual agente respondeu
         messageType: 'text'
       });
 

@@ -130,7 +130,7 @@ export class WhatsAppWebhookService {
         senderPhone,
         messageText,
         aiResponse.response,
-        aiResponse.delegatedAgentId || 'main'
+        aiResponse.activeAgentId || 'main'
       );
 
       console.log("✅ Evolution message processed successfully");
@@ -193,7 +193,7 @@ export class WhatsAppWebhookService {
         senderPhone,
         messageText,
         aiResponse.response,
-        aiResponse.delegatedAgentId || 'main'
+        aiResponse.activeAgentId || 'main'
       );
 
       console.log("✅ Message processed successfully");
