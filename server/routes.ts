@@ -1061,7 +1061,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Use correct system URL for webhook
       console.log("🔧 Configurando URL do webhook para servidor correto...");
-      const systemUrl = "https://apizap.halarum.com.br"; // Our server URL
+      const systemUrl = process.env.REPLIT_URL || evolutionConfig.urlGlobalSistema || "https://apizap.halarum.com.br"; // Dynamic server URL
       console.log("✅ URL do webhook configurada:", systemUrl);
 
       // Check if instance has evolutionInstanceId

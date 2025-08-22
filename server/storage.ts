@@ -818,7 +818,14 @@ export class MySQLStorage implements IStorage {
     const id = randomUUID();
     await this.connection.execute(
       'INSERT INTO messages (id, conversation_id, content, sender, message_type, evolution_message_id) VALUES (?, ?, ?, ?, ?, ?)',
-      [id, message.conversationId, message.content, message.sender, message.messageType, message.evolutionMessageId]
+      [
+        id, 
+        message.conversationId, 
+        message.content, 
+        message.sender, 
+        message.messageType || 'text', 
+        message.evolutionMessageId || null
+      ]
     );
     
     const [rows] = await this.connection.execute(
