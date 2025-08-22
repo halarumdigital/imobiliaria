@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { apiGet, apiPost, apiDelete } from "@/lib/api";
 import { WhatsappInstance, AiAgent } from "@/types";
-import { MessageSquare, Plus, Settings, Unlink, QrCode, RefreshCw, Trash2 } from "lucide-react";
+import { MessageSquare, Plus, Settings, Unlink, QrCode, RefreshCw, Trash2, CheckCircle, XCircle, Clock } from "lucide-react";
 
 export default function WhatsApp() {
   const { toast } = useToast();
@@ -32,6 +32,16 @@ export default function WhatsApp() {
   const { data: agents = [] } = useQuery<AiAgent[]>({
     queryKey: ["/api/ai-agents"],
   });
+
+  // Query to get connection status for each instance
+  const getConnectionStatus = (instanceId: string) => {
+    return useQuery({
+      queryKey: ["/api/whatsapp-instances", instanceId, "status"],
+      queryFn: () => apiGet(`/api/whatsapp-instances/${instanceId}/status`),
+      refetchInterval: 30000, // Refresh every 30 seconds
+      enabled: !!instanceId,
+    });
+  };
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiPost("/whatsapp-instances/create-evolution", data),
@@ -147,6 +157,179 @@ export default function WhatsApp() {
     return agent ? agent.name : "Agente não encontrado";
   };
 
+  const refreshConnectionStatus = () => {
+    instances.forEach(instance => {
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/whatsapp-instances", instance.id, "status"] 
+      });
+    });
+    toast({
+      title: "Status atualizado",
+      description: "Status de conexão atualizado para todas as instâncias",
+    });
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'open':
+      case 'connected':
+        return <CheckCircle className="w-4 h-4 text-green-500" />;
+      case 'connecting':
+        return <Clock className="w-4 h-4 text-yellow-500" />;
+      case 'close':
+      case 'disconnected':
+      default:
+        return <XCircle className="w-4 h-4 text-red-500" />;
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'open':
+        return 'Conectado';
+      case 'connecting':
+        return 'Conectando';
+      case 'close':
+        return 'Desconectado';
+      case 'connected':
+        return 'Conectado';
+      case 'disconnected':
+        return 'Desconectado';
+      default:
+        return 'Indefinido';
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'open':
+      case 'connected':
+        return 'bg-green-400';
+      case 'connecting':
+        return 'bg-yellow-400';
+      case 'close':
+      case 'disconnected':
+      default:
+        return 'bg-red-400';
+    }
+  };
+
+  // Component to display instance with real-time status
+  const InstanceCard = ({ instance }: { instance: WhatsappInstance }) => {
+    const { data: statusData, isLoading: statusLoading, error } = getConnectionStatus(instance.id);
+    
+    const connectionStatus = statusData?.state || instance.status || 'disconnected';
+    const instanceName = statusData?.instance?.instanceName || instance.name;
+    
+    return (
+      <div key={instance.id} className="border rounded-lg p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center space-x-3">
+            <div className={`w-3 h-3 rounded-full ${getStatusColor(connectionStatus)}`} />
+            <div>
+              <h4 className="font-medium flex items-center gap-2">
+                {instanceName}
+                {statusLoading && <RefreshCw className="w-3 h-3 animate-spin text-muted-foreground" />}
+              </h4>
+              <p className="text-sm text-muted-foreground">
+                {instance.phone || "Sem telefone"}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {getStatusIcon(connectionStatus)}
+            <Badge variant={connectionStatus === 'open' || connectionStatus === 'connected' ? 'default' : 'secondary'}>
+              {getStatusText(connectionStatus)}
+            </Badge>
+          </div>
+        </div>
+
+        {/* Additional status info */}
+        {statusData && (
+          <div className="mb-3 p-2 bg-muted/50 rounded text-xs space-y-1">
+            {statusData.instance?.profileName && (
+              <div>
+                <span className="font-medium">Perfil:</span> {statusData.instance.profileName}
+              </div>
+            )}
+            {statusData.instance?.serverUrl && (
+              <div>
+                <span className="font-medium">Servidor:</span> {statusData.instance.serverUrl}
+              </div>
+            )}
+            {error && (
+              <div className="text-red-600">
+                <span className="font-medium">Erro:</span> Não foi possível conectar à Evolution API
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            <span>Agente IA: </span>
+            <span className="font-medium text-purple-600">
+              {getAgentName(instance.aiAgentId)}
+            </span>
+          </div>
+          <div className="flex space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleGenerateQR(instance.id)}
+            >
+              <QrCode className="w-4 h-4 mr-1" />
+              QR Code
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleDelete(instance.id)}
+              className="text-destructive hover:text-destructive"
+            >
+              <Trash2 className="w-4 h-4 mr-1" />
+              Excluir
+            </Button>
+          </div>
+        </div>
+
+        {/* Agent Linking */}
+        {agents.length > 0 && (
+          <div className="mt-3 pt-3 border-t">
+            <div className="flex items-center space-x-2">
+              <Select
+                value={instance.aiAgentId || "none"}
+                onValueChange={(value) => handleLinkAgent(instance.id, value)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Selecionar agente IA" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum agente</SelectItem>
+                  {agents.map((agent) => (
+                    <SelectItem key={agent.id} value={agent.id}>
+                      {agent.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => queryClient.invalidateQueries({ 
+                  queryKey: ["/api/whatsapp-instances", instance.id, "status"] 
+                })}
+                disabled={statusLoading}
+              >
+                <RefreshCw className={`w-4 h-4 ${statusLoading ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   if (isLoading) {
     return <div>Carregando...</div>;
   }
@@ -162,6 +345,17 @@ export default function WhatsApp() {
               <p className="text-sm text-muted-foreground mt-1">
                 Gerencie suas instâncias de WhatsApp
               </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={refreshConnectionStatus}
+                data-testid="refresh-status-button"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Atualizar Status
+              </Button>
             </div>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
@@ -219,76 +413,7 @@ export default function WhatsApp() {
               </div>
             ) : (
               instances.map((instance) => (
-                <div key={instance.id} className="border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-3 h-3 rounded-full ${
-                        instance.status === 'connected' ? 'bg-green-400' : 'bg-red-400'
-                      }`} />
-                      <div>
-                        <h4 className="font-medium">{instance.name}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          {instance.phone || "Sem telefone"}
-                        </p>
-                      </div>
-                    </div>
-                    <Badge variant={instance.status === 'connected' ? 'default' : 'secondary'}>
-                      {instance.status === 'connected' ? 'Conectado' : 'Desconectado'}
-                    </Badge>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-muted-foreground">
-                      <span>Agente IA: </span>
-                      <span className="font-medium text-purple-600">
-                        {getAgentName(instance.aiAgentId)}
-                      </span>
-                    </div>
-                    <div className="flex space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleGenerateQR(instance.id)}
-                      >
-                        <QrCode className="w-4 h-4 mr-1" />
-                        QR Code
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDelete(instance.id)}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="w-4 h-4 mr-1" />
-                        Excluir
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Agent Linking */}
-                  {agents.length > 0 && (
-                    <div className="mt-3 pt-3 border-t">
-                      <div className="flex items-center space-x-2">
-                        <Select
-                          value={instance.aiAgentId || "none"}
-                          onValueChange={(value) => handleLinkAgent(instance.id, value)}
-                        >
-                          <SelectTrigger className="flex-1">
-                            <SelectValue placeholder="Vincular agente" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Remover agente</SelectItem>
-                            {agents.map((agent) => (
-                              <SelectItem key={agent.id} value={agent.id}>
-                                {agent.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <InstanceCard key={instance.id} instance={instance} />
               ))
             )}
           </CardContent>

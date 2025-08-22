@@ -736,6 +736,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get connection status for WhatsApp instance
+  app.get("/api/whatsapp-instances/:id/status", authenticate, requireClient, requireCompanyAccess, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const instance = await storage.getWhatsappInstance(id);
+      
+      if (!instance) {
+        return res.status(404).json({ error: "Instância não encontrada" });
+      }
+
+      console.log(`🔍 Buscando status da instância: ${instance.name} (${instance.evolutionInstance})`);
+
+      // Get Evolution API configuration
+      const evolutionConfig = await storage.getEvolutionApiConfiguration();
+      if (!evolutionConfig) {
+        return res.status(500).json({ error: "Configuração da Evolution API não encontrada" });
+      }
+
+      // Check connection status from Evolution API
+      const statusUrl = `${evolutionConfig.evolutionURL}/instance/connectionState/${instance.evolutionInstance}`;
+      console.log(`📡 Consultando status em: ${statusUrl}`);
+
+      const response = await fetch(statusUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': evolutionConfig.evolutionToken,
+        },
+      });
+
+      if (!response.ok) {
+        console.error(`❌ Erro ao buscar status: ${response.status} ${response.statusText}`);
+        return res.status(500).json({ 
+          error: "Erro ao consultar status na Evolution API",
+          details: `${response.status} ${response.statusText}`
+        });
+      }
+
+      const statusData = await response.json();
+      console.log(`✅ Status obtido:`, statusData);
+
+      // Return the status data with additional instance info
+      res.json({
+        ...statusData,
+        instance: {
+          ...statusData.instance,
+          instanceName: instance.name,
+          phone: instance.phone,
+          serverUrl: evolutionConfig.evolutionURL
+        }
+      });
+    } catch (error) {
+      console.error("❌ Erro ao buscar status da instância:", error);
+      res.status(500).json({ error: "Erro interno do servidor" });
+    }
+  });
+
   // AI Agents
   app.get("/api/ai-agents", authenticate, requireClient, async (req: AuthRequest, res) => {
     try {
