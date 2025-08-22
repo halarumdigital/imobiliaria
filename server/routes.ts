@@ -1223,10 +1223,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/ai-agents/:id", authenticate, requireClient, requireCompanyAccess, async (req, res) => {
+  app.put("/api/ai-agents/:id", authenticate, requireClient, async (req: AuthRequest, res) => {
     try {
       const { id } = req.params;
       const agentData = insertAiAgentSchema.partial().parse(req.body);
+
+      // Check if agent exists and belongs to user's company
+      const existingAgent = await storage.getAiAgent(id);
+      if (!existingAgent) {
+        return res.status(404).json({ error: "Agente não encontrado" });
+      }
+      if (req.user?.role !== 'admin' && existingAgent.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Acesso negado: não é possível acessar dados de outra empresa" });
+      }
 
       // Process PDFs if training files are updated
       let updateData = { ...agentData };
@@ -1250,9 +1259,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/ai-agents/:id", authenticate, requireClient, requireCompanyAccess, async (req, res) => {
+  app.delete("/api/ai-agents/:id", authenticate, requireClient, async (req: AuthRequest, res) => {
     try {
       const { id } = req.params;
+      
+      // Check if agent exists and belongs to user's company
+      const existingAgent = await storage.getAiAgent(id);
+      if (!existingAgent) {
+        return res.status(404).json({ error: "Agente não encontrado" });
+      }
+      if (req.user?.role !== 'admin' && existingAgent.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Acesso negado: não é possível acessar dados de outra empresa" });
+      }
+
       await storage.deleteAiAgent(id);
       res.status(204).send();
     } catch (error) {
@@ -1262,7 +1281,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate AI agent response
-  app.post("/api/ai-agents/:id/chat", authenticate, requireClient, requireCompanyAccess, async (req, res) => {
+  app.post("/api/ai-agents/:id/chat", authenticate, requireClient, async (req: AuthRequest, res) => {
     try {
       const { id } = req.params;
       const { message } = req.body;
@@ -1275,6 +1294,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const agent = await storage.getAiAgent(id);
       if (!agent) {
         return res.status(404).json({ error: "Agente não encontrado" });
+      }
+
+      // Check company access
+      if (req.user?.role !== 'admin' && agent.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Acesso negado: não é possível acessar dados de outra empresa" });
       }
 
       // Get AI configuration
@@ -1308,7 +1332,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Test AI agent
-  app.post("/api/ai-agents/:id/test", authenticate, requireClient, requireCompanyAccess, async (req, res) => {
+  app.post("/api/ai-agents/:id/test", authenticate, requireClient, async (req: AuthRequest, res) => {
     try {
       const { id } = req.params;
 
@@ -1316,6 +1340,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const agent = await storage.getAiAgent(id);
       if (!agent) {
         return res.status(404).json({ error: "Agente não encontrado" });
+      }
+
+      // Check company access
+      if (req.user?.role !== 'admin' && agent.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Acesso negado: não é possível acessar dados de outra empresa" });
       }
 
       // Get AI configuration
