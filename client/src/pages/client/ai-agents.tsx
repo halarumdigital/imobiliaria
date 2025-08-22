@@ -56,23 +56,10 @@ export default function AiAgents() {
     queryKey: ["/api/whatsapp-instances"],
   });
 
-  // Filter connected instances and main agents for linking
-  // Include instances with evolutionInstanceId (they are created and potentially connectable)
+  // Filter instances that can be linked (have evolutionInstanceId, regardless of cached status)
   const connectedInstances = instances.filter(instance => {
-    console.log('🔍 Debug instance:', {
-      id: instance.id,
-      name: instance.name, 
-      status: instance.status,
-      evolutionInstanceId: instance.evolutionInstanceId,
-      aiAgentId: instance.aiAgentId
-    });
-    return instance.evolutionInstanceId && // Must have evolutionInstanceId
-           instance.status !== "disconnected"; // Any status except disconnected
+    return instance.evolutionInstanceId; // Any instance with evolutionInstanceId can be linked
   });
-  
-  console.log('📱 Total instances:', instances.length);
-  console.log('✅ Connected instances:', connectedInstances.length);
-  console.log('🔗 Available for linking:', connectedInstances.filter(i => !i.aiAgentId).length);
   
   const mainAgentsForLinking = agents.filter(agent => 
     agent.agentType === "main" || !agent.agentType
