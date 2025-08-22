@@ -760,8 +760,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         token: evolutionConfig.evolutionToken
       });
 
-      // Nome da instância será baseado no nome fornecido + companyId para evitar conflitos
-      const instanceName = `${name.replace(/\s+/g, '_').toLowerCase()}_${req.user.companyId.substring(0, 8)}`;
+      // Nome da instância será exatamente o nome fornecido pelo usuário
+      const instanceName = name.replace(/\s+/g, '_').toLowerCase();
       
       const evolutionResponse = await evolutionService.createInstance({
         instanceName,
