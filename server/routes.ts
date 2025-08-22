@@ -134,14 +134,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/auth/me", authenticate, async (req: AuthRequest, res) => {
     try {
-      console.log('Auth/me - Token user:', req.user);
-      
       // Buscar dados completos do usuário no banco
       const fullUser = await storage.getUser(req.user!.id);
-      console.log('Auth/me - Full user from DB:', fullUser);
       
       if (fullUser && fullUser.company_id && !req.user!.companyId) {
-        console.log('Auth/me - Generating new token with companyId');
         // Se o usuário tem companyId no banco mas não no token, gerar novo token
         const userWithMappedFields = {
           ...fullUser,
@@ -155,7 +151,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           newToken
         });
       } else {
-        console.log('Auth/me - No token refresh needed');
         res.json({ user: req.user });
       }
     } catch (error) {
@@ -459,16 +454,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // WhatsApp instances
   app.get("/api/whatsapp-instances", authenticate, requireClient, async (req: AuthRequest, res) => {
     try {
-      console.log('User data:', req.user);
-      console.log('CompanyId:', req.user?.companyId);
-      
       if (!req.user?.companyId) {
-        console.log('No company ID found for user');
         return res.status(404).json({ error: "Empresa não encontrada" });
       }
 
       const instances = await storage.getWhatsappInstancesByCompany(req.user.companyId);
-      console.log('Found instances:', instances.length);
       res.json(instances);
     } catch (error) {
       console.error("Get WhatsApp instances error:", error);
@@ -644,11 +634,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Criar instância via Evolution API
   app.post("/api/whatsapp-instances/create-evolution", authenticate, requireClient, async (req: AuthRequest, res) => {
     try {
-      console.log('Create instance - User data:', req.user);
-      console.log('Create instance - CompanyId:', req.user?.companyId);
-      
       if (!req.user?.companyId) {
-        console.log('No company ID found for user in create instance');
         return res.status(404).json({ error: "Empresa não encontrada" });
       }
 
@@ -660,7 +646,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Buscar configurações da Evolution API
       const evolutionConfig = await storage.getEvolutionApiConfiguration();
-      console.log('Evolution config found:', evolutionConfig);
       if (!evolutionConfig || !evolutionConfig.evolutionURL || !evolutionConfig.evolutionToken) {
         return res.status(404).json({ error: "Configurações da Evolution API não encontradas" });
       }
