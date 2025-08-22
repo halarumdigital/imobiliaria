@@ -299,14 +299,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { prompt } = req.body;
       const config = await storage.getAiConfiguration();
       
+      console.log("AI test config:", config);
+      
       if (!config) {
         return res.status(404).json({ error: "Configuração de IA não encontrada" });
       }
 
+      if (!config.apiKey) {
+        return res.status(400).json({ error: "Chave da API OpenAI não configurada" });
+      }
+
       const openAiService = new OpenAiService(config.apiKey);
       const response = await openAiService.generateResponse(
-        prompt || "Hello, this is a test.",
-        "You are a helpful assistant.",
+        prompt || "Olá! Este é um teste de funcionamento.",
+        "Você é um assistente útil. Responda de forma breve e educada em português.",
         {
           model: config.modelo || 'gpt-4o',
           temperature: parseFloat((config.temperatura || 0.7).toString()),
@@ -317,7 +323,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ response: response.content, usage: response.usage });
     } catch (error) {
       console.error("Test AI error:", error);
-      res.status(500).json({ error: "Erro ao testar IA" });
+      res.status(500).json({ 
+        error: "Erro ao testar IA",
+        details: error instanceof Error ? error.message : "Erro desconhecido"
+      });
     }
   });
 

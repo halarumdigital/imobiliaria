@@ -50,14 +50,14 @@ export default function AiSettings() {
     mutationFn: (prompt: string) => apiPost("/ai-config/test", { prompt }),
     onSuccess: (data) => {
       toast({
-        title: "Teste bem-sucedido",
-        description: `IA respondeu: ${data.response.substring(0, 100)}...`,
+        title: "✅ Teste bem-sucedido!",
+        description: `IA respondeu: ${data.response.length > 120 ? data.response.substring(0, 120) + '...' : data.response}`,
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({
-        title: "Erro no teste",
-        description: error instanceof Error ? error.message : "Erro ao testar IA",
+        title: "❌ Erro no teste",
+        description: error?.response?.data?.details || error?.response?.data?.error || error.message || "Erro ao testar IA",
         variant: "destructive",
       });
     },
