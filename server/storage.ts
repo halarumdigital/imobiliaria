@@ -81,6 +81,7 @@ export class MySQLStorage implements IStorage {
         password: process.env.MYSQL_PASSWORD || '',
         database: process.env.MYSQL_DATABASE || 'sistema_multiempresa',
         port: parseInt(process.env.MYSQL_PORT || '3306'),
+        charset: 'utf8mb4',
       };
       
       console.log('Database config:', {
@@ -94,6 +95,9 @@ export class MySQLStorage implements IStorage {
       
       // Create tables if they don't exist
       await this.createTables();
+      
+      // Fix charset for existing tables
+      await this.fixTableCharsets();
     } catch (error) {
       console.error('MySQL connection error:', error);
       throw error;
@@ -176,8 +180,8 @@ export class MySQLStorage implements IStorage {
       `CREATE TABLE IF NOT EXISTS ai_agents (
         id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
         company_id VARCHAR(36) NOT NULL,
-        name VARCHAR(255) NOT NULL,
-        prompt TEXT NOT NULL,
+        name VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+        prompt TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
         temperatura DECIMAL(3,2) DEFAULT 0.7,
         numero_tokens INT DEFAULT 1000,
         modelo VARCHAR(50) DEFAULT 'gpt-4o',
@@ -185,7 +189,7 @@ export class MySQLStorage implements IStorage {
         status VARCHAR(20) DEFAULT 'active',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-      )`,
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
       
       `CREATE TABLE IF NOT EXISTS conversations (
         id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
@@ -216,6 +220,22 @@ export class MySQLStorage implements IStorage {
 
     // Insert default configurations if they don't exist
     await this.insertDefaultConfigurations();
+  }
+
+  private async fixTableCharsets(): Promise<void> {
+    if (!this.connection) return;
+    
+    try {
+      // Fix ai_agents table charset
+      await this.connection.execute(`
+        ALTER TABLE ai_agents 
+        MODIFY name VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+        MODIFY prompt TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+      `);
+      console.log('Fixed ai_agents table charset');
+    } catch (error) {
+      console.log('Table charset fix not needed or already applied:', error.message);
+    }
   }
 
   private async insertDefaultConfigurations(): Promise<void> {
