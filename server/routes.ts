@@ -778,12 +778,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         instance.companyId = req.user.companyId;
       }
 
-      // Fix for existing instances without evolutionInstanceId
-      if (!instance.evolutionInstanceId && instance.name) {
-        const evolutionInstanceId = instance.name.replace(/\s+/g, '_').toLowerCase();
-        console.log(`🔧 Corrigindo evolutionInstanceId ausente: ${evolutionInstanceId}`);
-        await storage.updateWhatsappInstance(id, { evolutionInstanceId });
-        instance.evolutionInstanceId = evolutionInstanceId;
+      // Só corrigir evolutionInstanceId se realmente não existir
+      if (!instance.evolutionInstanceId) {
+        console.log(`⚠️ Instância sem evolutionInstanceId: ${instance.name} - não pode verificar status`);
+        return res.status(400).json({ 
+          error: "Instância não tem evolutionInstanceId configurado",
+          details: "Use o botão 'Corrigir Nomes' para corrigir esta instância"
+        });
       }
 
       // Check company access

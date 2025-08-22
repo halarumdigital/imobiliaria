@@ -160,6 +160,8 @@ export const insertWhatsappInstanceSchema = createInsertSchema(whatsappInstances
   companyId: true,
   name: true,
   phone: true,
+  evolutionInstanceId: true,
+  status: true,
   aiAgentId: true,
 });
 
