@@ -563,10 +563,6 @@ export class MySQLStorage implements IStorage {
     if (!this.connection) throw new Error('No database connection');
     
     const id = randomUUID();
-    
-    console.log(`🔍 CRIANDO NO MYSQL:`);
-    console.log(`  - evolutionInstanceId recebido: "${instance.evolutionInstanceId}"`);
-    
     await this.connection.execute(
       'INSERT INTO whatsapp_instances (id, company_id, name, phone, evolution_instance_id, status, ai_agent_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [
@@ -580,20 +576,7 @@ export class MySQLStorage implements IStorage {
       ]
     );
     
-    // Debug: verificar o que foi salvo
-    const [rows] = await this.connection.execute(
-      'SELECT evolution_instance_id FROM whatsapp_instances WHERE id = ?',
-      [id]
-    );
-    console.log(`🔍 VERIFICANDO O QUE FOI SALVO:`, rows);
-    
     const createdInstance = await this.getWhatsappInstance(id);
-    console.log(`🔍 INSTÂNCIA RETORNADA:`, {
-      id: createdInstance?.id,
-      name: createdInstance?.name,
-      evolutionInstanceId: createdInstance?.evolutionInstanceId
-    });
-    
     return createdInstance as WhatsappInstance;
   }
 
