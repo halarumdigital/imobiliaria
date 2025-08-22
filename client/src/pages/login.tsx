@@ -54,12 +54,16 @@ export default function Login() {
       
       // Apply CSS custom properties
       const root = document.documentElement;
-      const primaryHsl = hexToHsl(globalConfig.coresPrimaria);
-      const secondaryHsl = hexToHsl(globalConfig.coresSecundaria);
+      const primaryHsl = hexToHsl(globalConfig.coresPrimaria!);
+      const secondaryHsl = hexToHsl(globalConfig.coresSecundaria!);
       
       root.style.setProperty("--primary", primaryHsl);
       root.style.setProperty("--secondary", secondaryHsl);
       root.style.setProperty("--primary-foreground", "255 255 255"); // white text on primary
+      
+      // Garantir que o botão tenha contraste adequado
+      root.style.setProperty("--button-primary", primaryHsl);
+      root.style.setProperty("--button-primary-foreground", "255 255 255");
     }
   }, [globalConfig]);
 

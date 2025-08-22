@@ -69,6 +69,17 @@ nav div.bg-sidebar-primary.text-sidebar-primary-foreground span {
   color: white !important;
 }
 
+/* Garantir visibilidade do botão de login */
+.bg-primary {
+  background-color: hsl(var(--primary)) !important;
+  color: white !important;
+}
+
+button[type="submit"] {
+  background-color: hsl(var(--primary)) !important;
+  color: white !important;
+}
+
 /* Garantir que variáveis CSS sejam atualizadas */
 :root {
   --sidebar-accent: hsl(var(--primary) / 0.15);
