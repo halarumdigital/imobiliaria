@@ -694,17 +694,103 @@ export default function AiAgents() {
               {formData.agentType === "secondary" && (
                 <div>
                   <Label htmlFor="delegationKeywords">Palavras-chave para Ativação *</Label>
-                  <Textarea
-                    id="delegationKeywords"
-                    data-testid="textarea-keywords"
-                    rows={3}
-                    value={formData.delegationKeywords.join(", ")}
-                    onChange={(e) => setFormData(prev => ({ 
-                      ...prev, 
-                      delegationKeywords: e.target.value.split(",").map(k => k.trim()).filter(k => k.length > 0)
-                    }))}
-                    placeholder="Ex: suporte, ajuda, problema, erro, bug, técnico, instalação..."
-                  />
+                  <div className="space-y-3">
+                    {/* Input para adicionar nova palavra-chave */}
+                    <div className="flex gap-2">
+                      <Input
+                        id="newKeyword"
+                        data-testid="input-new-keyword"
+                        placeholder="Digite uma palavra-chave e pressione Enter"
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const input = e.target as HTMLInputElement;
+                            const keyword = input.value.trim();
+                            if (keyword && !formData.delegationKeywords.includes(keyword)) {
+                              setFormData(prev => ({ 
+                                ...prev, 
+                                delegationKeywords: [...prev.delegationKeywords, keyword]
+                              }));
+                              input.value = '';
+                            }
+                          }
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          const input = document.getElementById('newKeyword') as HTMLInputElement;
+                          const keyword = input?.value.trim();
+                          if (keyword && !formData.delegationKeywords.includes(keyword)) {
+                            setFormData(prev => ({ 
+                              ...prev, 
+                              delegationKeywords: [...prev.delegationKeywords, keyword]
+                            }));
+                            input.value = '';
+                          }
+                        }}
+                      >
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    
+                    {/* Lista de palavras-chave atuais */}
+                    {formData.delegationKeywords.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {formData.delegationKeywords.map((keyword, index) => (
+                          <Badge 
+                            key={index} 
+                            variant="secondary" 
+                            className="flex items-center gap-1 px-3 py-1"
+                          >
+                            {keyword}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFormData(prev => ({
+                                  ...prev,
+                                  delegationKeywords: prev.delegationKeywords.filter((_, i) => i !== index)
+                                }));
+                              }}
+                              className="ml-1 hover:bg-destructive hover:text-destructive-foreground rounded-full p-0.5"
+                            >
+                              ×
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Textarea alternativo para colar múltiplas palavras */}
+                    <details className="cursor-pointer">
+                      <summary className="text-sm text-muted-foreground hover:text-foreground">
+                        📋 Ou cole múltiplas palavras separadas por vírgula
+                      </summary>
+                      <Textarea
+                        className="mt-2"
+                        rows={2}
+                        placeholder="suporte, ajuda, problema, erro, bug, técnico, instalação"
+                        onBlur={(e) => {
+                          const text = e.target.value.trim();
+                          if (text) {
+                            const newKeywords = text
+                              .split(/[,\n]/)
+                              .map(k => k.trim())
+                              .filter(k => k.length > 0 && !formData.delegationKeywords.includes(k));
+                            
+                            if (newKeywords.length > 0) {
+                              setFormData(prev => ({ 
+                                ...prev, 
+                                delegationKeywords: [...prev.delegationKeywords, ...newKeywords]
+                              }));
+                              e.target.value = '';
+                            }
+                          }
+                        }}
+                      />
+                    </details>
+                  </div>
                   <p className="text-xs text-muted-foreground mt-1">
                     Palavras-chave separadas por vírgula que ativarão este agente especializado
                   </p>
