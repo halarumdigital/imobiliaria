@@ -676,7 +676,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const evolutionResponse = await evolutionService.createInstance({
         instanceName,
-        qrcode: true
+        token: evolutionConfig.evolutionToken,
+        qrcode: true,
+        number: phone,
+        integration: "WHATSAPP-BAILEYS"
       });
 
       // Salvar instância no banco de dados local

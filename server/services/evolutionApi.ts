@@ -7,6 +7,8 @@ interface CreateInstanceRequest {
   instanceName: string;
   token?: string;
   qrcode?: boolean;
+  number?: string;
+  integration?: string;
 }
 
 interface InstanceStatus {
