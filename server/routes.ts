@@ -1314,6 +1314,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Nome e telefone são obrigatórios" });
       }
 
+      // Check if instance with same name already exists for this company
+      const existingInstances = await storage.getWhatsappInstancesByCompany(req.user.companyId);
+      const nameExists = existingInstances.some(instance => 
+        instance.name.toLowerCase() === name.toLowerCase()
+      );
+      
+      if (nameExists) {
+        return res.status(400).json({ 
+          error: "Já existe uma instância com este nome",
+          details: "Escolha um nome diferente para a instância"
+        });
+      }
+
       // Buscar configurações da Evolution API
       const evolutionConfig = await storage.getEvolutionApiConfiguration();
       if (!evolutionConfig || !evolutionConfig.evolutionURL || !evolutionConfig.evolutionToken) {
