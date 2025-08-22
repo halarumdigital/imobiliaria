@@ -548,6 +548,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Instância não encontrada" });
       }
       
+      // Fix for existing instances without companyId
+      if (!instance.companyId && req.user.companyId) {
+        console.log("Fixing missing companyId for instance");
+        await storage.updateWhatsappInstance(id, { companyId: req.user.companyId });
+        instance.companyId = req.user.companyId;
+      }
+      
       if (instance.companyId !== req.user.companyId) {
         console.log("Company mismatch - Instance:", instance.companyId, "User:", req.user.companyId);
         return res.status(404).json({ error: "Instância não encontrada" });
