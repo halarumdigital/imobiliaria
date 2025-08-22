@@ -1,0 +1,141 @@
+   message: {
+
+      conversation: 'Olá! Eu sou o Alex, assistente virtual da [Nome da Imobiliária]. Estou aqui para ajudá-lo(a) a encontrar o imóvel ideal ou esclarecer suas dúvidas sobre o mercado imobiliário. Para começar, como posso chamar você?'
+
+    },
+
+    contextInfo: null,
+
+    messageType: 'conversation',
+
+    messageTimestamp: 1755902003,
+
+    instanceId: 'e5b71c35-276b-417e-a1c3-267f904b2b98',
+
+    source: 'unknown'
+
+  },
+
+  destination: 'https://79e4e196-eb12-4414-8f84-45ae132f9718-00-ojvhl9qdrt4k.worf.replit.dev/api/webhook/messages',
+
+  date_time: '2025-08-22T19:33:24.144Z',
+
+  sender: '5514981856962@s.whatsapp.net',
+
+  server_url: 'https://apizap.halarum.com.br',
+
+  apikey: '94eff8b9da7b6c86e50b5c43334f6f69'
+
+} 
+
+[Evolution API]  [deploy2]  v2.3.1  163   -  Fri Aug 22 2025 19:33:25     LOG   [ChannelStartupService]  [string]  Update messages [
+
+  {
+
+    "key": {
+
+      "remoteJid": "5514981856962@s.whatsapp.net",
+
+      "id": "3EB02A4DC54CA13D3174FAD7951D1E4DF896D861",
+
+      "fromMe": true
+
+    },
+
+    "update": {
+
+      "status": 2
+
+    }
+
+  }
+
+] 
+
+[Evolution API]    v2.3.1  163   -  Fri Aug 22 2025 19:33:25     LOG   [WebsocketController]  [object]   
+
+{
+
+  local: 'p.sendData-WebsocketGlobal',
+
+  event: 'messages.update',
+
+  instance: 'deploy2',
+
+
+
+{
+
+    messageId: 'cmeneptil0e6tlh4j4v4rvfi1',
+
+    keyId: '3EB02A4DC54CA13D3174FAD7951D1E4DF896D861',
+
+    remoteJid: '5514981856962@s.whatsapp.net',
+
+    fromMe: true,
+
+    participant: '5514981856962@s.whatsapp.net',
+
+    status: 'SERVER_ACK',
+
+    pollUpdates: undefined,
+
+    instanceId: 'e5b71c35-276b-417e-a1c3-267f904b2b98'
+
+  },
+
+  server_url: 'https://apizap.halarum.com.br',
+
+  date_time: '2025-08-22T19:33:25.027Z',
+
+  sender: '5514981856962@s.whatsapp.net',
+
+  apikey: '94eff8b9da7b6c86e50b5c43334f6f69'
+
+} 
+
+[Evolution API]    v2.3.1  163   -  Fri Aug 22 2025 19:33:25     LOG   [WebhookController]  [object]   
+
+{
+
+  local: 'p.sendData-Webhook',
+
+  url: 'https://79e4e196-eb12-4414-8f84-45ae132f9718-00-ojvhl9qdrt4k.worf.replit.dev/api/webhook/messages/messages-update',
+
+  event: 'messages.update',
+
+  instance: 'deploy2',
+
+
+
+{
+
+    messageId: 'cmeneptil0e6tlh4j4v4rvfi1',
+
+    keyId: '3EB02A4DC54CA13D3174FAD7951D1E4DF896D861',
+
+    remoteJid: '5514981856962@s.whatsapp.net',
+
+    fromMe: true,
+
+    participant: '5514981856962@s.whatsapp.net',
+
+    status: 'SERVER_ACK',
+
+    pollUpdates: undefined,
+
+    instanceId: 'e5b71c35-276b-417e-a1c3-267f904b2b98'
+
+  },
+
+  destination: 'https://79e4e196-eb12-4414-8f84-45ae132f9718-00-ojvhl9qdrt4k.worf.replit.dev/api/webhook/messages',
+
+  date_time: '2025-08-22T19:33:25.027Z',
+
+  sender: '5514981856962@s.whatsapp.net',
+
+  server_url: 'https://apizap.halarum.com.br',
+
+  apikey: '94eff8b9da7b6c86e50b5c43334f6f69'
+
+}
