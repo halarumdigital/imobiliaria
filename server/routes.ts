@@ -1413,16 +1413,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Link AI agent to WhatsApp instance
-  app.post("/api/whatsapp-instances/:instanceId/link-agent", authenticate, requireClient, requireCompanyAccess, async (req, res) => {
+  app.post("/api/whatsapp-instances/:instanceId/link-agent", authenticate, requireClient, async (req: AuthRequest, res) => {
     try {
       const { instanceId } = req.params;
       const { agentId } = req.body;
 
-      const instance = await storage.updateWhatsappInstance(instanceId, {
+      // Verificar se a instância pertence à empresa do usuário
+      const instance = await storage.getWhatsappInstance(instanceId);
+      if (!instance) {
+        return res.status(404).json({ error: "Instância não encontrada" });
+      }
+
+      if (req.user?.role !== 'admin' && instance.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Acesso negado: não é possível acessar dados de outra empresa" });
+      }
+
+      // Verificar se o agente pertence à empresa do usuário
+      const agent = await storage.getAiAgent(agentId);
+      if (!agent) {
+        return res.status(404).json({ error: "Agente não encontrado" });
+      }
+
+      if (req.user?.role !== 'admin' && agent.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Acesso negado: agente não pertence à sua empresa" });
+      }
+
+      const updatedInstance = await storage.updateWhatsappInstance(instanceId, {
         aiAgentId: agentId
       });
 
-      res.json(instance);
+      res.json(updatedInstance);
     } catch (error) {
       console.error("Link agent error:", error);
       res.status(500).json({ error: "Erro ao vincular agente" });
