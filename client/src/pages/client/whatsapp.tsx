@@ -16,8 +16,10 @@ import { MessageSquare, Plus, Settings, Unlink, QrCode, RefreshCw, Trash2 } from
 export default function WhatsApp() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [selectedInstance, setSelectedInstance] = useState<string | null>(null);
+  const [qrLoading, setQrLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -102,15 +104,23 @@ export default function WhatsApp() {
 
   const handleGenerateQR = async (instanceId: string) => {
     try {
-      const response = await apiGet(`/whatsapp-instances/${instanceId}/qr`);
-      setQrCode(response.qrCode);
       setSelectedInstance(instanceId);
+      setQrLoading(true);
+      setIsQrModalOpen(true);
+      setQrCode(null);
+      
+      // Call Evolution API to generate QR code
+      const response = await apiGet(`/whatsapp-instances/${instanceId}/qrcode`);
+      setQrCode(response.qrCode);
     } catch (error) {
       toast({
         title: "Erro",
         description: "Erro ao gerar QR Code",
         variant: "destructive",
       });
+      setIsQrModalOpen(false);
+    } finally {
+      setQrLoading(false);
     }
   };
 
@@ -279,8 +289,8 @@ export default function WhatsApp() {
         </Card>
       </div>
 
-      {/* QR Code Panel */}
-      <div>
+      {/* QR Code Panel - Hidden on mobile, replaced by modal */}
+      <div className="hidden lg:block">
         <Card>
           <CardHeader>
             <CardTitle>QR Code</CardTitle>
@@ -316,6 +326,51 @@ export default function WhatsApp() {
           </CardContent>
         </Card>
       </div>
+
+      {/* QR Code Modal */}
+      <Dialog open={isQrModalOpen} onOpenChange={setIsQrModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <QrCode className="w-5 h-5" />
+              QR Code WhatsApp
+            </DialogTitle>
+          </DialogHeader>
+          <div className="text-center space-y-4">
+            {qrLoading ? (
+              <div className="w-64 h-64 mx-auto bg-muted rounded-lg flex items-center justify-center">
+                <RefreshCw className="w-8 h-8 text-muted-foreground animate-spin" />
+              </div>
+            ) : qrCode ? (
+              <div>
+                <div className="w-64 h-64 mx-auto bg-muted rounded-lg flex items-center justify-center">
+                  <img 
+                    src={`data:image/png;base64,${qrCode}`} 
+                    alt="QR Code" 
+                    className="max-w-full max-h-full rounded" 
+                  />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Escaneie o QR Code com seu WhatsApp para conectar a instância
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => selectedInstance && handleGenerateQR(selectedInstance)}
+                  disabled={qrLoading}
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Atualizar QR
+                </Button>
+              </div>
+            ) : (
+              <div className="w-64 h-64 mx-auto bg-muted rounded-lg flex items-center justify-center">
+                <QrCode className="w-16 h-16 text-muted-foreground" />
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
