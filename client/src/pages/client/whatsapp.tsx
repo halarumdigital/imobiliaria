@@ -127,13 +127,26 @@ export default function WhatsApp() {
       // Call Evolution API to generate QR code
       const response = await apiGet(`/whatsapp-instances/${instanceId}/qr`);
       console.log("QR Response received:", response);
-      setQrCode(response.qrCode);
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Erro ao gerar QR Code",
-        variant: "destructive",
-      });
+      if (response.qrCode) {
+        setQrCode(response.qrCode);
+      }
+    } catch (error: any) {
+      console.error("Error generating QR:", error);
+      
+      // Check if the error is because instance is already connected
+      if (error?.response?.data?.connected || error?.response?.data?.error?.includes("já está conectada")) {
+        toast({
+          title: "Instância Conectada",
+          description: "Esta instância já está conectada ao WhatsApp. Para gerar um novo QR code, primeiro desconecte a instância.",
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Erro",
+          description: error?.response?.data?.details || "Erro ao gerar QR Code",
+          variant: "destructive",
+        });
+      }
       setIsQrModalOpen(false);
     } finally {
       setQrLoading(false);

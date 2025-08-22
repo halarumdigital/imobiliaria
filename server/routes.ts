@@ -602,17 +602,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       try {
-        // First try to get QR Code
-        console.log(`📱 Requesting QR Code for: ${instanceNameToUse}`);
+        // First check if instance is already connected
+        console.log(`🔍 Checking instance status: ${instanceNameToUse}`);
+        const statusResponse = await evolutionService.getInstanceStatus(instanceNameToUse);
+        console.log("Status Response from Evolution API:", JSON.stringify(statusResponse, null, 2));
+        
+        if (statusResponse?.instance?.state === 'open') {
+          console.log("⚠️ Instance is already connected, cannot generate QR code");
+          return res.status(400).json({ 
+            error: "Instância já está conectada",
+            details: "Para gerar um novo QR code, primeiro desconecte a instância",
+            connected: true
+          });
+        }
+        
+        // If not connected, try to get QR Code
+        console.log(`📱 Requesting QR Code for disconnected instance: ${instanceNameToUse}`);
         const qrResponse = await evolutionService.generateQRCode(instanceNameToUse);
         console.log("QR Response from Evolution API:", JSON.stringify(qrResponse, null, 2));
         
+        // Check if QR code was actually returned
+        const qrCodeData = qrResponse.qrcode?.base64 || qrResponse.base64 || qrResponse.qr;
+        if (!qrCodeData) {
+          console.log("⚠️ No QR code in response, instance may already be connected");
+          return res.status(400).json({ 
+            error: "QR Code não disponível",
+            details: "A instância pode já estar conectada ou em processo de conexão",
+            response: qrResponse
+          });
+        }
+        
         // Update instance with QR code
         await storage.updateWhatsappInstance(id, {
-          qrCode: qrResponse.qrcode?.base64 || qrResponse.base64
+          qrCode: qrCodeData
         });
 
-        res.json({ qrCode: qrResponse.qrcode?.base64 || qrResponse.base64 });
+        res.json({ qrCode: qrCodeData });
       } catch (qrError) {
         console.log("❌ QR generation failed, trying recovery steps...");
         console.error("QR Error:", qrError);
