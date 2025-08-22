@@ -122,13 +122,18 @@ export default function Configurations() {
               <Label className="text-sm font-medium mb-2 block">Logo do Sistema</Label>
               <div 
                 onClick={() => logoInputRef.current?.click()}
-                className="w-full h-32 border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 bg-muted/25 cursor-pointer flex flex-col items-center justify-center space-y-2 rounded-lg transition-colors"
+                className="w-full h-32 border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 bg-muted/25 cursor-pointer flex flex-col items-center justify-center space-y-2 rounded-lg transition-colors overflow-hidden"
               >
                 {formData.logo ? (
-                  <div className="flex flex-col items-center space-y-2">
-                    <Image className="w-8 h-8 text-green-600" />
-                    <span className="text-sm text-green-600">Logo carregado</span>
-                    <span className="text-xs text-muted-foreground">Clique para alterar</span>
+                  <div className="w-full h-full relative flex flex-col items-center justify-center">
+                    <img 
+                      src={formData.logo} 
+                      alt="Logo atual"
+                      className="max-w-full max-h-24 object-contain"
+                    />
+                    <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-black/60 text-white px-2 py-1 rounded text-xs">
+                      Clique para alterar
+                    </div>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center space-y-2">
@@ -151,13 +156,18 @@ export default function Configurations() {
               <Label className="text-sm font-medium mb-2 block">Favicon</Label>
               <div 
                 onClick={() => faviconInputRef.current?.click()}
-                className="w-full h-32 border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 bg-muted/25 cursor-pointer flex flex-col items-center justify-center space-y-2 rounded-lg transition-colors"
+                className="w-full h-32 border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 bg-muted/25 cursor-pointer flex flex-col items-center justify-center space-y-2 rounded-lg transition-colors overflow-hidden"
               >
                 {formData.favicon ? (
-                  <div className="flex flex-col items-center space-y-2">
-                    <Image className="w-8 h-8 text-green-600" />
-                    <span className="text-sm text-green-600">Favicon carregado</span>
-                    <span className="text-xs text-muted-foreground">Clique para alterar</span>
+                  <div className="w-full h-full relative flex flex-col items-center justify-center">
+                    <img 
+                      src={formData.favicon} 
+                      alt="Favicon atual"
+                      className="max-w-16 max-h-16 object-contain"
+                    />
+                    <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-black/60 text-white px-2 py-1 rounded text-xs">
+                      Clique para alterar
+                    </div>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center space-y-2">

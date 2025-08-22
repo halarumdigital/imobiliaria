@@ -145,12 +145,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const publicConfig = {
           logo: config.logo,
           favicon: config.favicon,
-          coresPrimaria: config.coresPrimaria,
-          coresSecundaria: config.coresSecundaria,
-          coresFundo: config.coresFundo,
-          nomeSistema: config.nomeSistema,
-          nomeRodape: config.nomeRodape,
-          nomeAbaNavegador: config.nomeAbaNavegador
+          coresPrimaria: config.cores_primaria,
+          coresSecundaria: config.cores_secundaria,
+          coresFundo: config.cores_fundo,
+          nomeSistema: config.nome_sistema,
+          nomeRodape: config.nome_rodape,
+          nomeAbaNavegador: config.nome_aba_navegador
         };
         res.json(publicConfig);
       } else {
