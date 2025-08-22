@@ -48,6 +48,12 @@ export const getQueryFn: <T>(options: {
       },
     });
 
+    // Verificar se há um novo token no header
+    const newToken = res.headers.get('X-New-Token');
+    if (newToken) {
+      localStorage.setItem("token", newToken);
+    }
+
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
       return null;
     }

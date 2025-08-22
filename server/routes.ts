@@ -133,7 +133,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/auth/me", authenticate, async (req: AuthRequest, res) => {
-    res.json({ user: req.user });
+    try {
+      // Buscar dados completos do usuário no banco
+      const fullUser = await storage.getUser(req.user!.id);
+      if (fullUser && fullUser.companyId && !req.user!.companyId) {
+        // Se o usuário tem companyId no banco mas não no token, gerar novo token
+        const newToken = generateToken(fullUser);
+        res.header('X-New-Token', newToken);
+        res.json({ 
+          user: fullUser,
+          needsTokenRefresh: true,
+          newToken
+        });
+      } else {
+        res.json({ user: req.user });
+      }
+    } catch (error) {
+      console.error('Auth me error:', error);
+      res.json({ user: req.user });
+    }
   });
 
   // Global configurations - Public view for branding
