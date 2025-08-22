@@ -1669,6 +1669,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Endpoints específicos para eventos da Evolution API
+  app.post("/api/webhook/messages/messages-upsert", async (req, res) => {
+    try {
+      console.log("📨 [MESSAGES-UPSERT] Processing incoming message");
+      console.log("🔥 [MESSAGES-UPSERT] Full request body:", JSON.stringify(req.body, null, 2));
+      
+      // Redirecionar para o processamento principal
+      await whatsappWebhookService.handleEvolutionMessage(req.body);
+      
+      res.status(200).json({ 
+        success: true, 
+        processed: true, 
+        type: "messages_upsert", 
+        timestamp: new Date().toISOString() 
+      });
+    } catch (error) {
+      console.error("❌ Error in messages-upsert webhook:", error);
+      res.status(200).json({ success: true, processed: false });
+    }
+  });
+
+  app.post("/api/webhook/messages/chats-update", async (req, res) => {
+    console.log("💬 [CHATS-UPDATE] Chat update received (ignoring)");
+    res.status(200).json({ success: true, processed: false, type: "chats_update" });
+  });
+
+  app.post("/api/webhook/messages/messages-update", async (req, res) => {
+    console.log("📝 [MESSAGES-UPDATE] Message update received (ignoring)");
+    res.status(200).json({ success: true, processed: false, type: "messages_update" });
+  });
+
+  app.post("/api/webhook/messages/send-message", async (req, res) => {
+    console.log("📤 [SEND-MESSAGE] Send message confirmation received (ignoring)");
+    res.status(200).json({ success: true, processed: false, type: "send_message" });
+  });
+
+  app.post("/api/webhook/messages/chats-upsert", async (req, res) => {
+    console.log("💬 [CHATS-UPSERT] Chat upsert received (ignoring)");
+    res.status(200).json({ success: true, processed: false, type: "chats_upsert" });
+  });
+
   // Endpoint adicional para Evolution API (formato padrão)
   app.post("/api/webhook/messages", async (req, res) => {
     try {

@@ -71,14 +71,13 @@ export class WhatsAppWebhookService {
       }
 
       // Extrair o número do remetente CORRETO da mensagem
-      const senderPhone = data.key?.remoteJid?.replace('@s.whatsapp.net', '') || 
-                          evolutionData.sender?.replace('@s.whatsapp.net', '');
+      const senderPhone = evolutionData.sender?.replace('@s.whatsapp.net', '');
       if (!senderPhone) {
         console.log("❌ Could not extract sender phone from Evolution message");
         return;
       }
       
-      console.log(`📞 Sender phone extracted: ${senderPhone} (from ${data.key?.remoteJid || evolutionData.sender})`);
+      console.log(`📞 Sender phone extracted: ${senderPhone} (from ${evolutionData.sender})`);
 
       // Buscar o nome da instância no Evolution API pela instanceId
       console.log(`🔍 About to search for instance ID: ${data.instanceId}`);
@@ -222,8 +221,10 @@ export class WhatsAppWebhookService {
     const data = evolutionData.data;
     
     // CRÍTICO: Verificar se a mensagem foi enviada por nós (evitar loop infinito)
-    if (data.key?.fromMe === true) {
-      console.log("❌ Evolution message ignored - message sent by us (fromMe: true)");
+    // Note: Evolution API não envia key.fromMe em todos os casos, então vamos verificar outros sinais
+    if (data.status === 'PENDING' && evolutionData.destination) {
+      // Esta é nossa própria mensagem sendo enviada
+      console.log("❌ Evolution message ignored - message sent by us (detected via status and destination)");
       return false;
     }
     
@@ -289,7 +290,7 @@ export class WhatsAppWebhookService {
       return null;
     } catch (error) {
       console.error("❌ Error in getInstanceNameById:", error);
-      console.error("❌ Stack trace:", error.stack);
+      console.error("❌ Stack trace:", (error as Error).stack);
       return null;
     }
   }
