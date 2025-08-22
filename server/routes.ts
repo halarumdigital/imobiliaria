@@ -985,6 +985,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: "Configuração da Evolution API não encontrada" });
       }
 
+      // Get global configuration for system URL
+      console.log("🔧 Buscando configuração global para URL do sistema...");
+      const globalConfig = await storage.getGlobalConfiguration();
+      if (!globalConfig || !globalConfig.systemUrl) {
+        console.log("❌ URL do sistema não configurada");
+        return res.status(500).json({ error: "URL do sistema não está configurada no painel administrativo" });
+      }
+
       // Check if instance has evolutionInstanceId
       if (!instance.evolutionInstanceId) {
         console.log(`❌ Instância AINDA não tem evolutionInstanceId definido para webhook após correções`);
@@ -997,10 +1005,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Default webhook payload - wrapped in webhook property as required by Evolution API
+      const webhookUrl = `${globalConfig.systemUrl}/api/webhook/messages`;
       const webhook = {
         webhook: {
           enabled: true,
-          url: "https://webhook.site",
+          url: webhookUrl,
           headers: {
             autorization: "Bearer TOKEN",
             "Content-Type": "application/json"
@@ -1021,6 +1030,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       console.log(`🤖 Configurando webhook da instância: ${instance.evolutionInstanceId}`);
+      console.log(`🌐 URL do webhook: ${webhookUrl}`);
       console.log(`📋 Webhook:`, JSON.stringify(webhook, null, 2));
       
       // First check if instance exists in Evolution API
