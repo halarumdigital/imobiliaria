@@ -18,20 +18,27 @@ export default function AiSettings() {
   const [showApiKey, setShowApiKey] = useState(false);
   const [testPrompt, setTestPrompt] = useState("");
 
-  const { data: config, isLoading } = useQuery<AiConfiguration>({
-    queryKey: ["/ai-config"],
+  const { data: config, isLoading, error } = useQuery<AiConfiguration>({
+    queryKey: ["/api/ai-config"],
   });
 
   useEffect(() => {
+    console.log("AI Config loaded:", config);
     if (config) {
       setFormData(config);
     }
   }, [config]);
 
+  useEffect(() => {
+    if (error) {
+      console.error("Error loading AI config:", error);
+    }
+  }, [error]);
+
   const saveMutation = useMutation({
-    mutationFn: (data: Partial<AiConfiguration>) => apiPost("/ai-config", data),
+    mutationFn: (data: Partial<AiConfiguration>) => apiPost("/api/ai-config", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/ai-config"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/ai-config"] });
       toast({
         title: "Sucesso",
         description: "Configurações de IA salvas com sucesso!",
@@ -47,7 +54,7 @@ export default function AiSettings() {
   });
 
   const testMutation = useMutation({
-    mutationFn: (prompt: string) => apiPost("/ai-config/test", { prompt }),
+    mutationFn: (prompt: string) => apiPost("/api/ai-config/test", { prompt }),
     onSuccess: (data) => {
       toast({
         title: "✅ Teste bem-sucedido!",
