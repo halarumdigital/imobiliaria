@@ -305,7 +305,7 @@ export default function WhatsApp() {
             {qrCode ? (
               <div>
                 <div className="w-48 h-48 mx-auto mb-4 bg-muted rounded-lg flex items-center justify-center">
-                  <img src={`data:image/png;base64,${qrCode}`} alt="QR Code" className="max-w-full max-h-full" />
+                  <img src={qrCode} alt="QR Code" className="max-w-full max-h-full" />
                 </div>
                 <p className="text-sm text-muted-foreground mb-3">
                   Escaneie o QR Code com seu WhatsApp para conectar a instância
@@ -351,7 +351,7 @@ export default function WhatsApp() {
               <div>
                 <div className="w-64 h-64 mx-auto bg-muted rounded-lg flex items-center justify-center">
                   <img 
-                    src={`data:image/png;base64,${qrCode}`} 
+                    src={qrCode} 
                     alt="QR Code" 
                     className="max-w-full max-h-full rounded" 
                   />
