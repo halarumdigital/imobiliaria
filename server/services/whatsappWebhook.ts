@@ -221,6 +221,12 @@ export class WhatsAppWebhookService {
   private shouldProcessEvolutionMessage(evolutionData: EvolutionWebhookData): boolean {
     const data = evolutionData.data;
     
+    // CRÍTICO: Verificar se a mensagem foi enviada por nós (evitar loop infinito)
+    if (data.key?.fromMe === true) {
+      console.log("❌ Evolution message ignored - message sent by us (fromMe: true)");
+      return false;
+    }
+    
     // Verificar se tem conteúdo de texto
     const messageText = data.message.conversation || data.message.extendedTextMessage?.text;
     if (!messageText || messageText.trim().length === 0) {
