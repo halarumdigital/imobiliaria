@@ -175,7 +175,7 @@ export default function WhatsApp() {
                       id="phone"
                       value={formData.phone}
                       onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                      placeholder="Ex: +55 11 99999-9999"
+                      placeholder="5511999999999"
                       required
                     />
                     <p className="text-xs text-muted-foreground mt-1">
