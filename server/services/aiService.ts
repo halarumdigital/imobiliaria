@@ -85,8 +85,15 @@ export class AIService {
       console.log(`✅ Agent found: ${mainAgent.name}`);
 
       // Verificar se deve delegar para um agente secundário
+      console.log(`🔍 Verificando delegação para agente principal: ${mainAgent.name}`);
       const delegatedAgent = await this.checkDelegation(mainAgent, context.message);
       const activeAgent = delegatedAgent || mainAgent;
+      
+      if (delegatedAgent) {
+        console.log(`🔄 DELEGAÇÃO ATIVADA! Mudando de "${mainAgent.name}" para "${delegatedAgent.name}"`);
+      } else {
+        console.log(`📋 Sem delegação. Usando agente principal: ${mainAgent.name}`);
+      }
 
       // Buscar configuração global de IA (nível administrador)
       const aiConfig = await storage.getAiConfiguration();
@@ -112,6 +119,7 @@ export class AIService {
       console.log(`✅ Agent found: ${mainAgent.name}, ID: ${mainAgent.id}`);
 
       // Gerar resposta usando OpenAI
+      console.log(`🤖 Gerando resposta com agente ativo: ${activeAgent.name} (Tipo: ${activeAgent.agentType || 'main'})`);
       const response = await this.generateResponse(activeAgent, context, aiConfig);
 
       return {
@@ -132,23 +140,27 @@ export class AIService {
       
       // Buscar agentes secundários vinculados ao agente principal
       const secondaryAgents = await storage.getSecondaryAgentsByParent(mainAgent.id);
+      console.log(`🔗 Agentes secundários encontrados: ${secondaryAgents.length}`);
       
       if (!secondaryAgents || secondaryAgents.length === 0) {
+        console.log(`❌ Nenhum agente secundário vinculado ao agente principal "${mainAgent.name}"`);
         return null;
       }
 
-      // Verificar palavras-chave de delegação
-      const messageWords = message.toLowerCase().split(/\s+/);
+      // Verificar palavras-chave de delegação (mesma lógica do AiResponseService)
+      const messageLower = message.toLowerCase();
+      console.log(`🔍 Verificando delegação entre ${secondaryAgents.length} agentes secundários`);
       
       for (const agent of secondaryAgents) {
         if (agent.delegationKeywords && Array.isArray(agent.delegationKeywords) && agent.delegationKeywords.length > 0) {
-          const keywords = agent.delegationKeywords.map((k: string) => k.toLowerCase());
-          const hasKeyword = messageWords.some(word => 
-            keywords.some((keyword: string) => word.includes(keyword) || keyword.includes(word))
+          const keywords = agent.delegationKeywords;
+          const hasKeyword = keywords.some(keyword => 
+            messageLower.includes(keyword.toLowerCase())
           );
           
           if (hasKeyword) {
-            console.log(`Delegating to agent ${agent.name} based on keywords: ${agent.delegationKeywords.join(', ')}`);
+            console.log(`✅ Palavras-chave encontradas para delegação ao agente: ${agent.name}`);
+            console.log(`🔑 Keywords: ${agent.delegationKeywords.join(', ')}`);
             return agent;
           }
         }
@@ -171,22 +183,21 @@ export class AIService {
       // Criar instância do OpenAI com a chave da configuração
       const openai = new OpenAI({ apiKey: aiConfig.apiKey });
 
-      // Construir o prompt do sistema baseado no agente
-      let systemPrompt = `Você é ${agent.name}, um assistente de IA especializado.`;
+      // Construir o prompt do sistema baseado no agente (usando lógica do AiResponseService)
+      let systemPrompt = agent.prompt || `Você é ${agent.name}, um assistente de IA especializado.`;
       
-      if (agent.description) {
-        systemPrompt += `\n\nDescrição: ${agent.description}`;
+      // Adicionar conhecimento base se disponível
+      if (agent.trainingContent && agent.trainingContent.trim()) {
+        systemPrompt += `\n\n=== CONHECIMENTO BASE ===\n${agent.trainingContent}\n=== FIM CONHECIMENTO BASE ===\n\n`;
+        systemPrompt += `Use as informações do CONHECIMENTO BASE acima para responder às perguntas do usuário de forma precisa e detalhada.`;
       }
       
-      if (agent.specialization && Array.isArray(agent.specialization) && agent.specialization.length > 0) {
-        systemPrompt += `\n\nEspecializações: ${agent.specialization.join(', ')}`;
-      }
-      
-      if (agent.agentType === 'secondary' && agent.specialization) {
-        systemPrompt += `\n\nVocê é um agente especializado responsável por responder questões relacionadas a: ${agent.specialization.join(', ')}`;
+      // Adicionar contexto de delegação se for agente secundário
+      if (agent.agentType === 'secondary') {
+        systemPrompt += `\n\nVocê é um agente especializado. Responda com base em sua especialização e conhecimento específico.`;
       }
 
-      systemPrompt += `\n\nResponda de forma útil, clara e concisa. Mantenha um tom profissional e amigável.`;
+      systemPrompt += `\n\nResponda sempre em português brasileiro de forma natural e helpful. Se a pergunta não puder ser respondida com o conhecimento fornecido, seja honesto sobre isso.`;
 
       // Construir histórico da conversa
       const messages: any[] = [
