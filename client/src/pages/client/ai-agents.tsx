@@ -37,6 +37,13 @@ export default function AiAgents() {
   const [chatHistory, setChatHistory] = useState<{message: string, response: string, timestamp: string}[]>([]);
   const [testingAgent, setTestingAgent] = useState<AiAgent | null>(null);
 
+  // Link form state
+  const [linkFormData, setLinkFormData] = useState({
+    instanceId: "",
+    agentId: "",
+  });
+  const [showLinkForm, setShowLinkForm] = useState(false);
+
   const { data: agents = [], isLoading } = useQuery<AiAgent[]>({
     queryKey: ["/api/ai-agents"],
   });
@@ -48,6 +55,16 @@ export default function AiAgents() {
   const { data: instances = [] } = useQuery<WhatsappInstance[]>({
     queryKey: ["/whatsapp-instances"],
   });
+
+  // Filter connected instances and main agents for linking
+  const connectedInstances = instances.filter(instance => 
+    instance.status === "connected" || 
+    (instance.evolutionInstanceId && instance.status !== "disconnected")
+  );
+  
+  const mainAgentsForLinking = agents.filter(agent => 
+    agent.agentType === "main" || !agent.agentType
+  );
 
   // Buscar configurações globais de IA do administrador
   const { data: aiConfig } = useQuery({
@@ -155,6 +172,27 @@ export default function AiAgents() {
     },
   });
 
+  const linkMutation = useMutation({
+    mutationFn: ({ instanceId, agentId }: { instanceId: string; agentId: string }) => 
+      apiPost(`/whatsapp-instances/${instanceId}/link-agent`, { agentId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/whatsapp-instances"] });
+      setLinkFormData({ instanceId: "", agentId: "" });
+      setShowLinkForm(false);
+      toast({
+        title: "Sucesso",
+        description: "Agente vinculado à instância com sucesso!",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Erro ao vincular agente",
+        variant: "destructive",
+      });
+    },
+  });
+
   const resetForm = () => {
     setFormData({
       name: "",
@@ -181,6 +219,24 @@ export default function AiAgents() {
     chatMutation.mutate({
       id: testingAgent.id,
       message: chatMessage,
+    });
+  };
+
+  const handleLinkSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!linkFormData.instanceId || !linkFormData.agentId) {
+      toast({
+        title: "Erro",
+        description: "Selecione uma instância e um agente",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    linkMutation.mutate({
+      instanceId: linkFormData.instanceId,
+      agentId: linkFormData.agentId,
     });
   };
 
@@ -236,7 +292,7 @@ export default function AiAgents() {
       prompt: agent.prompt,
       temperatura: agent.temperatura.toString(),
       trainingFiles: agent.trainingFiles || [],
-      agentType: agent.agentType || "main",
+      agentType: (agent.agentType || "main") as "main" | "secondary",
       parentAgentId: agent.parentAgentId || "",
       specialization: agent.specialization || "",
       delegationKeywords: agent.delegationKeywords || [],
@@ -699,9 +755,114 @@ export default function AiAgents() {
           {/* Link Agents Tab */}
           <TabsContent value="link">
             <div className="space-y-6">
-              <p className="text-sm text-muted-foreground">
-                Vincule agentes IA às suas instâncias WhatsApp diretamente na página de WhatsApp.
-              </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold">Vinculações de Agentes</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Vincule agentes IA às suas instâncias WhatsApp conectadas
+                  </p>
+                </div>
+                <Button 
+                  onClick={() => setShowLinkForm(true)}
+                  data-testid="button-create-link"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Criar Vinculação
+                </Button>
+              </div>
+
+              {/* Link Form */}
+              {showLinkForm && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Nova Vinculação</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      Selecione uma instância conectada e um agente principal
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <form onSubmit={handleLinkSubmit} className="space-y-4">
+                      <div>
+                        <Label htmlFor="instanceId">Instância WhatsApp</Label>
+                        <Select
+                          value={linkFormData.instanceId}
+                          onValueChange={(value) => setLinkFormData(prev => ({ ...prev, instanceId: value }))}
+                        >
+                          <SelectTrigger data-testid="select-instance">
+                            <SelectValue placeholder="Selecione uma instância conectada" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {connectedInstances.length === 0 ? (
+                              <div className="p-2 text-sm text-muted-foreground">
+                                Nenhuma instância conectada encontrada
+                              </div>
+                            ) : (
+                              connectedInstances
+                                .filter(instance => !instance.aiAgentId) // Only show instances without agents
+                                .map((instance) => (
+                                  <SelectItem key={instance.id} value={instance.id}>
+                                    📱 {instance.name} - {instance.phone || "Sem telefone"}
+                                  </SelectItem>
+                                ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Apenas instâncias conectadas e sem agente vinculado
+                        </p>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="agentId">Agente Principal</Label>
+                        <Select
+                          value={linkFormData.agentId}
+                          onValueChange={(value) => setLinkFormData(prev => ({ ...prev, agentId: value }))}
+                        >
+                          <SelectTrigger data-testid="select-agent">
+                            <SelectValue placeholder="Selecione um agente principal" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {mainAgentsForLinking.length === 0 ? (
+                              <div className="p-2 text-sm text-muted-foreground">
+                                Nenhum agente principal encontrado
+                              </div>
+                            ) : (
+                              mainAgentsForLinking.map((agent) => (
+                                <SelectItem key={agent.id} value={agent.id}>
+                                  🤖 {agent.name} - {agent.modelo}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Apenas agentes do tipo "Principal" podem ser vinculados
+                        </p>
+                      </div>
+
+                      <div className="flex justify-end space-x-3">
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          onClick={() => {
+                            setShowLinkForm(false);
+                            setLinkFormData({ instanceId: "", agentId: "" });
+                          }}
+                        >
+                          Cancelar
+                        </Button>
+                        <Button 
+                          type="submit" 
+                          disabled={linkMutation.isPending || !linkFormData.instanceId || !linkFormData.agentId}
+                          data-testid="button-save-link"
+                        >
+                          {linkMutation.isPending ? "Vinculando..." : "Criar Vinculação"}
+                        </Button>
+                      </div>
+                    </form>
+                  </CardContent>
+                </Card>
+              )}
               
               <div className="bg-muted rounded-lg p-4">
                 <h4 className="text-sm font-medium mb-3">Vinculações Ativas</h4>
@@ -712,10 +873,20 @@ export default function AiAgents() {
                     instances.filter(i => i.aiAgentId).map((instance) => {
                       const agent = agents.find(a => a.id === instance.aiAgentId);
                       return (
-                        <div key={instance.id} className="flex items-center justify-between p-2 bg-background rounded border">
-                          <span className="text-sm">
-                            {instance.name} ↔ {agent?.name || "Agente não encontrado"}
-                          </span>
+                        <div key={instance.id} className="flex items-center justify-between p-3 bg-background rounded border">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <span className="text-sm font-medium">
+                              📱 {instance.name}
+                            </span>
+                            <span className="text-sm text-muted-foreground">↔</span>
+                            <span className="text-sm font-medium">
+                              🤖 {agent?.name || "Agente não encontrado"}
+                            </span>
+                          </div>
+                          <Badge variant="outline" className="text-xs">
+                            Ativo
+                          </Badge>
                         </div>
                       );
                     })

@@ -78,6 +78,11 @@ export interface AiAgent {
   numeroTokens: number;
   modelo: string;
   trainingFiles?: string[];
+  trainingContent?: string;
+  agentType?: string; // 'main' | 'secondary'
+  parentAgentId?: string;
+  specialization?: string;
+  delegationKeywords?: string[];
   status: string;
   createdAt: string;
   updatedAt: string;
