@@ -1449,6 +1449,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Unlink AI agent from WhatsApp instance
+  app.post("/api/whatsapp-instances/:instanceId/unlink-agent", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { instanceId } = req.params;
+
+      // Verificar se a instância pertence à empresa do usuário
+      const instance = await storage.getWhatsappInstance(instanceId);
+      if (!instance) {
+        return res.status(404).json({ error: "Instância não encontrada" });
+      }
+
+      if (req.user?.role !== 'admin' && instance.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Acesso negado: não é possível acessar dados de outra empresa" });
+      }
+
+      const updatedInstance = await storage.updateWhatsappInstance(instanceId, {
+        aiAgentId: null
+      });
+
+      res.json(updatedInstance);
+    } catch (error) {
+      console.error("Unlink agent error:", error);
+      res.status(500).json({ error: "Erro ao remover vinculação" });
+    }
+  });
+
   // Conversations
   app.get("/api/conversations", authenticate, requireClient, async (req: AuthRequest, res) => {
     try {

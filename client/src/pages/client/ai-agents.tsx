@@ -175,7 +175,7 @@ export default function AiAgents() {
     mutationFn: ({ instanceId, agentId }: { instanceId: string; agentId: string }) => 
       apiPost(`/whatsapp-instances/${instanceId}/link-agent`, { agentId }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/whatsapp-instances"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-instances"] });
       setLinkFormData({ instanceId: "", agentId: "" });
       setShowLinkForm(false);
       toast({
@@ -187,6 +187,25 @@ export default function AiAgents() {
       toast({
         title: "Erro",
         description: error instanceof Error ? error.message : "Erro ao vincular agente",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const unlinkMutation = useMutation({
+    mutationFn: (instanceId: string) => 
+      apiPost(`/whatsapp-instances/${instanceId}/unlink-agent`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-instances"] });
+      toast({
+        title: "Sucesso", 
+        description: "Vinculação removida com sucesso!",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Erro ao remover vinculação",
         variant: "destructive",
       });
     },
@@ -237,6 +256,12 @@ export default function AiAgents() {
       instanceId: linkFormData.instanceId,
       agentId: linkFormData.agentId,
     });
+  };
+
+  const handleUnlink = (instanceId: string, instanceName: string) => {
+    if (confirm(`Tem certeza que deseja remover a vinculação da instância "${instanceName}"?`)) {
+      unlinkMutation.mutate(instanceId);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -883,9 +908,22 @@ export default function AiAgents() {
                               🤖 {agent?.name || "Agente não encontrado"}
                             </span>
                           </div>
-                          <Badge variant="outline" className="text-xs">
-                            Ativo
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs">
+                              Ativo
+                            </Badge>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleUnlink(instance.id, instance.name)}
+                              disabled={unlinkMutation.isPending}
+                              className="text-destructive hover:text-destructive"
+                              data-testid={`unlink-button-${instance.id}`}
+                            >
+                              <Trash2 className="w-3 h-3 mr-1" />
+                              {unlinkMutation.isPending ? "Removendo..." : "Remover"}
+                            </Button>
+                          </div>
                         </div>
                       );
                     })
