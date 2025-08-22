@@ -1069,10 +1069,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         token: evolutionConfig.evolutionToken
       });
 
-      // Nome da instância será exatamente o nome fornecido pelo usuário
-      const instanceName = name.replace(/\s+/g, '_').toLowerCase();
+      // Nome da instância será único baseado no timestamp para evitar conflitos
+      const timestamp = Date.now().toString().slice(-6); // Últimos 6 dígitos do timestamp
+      const instanceName = `${name.replace(/\s+/g, '_').toLowerCase()}_${timestamp}`;
       
       console.log(`🚀 Creating Evolution instance with name: ${instanceName}`);
+      
+      // Primeiro tenta deletar se já existir (para evitar conflitos)
+      try {
+        await evolutionService.deleteInstance(instanceName);
+        console.log(`🗑️ Instância antiga ${instanceName} deletada`);
+      } catch (deleteError) {
+        console.log(`ℹ️ Instância ${instanceName} não existia (normal para nova instância)`);
+      }
+      
       const evolutionResponse = await evolutionService.createInstance({
         instanceName,
         qrcode: true,
