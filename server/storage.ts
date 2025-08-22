@@ -508,11 +508,23 @@ export class MySQLStorage implements IStorage {
     if (!this.connection) throw new Error('No database connection');
     
     const id = randomUUID();
+    console.log('Executando INSERT no banco:', {
+      id, 
+      companyId: instance.companyId, 
+      name: instance.name, 
+      phone: instance.phone, 
+      aiAgentId: instance.aiAgentId
+    });
+    
     await this.connection.execute(
       'INSERT INTO whatsapp_instances (id, company_id, name, phone, ai_agent_id) VALUES (?, ?, ?, ?, ?)',
       [id, instance.companyId || null, instance.name || null, instance.phone || null, instance.aiAgentId || null]
     );
-    return this.getWhatsappInstance(id) as Promise<WhatsappInstance>;
+    
+    console.log('INSERT executado, buscando instância criada...');
+    const createdInstance = await this.getWhatsappInstance(id);
+    console.log('Instância encontrada no banco:', createdInstance);
+    return createdInstance as WhatsappInstance;
   }
 
   async updateWhatsappInstance(id: string, updates: Partial<WhatsappInstance>): Promise<WhatsappInstance> {

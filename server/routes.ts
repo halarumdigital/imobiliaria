@@ -676,7 +676,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: 'disconnected' as const
       };
       
+      console.log('Tentando salvar instância no banco:', instanceData);
       const savedInstance = await storage.createWhatsappInstance(instanceData);
+      console.log('Instância salva no banco:', savedInstance?.id);
       
       res.json({
         success: true,
