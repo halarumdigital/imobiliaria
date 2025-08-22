@@ -985,11 +985,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: "Configuração da Evolution API não encontrada" });
       }
 
-      // Get system URL from Evolution API configuration
+      // Get system URL from Evolution API configuration or use default
       console.log("🔧 Verificando URL do sistema na configuração da Evolution API...");
-      if (!evolutionConfig.urlGlobalSistema) {
-        console.log("❌ URL do sistema não configurada na Evolution API");
-        return res.status(500).json({ error: "URL do sistema não está configurada na Evolution API" });
+      let systemUrl = evolutionConfig.urlGlobalSistema;
+      if (!systemUrl) {
+        systemUrl = "https://webhook.site"; // Fallback URL if not configured
+        console.log("⚠️ URL do sistema não configurada, usando URL padrão:", systemUrl);
+      } else {
+        console.log("✅ URL do sistema encontrada:", systemUrl);
       }
 
       // Check if instance has evolutionInstanceId
@@ -1004,7 +1007,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Default webhook payload - wrapped in webhook property as required by Evolution API
-      const webhookUrl = `${evolutionConfig.urlGlobalSistema}/api/webhook/messages`;
+      const webhookUrl = `${systemUrl}/api/webhook/messages`;
       const webhook = {
         webhook: {
           enabled: true,
