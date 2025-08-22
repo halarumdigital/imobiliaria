@@ -17,6 +17,12 @@ export async function apiRequest(
     ...options,
   });
 
+  // Verificar se há um novo token no header
+  const newToken = response.headers.get('X-New-Token');
+  if (newToken) {
+    localStorage.setItem("token", newToken);
+  }
+
   if (response.status === 401) {
     localStorage.removeItem("token");
     window.location.href = "/login";
