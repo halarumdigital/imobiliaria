@@ -1,0 +1,129 @@
+} 
+
+[Evolution API]    v2.3.1  163   -  Fri Aug 22 2025 18:43:02     LOG   [WebsocketController]  [object]   
+
+{
+
+  local: 'p.sendData-WebsocketGlobal',
+
+  event: 'contacts.update',
+
+  instance: 'deploy2',
+
+
+
+{
+
+    remoteJid: '554999214230@s.whatsapp.net',
+
+    pushName: 'Gilliard Damaceno',
+
+    profilePicUrl: 'https://pps.whatsapp.net/v/t61.24694-24/513624020_1300912378371849_7018201394958780872_n.jpg?ccb=11-4&oh=01_Q5Aa2QFA-H2RlRYGgoLMg3qZxvHlbQfiEPALjTiIZciCFa5LUA&oe=68B60D01&_nc_sid=5e03e0&_nc_cat=108',
+
+    instanceId: 'e5b71c35-276b-417e-a1c3-267f904b2b98'
+
+  },
+
+  server_url: 'https://apizap.halarum.com.br',
+
+  date_time: '2025-08-22T18:43:02.750Z',
+
+  sender: '5514981856962@s.whatsapp.net',
+
+  apikey: '94eff8b9da7b6c86e50b5c43334f6f69'
+
+} 
+
+[Evolution API]    v2.3.1  163   -  Fri Aug 22 2025 18:43:04     LOG   [WebsocketController]  [object]   
+
+{
+
+  local: 'p.sendData-WebsocketGlobal',
+
+  event: 'presence.update',
+
+  instance: 'deploy2',
+
+
+
+{
+
+    id: '554999214230@s.whatsapp.net',
+
+    presences: { '554999214230@s.whatsapp.net': [Object] }
+
+  },
+
+  server_url: 'https://apizap.halarum.com.br',
+
+  date_time: '2025-08-22T18:43:04.969Z',
+
+  sender: '5514981856962@s.whatsapp.net',
+
+  apikey: '94eff8b9da7b6c86e50b5c43334f6f69'
+
+} 
+
+[Evolution API]    v2.3.1  163   -  Fri Aug 22 2025 18:43:08     ERROR   [WebhookController]  [object]   
+
+{
+
+  local: 'p.sendData-Webhook',
+
+  message: 'Tentativa 2/10 falhou: Request failed with status code 503',
+
+  hostName: undefined,
+
+  syscall: undefined,
+
+  code: 'ERR_BAD_RESPONSE',
+
+  isTimeout: false,
+
+  statusCode: 503,
+
+  error: undefined,
+
+  stack: 'AxiosError: Request failed with status code 503\n' +
+
+    '    at settle (/evolution/node_modules/axios/dist/node/axios.cjs:2053:12)\n' +
+
+    '    at IncomingMessage.handleStreamEnd (/evolution/node_modules/axios/dist/node/axios.cjs:3170:11)\n' +
+
+    '    at IncomingMessage.emit (node:events:536:35)\n' +
+
+    '    at endReadableNT (node:internal/streams/readable:1698:12)\n' +
+
+    '    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)\n' +
+
+    '    at Axios.request (/evolution/node_modules/axios/dist/node/axios.cjs:4280:41)\n' +
+
+    '    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n' +
+
+    '    at async co.retryWebhookRequest (/evolution/dist/main.js:275:56866)\n' +
+
+    '    at async co.emit (/evolution/dist/main.js:275:55677)\n' +
+
+    '    at async lo.emit (/evolution/dist/main.js:275:61286)\n' +
+
+    '    at async $s.sendDataWebhook (/evolution/dist/main.js:156:16881)',
+
+  name: 'AxiosError',
+
+  url: 'https://fecb1582-d6f5-4bf1-9db9-0bc9739f56af-00-1t55xg9nw8qv.riker.replit.dev/api/webhook/messages',
+
+  server_url: 'https://apizap.halarum.com.br'
+
+} 
+
+[Evolution API]    v2.3.1  163   -  Fri Aug 22 2025 18:43:08     LOG   [WebhookController]  [object]   
+
+{
+
+  local: 'p.sendData-Webhook',
+
+  message: 'Aguardando 10.6 segundos antes da próxima tentativa',
+
+  url: 'https://fecb1582-d6f5-4bf1-9db9-0bc9739f56af-00-1t55xg9nw8qv.riker.replit.dev/api/webhook/messages'
+
+} 
