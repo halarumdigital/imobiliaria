@@ -104,9 +104,6 @@ export default function Login() {
                 </div>
               )}
             </div>
-            {globalConfig?.nomeSistema && (
-              <h2 className="text-2xl font-bold text-foreground">{globalConfig.nomeSistema}</h2>
-            )}
             <p className="text-muted-foreground mt-2">Faça login para continuar</p>
           </div>
           
