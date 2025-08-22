@@ -27,7 +27,7 @@ export default function AiAgents() {
   });
 
   const { data: agents = [], isLoading } = useQuery<AiAgent[]>({
-    queryKey: ["/ai-agents"],
+    queryKey: ["/api/ai-agents"],
   });
 
   const { data: instances = [] } = useQuery<WhatsappInstance[]>({
@@ -40,9 +40,9 @@ export default function AiAgents() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => apiPost("/ai-agents", data),
+    mutationFn: (data: any) => apiPost("/api/ai-agents", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/ai-agents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/ai-agents"] });
       resetForm();
       setActiveTab("list");
       toast({
@@ -60,9 +60,9 @@ export default function AiAgents() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => apiPut(`/ai-agents/${id}`, data),
+    mutationFn: ({ id, data }: { id: string; data: any }) => apiPut(`/api/ai-agents/${id}`, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/ai-agents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/ai-agents"] });
       resetForm();
       setActiveTab("list");
       toast({
@@ -80,9 +80,9 @@ export default function AiAgents() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiDelete(`/ai-agents/${id}`),
+    mutationFn: (id: string) => apiDelete(`/api/ai-agents/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/ai-agents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/ai-agents"] });
       toast({
         title: "Sucesso",
         description: "Agente excluído com sucesso!",
