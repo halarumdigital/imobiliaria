@@ -481,7 +481,7 @@ export class MySQLStorage implements IStorage {
       id: rawData.id,
       apiKey: rawData.api_key,
       modelo: rawData.modelo,
-      temperatura: parseFloat(rawData.temperatura?.toString() || "0.7"),
+      temperatura: rawData.temperatura?.toString() || "0.7",
       numeroTokens: parseInt(rawData.numero_tokens?.toString() || "1000"),
       updatedAt: rawData.updated_at,
     } as AiConfiguration;
