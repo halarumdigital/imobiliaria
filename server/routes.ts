@@ -1098,7 +1098,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           base64: true,
           events: [
             "MESSAGES_UPSERT",
-            "MESSAGE_UPSERT", 
             "MESSAGES_UPDATE", 
             "MESSAGES_DELETE",
             "SEND_MESSAGE",
@@ -1189,7 +1188,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           base64: true,
           events: [
             "MESSAGES_UPSERT",
-            "MESSAGE_UPSERT", 
             "MESSAGES_UPDATE", 
             "MESSAGES_DELETE",
             "SEND_MESSAGE",
@@ -1725,6 +1723,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Erro ao processar webhook" });
     }
   });
+
 
 
   // Endpoint de teste para simular mensagem
