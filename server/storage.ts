@@ -257,7 +257,7 @@ export class MySQLStorage implements IStorage {
     if (!this.connection) throw new Error('No database connection');
     
     const [rows] = await this.connection.execute(
-      'SELECT * FROM users WHERE id = ?',
+      'SELECT id, email, password, role, company_id as companyId, created_at as createdAt, updated_at as updatedAt FROM users WHERE id = ?',
       [id]
     );
     return (rows as User[])[0];
@@ -267,7 +267,7 @@ export class MySQLStorage implements IStorage {
     if (!this.connection) throw new Error('No database connection');
     
     const [rows] = await this.connection.execute(
-      'SELECT * FROM users WHERE email = ?',
+      'SELECT id, email, password, role, company_id as companyId, created_at as createdAt, updated_at as updatedAt FROM users WHERE email = ?',
       [email]
     );
     return (rows as User[])[0];
