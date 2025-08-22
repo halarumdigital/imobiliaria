@@ -524,7 +524,19 @@ export class MySQLStorage implements IStorage {
       'SELECT * FROM whatsapp_instances WHERE id = ?',
       [id]
     );
-    return (rows as WhatsappInstance[])[0];
+    const row = (rows as any[])[0];
+    if (!row) return undefined;
+    
+    // Convert snake_case to camelCase
+    return {
+      ...row,
+      companyId: row.company_id,
+      evolutionInstanceId: row.evolution_instance_id,
+      qrCode: row.qr_code,
+      aiAgentId: row.ai_agent_id,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    } as WhatsappInstance;
   }
 
   async getWhatsappInstancesByCompany(companyId: string): Promise<WhatsappInstance[]> {
@@ -534,13 +546,27 @@ export class MySQLStorage implements IStorage {
       'SELECT * FROM whatsapp_instances WHERE company_id = ? ORDER BY created_at DESC',
       [companyId]
     );
-    return rows as WhatsappInstance[];
+    
+    // Convert snake_case to camelCase for all rows
+    return (rows as any[]).map(row => ({
+      ...row,
+      companyId: row.company_id,
+      evolutionInstanceId: row.evolution_instance_id,
+      qrCode: row.qr_code,
+      aiAgentId: row.ai_agent_id,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    })) as WhatsappInstance[];
   }
 
   async createWhatsappInstance(instance: InsertWhatsappInstance): Promise<WhatsappInstance> {
     if (!this.connection) throw new Error('No database connection');
     
     const id = randomUUID();
+    
+    console.log(`🔍 CRIANDO NO MYSQL:`);
+    console.log(`  - evolutionInstanceId recebido: "${instance.evolutionInstanceId}"`);
+    
     await this.connection.execute(
       'INSERT INTO whatsapp_instances (id, company_id, name, phone, evolution_instance_id, status, ai_agent_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [
@@ -554,7 +580,20 @@ export class MySQLStorage implements IStorage {
       ]
     );
     
+    // Debug: verificar o que foi salvo
+    const [rows] = await this.connection.execute(
+      'SELECT evolution_instance_id FROM whatsapp_instances WHERE id = ?',
+      [id]
+    );
+    console.log(`🔍 VERIFICANDO O QUE FOI SALVO:`, rows);
+    
     const createdInstance = await this.getWhatsappInstance(id);
+    console.log(`🔍 INSTÂNCIA RETORNADA:`, {
+      id: createdInstance?.id,
+      name: createdInstance?.name,
+      evolutionInstanceId: createdInstance?.evolutionInstanceId
+    });
+    
     return createdInstance as WhatsappInstance;
   }
 

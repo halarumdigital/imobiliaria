@@ -785,7 +785,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         instance.companyId = req.user.companyId;
       }
 
-      // Só corrigir evolutionInstanceId se realmente não existir
+      // Fix for existing instances without evolutionInstanceId
+      if (!instance.evolutionInstanceId && instance.name) {
+        const evolutionInstanceId = instance.name.replace(/\s+/g, '_').toLowerCase();
+        console.log(`🔧 Corrigindo evolutionInstanceId ausente automaticamente: ${instance.name} -> ${evolutionInstanceId}`);
+        await storage.updateWhatsappInstance(id, { evolutionInstanceId });
+        instance.evolutionInstanceId = evolutionInstanceId;
+      }
+
+      // Se ainda não tem evolutionInstanceId, não pode verificar status
       if (!instance.evolutionInstanceId) {
         console.log(`⚠️ Instância sem evolutionInstanceId: ${instance.name} - não pode verificar status`);
         return res.status(400).json({ 
