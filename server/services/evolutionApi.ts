@@ -90,6 +90,16 @@ export class EvolutionApiService {
     return this.makeRequest(`/chat/findMessages/${instanceName}`);
   }
 
+  async listInstances(): Promise<any[]> {
+    try {
+      const response = await this.makeRequest('/instance/fetchInstances');
+      return response || [];
+    } catch (error) {
+      console.error("Error listing instances:", error);
+      return [];
+    }
+  }
+
   async testConnection(): Promise<boolean> {
     try {
       await this.makeRequest('/instance/fetchInstances');

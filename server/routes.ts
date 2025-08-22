@@ -655,6 +655,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const instanceNameToDelete = instance.evolutionInstanceId || instance.id;
           console.log("Deleting from Evolution API:", instanceNameToDelete);
           
+          // First, list all instances to debug
+          const allInstances = await evolutionService.listInstances();
+          console.log("All Evolution API instances:", JSON.stringify(allInstances, null, 2));
+          
           await evolutionService.deleteInstance(instanceNameToDelete);
           console.log("Successfully deleted from Evolution API");
         }
