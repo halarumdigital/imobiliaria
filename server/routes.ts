@@ -16,6 +16,8 @@ import {
 import { EvolutionApiService } from "./services/evolutionApi";
 import { OpenAiService } from "./services/openai";
 import { ObjectStorageService } from "./objectStorage";
+import { extractTextFromMultiplePDFs } from "./pdfProcessor";
+import { AiResponseService } from "./aiResponseService";
 import { 
   insertUserSchema, insertCompanySchema, insertGlobalConfigSchema, 
   insertEvolutionConfigSchema, insertAiConfigSchema, insertWhatsappInstanceSchema,
@@ -724,7 +726,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         companyId: req.user.companyId
       });
 
-      const agent = await storage.createAiAgent(agentData);
+      // Process PDFs if training files are provided
+      let trainingContent = '';
+      if (agentData.trainingFiles && Array.isArray(agentData.trainingFiles) && agentData.trainingFiles.length > 0) {
+        try {
+          console.log(`🤖 Processando ${agentData.trainingFiles.length} PDFs para o agente: ${agentData.name}`);
+          trainingContent = await extractTextFromMultiplePDFs(agentData.trainingFiles);
+          console.log(`✅ Conteúdo extraído com sucesso para o agente: ${agentData.name}`);
+        } catch (pdfError) {
+          console.error('❌ Erro ao processar PDFs:', pdfError);
+          // Continue without training content but log the error
+          trainingContent = `Erro ao processar PDFs: ${pdfError.message}`;
+        }
+      }
+
+      const agentWithContent = {
+        ...agentData,
+        trainingContent
+      };
+
+      const agent = await storage.createAiAgent(agentWithContent);
       res.status(201).json(agent);
     } catch (error) {
       console.error("Create AI agent error:", error);
@@ -736,7 +757,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const agentData = insertAiAgentSchema.partial().parse(req.body);
-      const agent = await storage.updateAiAgent(id, agentData);
+
+      // Process PDFs if training files are updated
+      let updateData = { ...agentData };
+      if (agentData.trainingFiles && Array.isArray(agentData.trainingFiles)) {
+        try {
+          console.log(`🤖 Atualizando PDFs para o agente ID: ${id}`);
+          const trainingContent = await extractTextFromMultiplePDFs(agentData.trainingFiles);
+          updateData.trainingContent = trainingContent;
+          console.log(`✅ Conteúdo atualizado com sucesso para o agente ID: ${id}`);
+        } catch (pdfError) {
+          console.error('❌ Erro ao processar PDFs na atualização:', pdfError);
+          updateData.trainingContent = `Erro ao processar PDFs: ${pdfError.message}`;
+        }
+      }
+
+      const agent = await storage.updateAiAgent(id, updateData);
       res.json(agent);
     } catch (error) {
       console.error("Update AI agent error:", error);
@@ -752,6 +788,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Delete AI agent error:", error);
       res.status(500).json({ error: "Erro ao excluir agente" });
+    }
+  });
+
+  // Generate AI agent response
+  app.post("/api/ai-agents/:id/chat", authenticate, requireClient, requireCompanyAccess, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { message } = req.body;
+
+      if (!message) {
+        return res.status(400).json({ error: "Mensagem é obrigatória" });
+      }
+
+      // Get agent data
+      const agent = await storage.getAiAgent(id);
+      if (!agent) {
+        return res.status(404).json({ error: "Agente não encontrado" });
+      }
+
+      // Get AI configuration
+      const aiConfig = await storage.getAiConfiguration();
+      if (!aiConfig || !aiConfig.apiKey) {
+        return res.status(404).json({ error: "Configuração de IA não encontrada" });
+      }
+
+      // Create AI response service
+      const aiResponseService = new AiResponseService(aiConfig.apiKey);
+
+      // Generate response using agent's prompt and training content
+      const response = await aiResponseService.generateResponse({
+        message,
+        agentId: agent.id,
+        agentPrompt: agent.prompt,
+        agentTrainingContent: agent.trainingContent,
+        temperatura: agent.temperatura || aiConfig.temperatura,
+        modelo: agent.modelo || aiConfig.modelo,
+        numeroTokens: agent.numeroTokens || aiConfig.numeroTokens,
+      });
+
+      res.json({ response });
+    } catch (error) {
+      console.error("AI agent chat error:", error);
+      res.status(500).json({ error: "Erro ao gerar resposta" });
+    }
+  });
+
+  // Test AI agent
+  app.post("/api/ai-agents/:id/test", authenticate, requireClient, requireCompanyAccess, async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Get agent data
+      const agent = await storage.getAiAgent(id);
+      if (!agent) {
+        return res.status(404).json({ error: "Agente não encontrado" });
+      }
+
+      // Get AI configuration
+      const aiConfig = await storage.getAiConfiguration();
+      if (!aiConfig || !aiConfig.apiKey) {
+        return res.status(404).json({ error: "Configuração de IA não encontrada" });
+      }
+
+      // Create AI response service
+      const aiResponseService = new AiResponseService(aiConfig.apiKey);
+
+      // Test agent
+      const testResult = await aiResponseService.testAgent({
+        agentId: agent.id,
+        agentPrompt: agent.prompt,
+        agentTrainingContent: agent.trainingContent,
+        temperatura: agent.temperatura || aiConfig.temperatura,
+        modelo: agent.modelo || aiConfig.modelo,
+        numeroTokens: agent.numeroTokens || aiConfig.numeroTokens,
+      });
+
+      res.json(testResult);
+    } catch (error) {
+      console.error("AI agent test error:", error);
+      res.status(500).json({ error: "Erro ao testar agente" });
     }
   });
 

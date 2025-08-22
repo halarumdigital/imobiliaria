@@ -596,8 +596,8 @@ export class MySQLStorage implements IStorage {
     
     const id = randomUUID();
     await this.connection.execute(
-      'INSERT INTO ai_agents (id, company_id, name, prompt, temperatura, numero_tokens, modelo, training_files) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, agent.companyId, agent.name, agent.prompt, agent.temperatura, agent.numeroTokens, agent.modelo, JSON.stringify(agent.trainingFiles)]
+      'INSERT INTO ai_agents (id, company_id, name, prompt, temperatura, numero_tokens, modelo, training_files, training_content) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, agent.companyId, agent.name, agent.prompt, agent.temperatura, agent.numeroTokens, agent.modelo, JSON.stringify(agent.trainingFiles), agent.trainingContent || null]
     );
     return this.getAiAgent(id) as Promise<AiAgent>;
   }

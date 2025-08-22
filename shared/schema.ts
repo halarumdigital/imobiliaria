@@ -81,6 +81,7 @@ export const aiAgents = mysqlTable("ai_agents", {
   numeroTokens: int("numero_tokens").default(1000),
   modelo: varchar("modelo", { length: 50 }).default("gpt-4o"),
   trainingFiles: json("training_files"), // Array of file paths
+  trainingContent: text("training_content"), // Extracted content from PDFs
   status: varchar("status", { length: 20 }).default("active"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
@@ -166,6 +167,7 @@ export const insertAiAgentSchema = createInsertSchema(aiAgents).pick({
   numeroTokens: true,
   modelo: true,
   trainingFiles: true,
+  trainingContent: true,
 });
 
 export const insertConversationSchema = createInsertSchema(conversations).pick({

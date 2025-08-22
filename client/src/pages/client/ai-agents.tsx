@@ -13,7 +13,8 @@ import { queryClient } from "@/lib/queryClient";
 import { apiGet, apiPost, apiPut, apiDelete } from "@/lib/api";
 import { AiAgent, WhatsappInstance } from "@/types";
 import { ObjectUploader } from "@/components/ObjectUploader";
-import { Bot, Plus, Edit, Trash2, FileText, Upload } from "lucide-react";
+import { Bot, Plus, Edit, Trash2, FileText, Upload, TestTube2, Send } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export default function AiAgents() {
   const { toast } = useToast();
@@ -25,6 +26,11 @@ export default function AiAgents() {
     temperatura: "0.7",
     trainingFiles: [] as string[],
   });
+
+  // Chat test modal state
+  const [chatMessage, setChatMessage] = useState("");
+  const [chatHistory, setChatHistory] = useState<{message: string, response: string, timestamp: string}[]>([]);
+  const [testingAgent, setTestingAgent] = useState<AiAgent | null>(null);
 
   const { data: agents = [], isLoading } = useQuery<AiAgent[]>({
     queryKey: ["/api/ai-agents"],
@@ -97,6 +103,49 @@ export default function AiAgents() {
     },
   });
 
+  const testMutation = useMutation({
+    mutationFn: (id: string) => apiPost(`/api/ai-agents/${id}/test`),
+    onSuccess: (data) => {
+      toast({
+        title: data.success ? "Sucesso" : "Erro no teste",
+        description: data.message,
+        variant: data.success ? "default" : "destructive",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Erro ao testar agente",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const chatMutation = useMutation({
+    mutationFn: ({ id, message }: { id: string; message: string }) => 
+      apiPost(`/api/ai-agents/${id}/chat`, { message }),
+    onSuccess: (data, variables) => {
+      const newEntry = {
+        message: variables.message,
+        response: data.response,
+        timestamp: new Date().toLocaleTimeString(),
+      };
+      setChatHistory(prev => [...prev, newEntry]);
+      setChatMessage("");
+      toast({
+        title: "Resposta gerada",
+        description: "O agente respondeu com sucesso!",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Erro ao gerar resposta",
+        variant: "destructive",
+      });
+    },
+  });
+
   const resetForm = () => {
     setFormData({
       name: "",
@@ -105,6 +154,21 @@ export default function AiAgents() {
       trainingFiles: [],
     });
     setEditingAgent(null);
+  };
+
+  const openTestModal = (agent: AiAgent) => {
+    setTestingAgent(agent);
+    setChatHistory([]);
+    setChatMessage("");
+  };
+
+  const handleSendMessage = () => {
+    if (!chatMessage.trim() || !testingAgent) return;
+    
+    chatMutation.mutate({
+      id: testingAgent.id,
+      message: chatMessage,
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -231,12 +295,20 @@ export default function AiAgents() {
                       <span>Tokens: {agent.numeroTokens}</span>
                     </div>
 
-                    <div className="flex space-x-2">
+                    {agent.trainingFiles && agent.trainingFiles.length > 0 && (
+                      <div className="flex items-center gap-2 mb-3 p-2 bg-green-50 dark:bg-green-900/20 rounded">
+                        <FileText className="w-4 h-4 text-green-600" />
+                        <span className="text-xs text-green-700 dark:text-green-300">
+                          {agent.trainingFiles.length} PDF{agent.trainingFiles.length > 1 ? 's' : ''} carregado{agent.trainingFiles.length > 1 ? 's' : ''}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-2">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleEdit(agent)}
-                        className="flex-1"
                       >
                         <Edit className="w-3 h-3 mr-1" />
                         Editar
@@ -245,11 +317,86 @@ export default function AiAgents() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleDelete(agent.id)}
-                        className="flex-1 text-destructive hover:text-destructive"
+                        className="text-destructive hover:text-destructive"
                       >
                         <Trash2 className="w-3 h-3 mr-1" />
                         Excluir
                       </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => testMutation.mutate(agent.id)}
+                        disabled={testMutation.isPending}
+                      >
+                        <TestTube2 className="w-3 h-3 mr-1" />
+                        {testMutation.isPending ? "Testando..." : "Testar"}
+                      </Button>
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openTestModal(agent)}
+                          >
+                            <Send className="w-3 h-3 mr-1" />
+                            Chat
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+                          <DialogHeader>
+                            <DialogTitle>Chat com {agent.name}</DialogTitle>
+                            <DialogDescription>
+                              Teste o agente enviando mensagens e veja as respostas baseadas no prompt e PDFs carregados.
+                            </DialogDescription>
+                          </DialogHeader>
+                          
+                          <div className="flex-1 overflow-y-auto space-y-4 py-4">
+                            {chatHistory.length === 0 ? (
+                              <div className="text-center text-muted-foreground py-8">
+                                Inicie uma conversa com o agente...
+                              </div>
+                            ) : (
+                              chatHistory.map((entry, index) => (
+                                <div key={index} className="space-y-3">
+                                  <div className="flex justify-end">
+                                    <div className="max-w-[80%] bg-primary text-primary-foreground p-3 rounded-lg">
+                                      <p className="text-sm">{entry.message}</p>
+                                      <span className="text-xs opacity-70">{entry.timestamp}</span>
+                                    </div>
+                                  </div>
+                                  <div className="flex justify-start">
+                                    <div className="max-w-[80%] bg-muted p-3 rounded-lg">
+                                      <p className="text-sm">{entry.response}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                          
+                          <div className="flex gap-2 pt-4 border-t">
+                            <Input
+                              value={chatMessage}
+                              onChange={(e) => setChatMessage(e.target.value)}
+                              placeholder="Digite sua mensagem..."
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  handleSendMessage();
+                                }
+                              }}
+                              disabled={chatMutation.isPending}
+                            />
+                            <Button 
+                              onClick={handleSendMessage}
+                              disabled={!chatMessage.trim() || chatMutation.isPending}
+                            >
+                              <Send className="w-4 h-4" />
+                              {chatMutation.isPending ? "Enviando..." : "Enviar"}
+                            </Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
                     </div>
                   </div>
                 ))}
