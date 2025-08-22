@@ -64,7 +64,7 @@ export class EvolutionApiService {
     // Adicionar configurações padrão obrigatórias
     const instanceData = {
       qrcode: true,
-      integration: "WHATSAPP-BUSINESS",
+      integration: "WHATSAPP-BAILEYS", // Usar BAILEYS para WhatsApp Web com QR Code
       token: this.config.token, // Adicionar token obrigatório
       ...request
     };
