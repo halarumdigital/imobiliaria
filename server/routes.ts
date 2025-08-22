@@ -830,11 +830,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Configure WhatsApp settings
   app.post("/api/whatsapp-instances/:id/settings", authenticate, requireClient, async (req: AuthRequest, res) => {
+    console.log("🚀 INÍCIO DA ROTA SETTINGS - ID:", req.params.id);
     try {
       const { id } = req.params;
+      console.log("📋 Buscando instância no banco...");
       const instance = await storage.getWhatsappInstance(id);
       
       if (!instance) {
+        console.log("❌ Instância não encontrada no banco");
         return res.status(404).json({ error: "Instância não encontrada" });
       }
 
@@ -857,6 +860,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`🔧 Corrigindo evolutionInstanceId ausente para configuração: ${evolutionInstanceId}`);
         await storage.updateWhatsappInstance(id, { evolutionInstanceId });
         instance.evolutionInstanceId = evolutionInstanceId;
+        console.log(`✅ evolutionInstanceId atualizado para: "${instance.evolutionInstanceId}"`);
       } else if (!instance.evolutionInstanceId) {
         console.log(`❌ Não foi possível corrigir evolutionInstanceId - name: "${instance.name}"`);
       } else {
@@ -876,14 +880,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get Evolution API configuration
+      console.log("🔧 Buscando configuração da Evolution API...");
       const evolutionConfig = await storage.getEvolutionApiConfiguration();
       if (!evolutionConfig) {
+        console.log("❌ Configuração da Evolution API não encontrada");
         return res.status(500).json({ error: "Configuração da Evolution API não encontrada" });
       }
 
       // Check if instance has evolutionInstanceId
       if (!instance.evolutionInstanceId) {
-        console.log(`❌ Instância não tem evolutionInstanceId definido para configuração`);
+        console.log(`❌ Instância AINDA não tem evolutionInstanceId definido para configuração após correções`);
         return res.status(400).json({ error: "Instância não está configurada na Evolution API" });
       }
 
