@@ -99,13 +99,7 @@ export class EvolutionApiService {
   async sendMessage(instanceName: string, number: string, message: string): Promise<any> {
     return this.makeRequest(`/message/sendText/${instanceName}`, 'POST', {
       number,
-      options: {
-        delay: 1200,
-        presence: 'composing'
-      },
-      textMessage: {
-        text: message
-      }
+      text: message  // Evolution API expects simple format with "text" field
     });
   }
 

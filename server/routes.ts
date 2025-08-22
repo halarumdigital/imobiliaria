@@ -1475,7 +1475,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // WhatsApp Webhook para receber mensagens
+  // WhatsApp Webhook para receber mensagens (Evolution API)
   app.post("/webhook/whatsapp", async (req, res) => {
     try {
       const { whatsappWebhookService } = await import("./services/whatsappWebhook");
@@ -1483,6 +1483,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(200).json({ success: true });
     } catch (error) {
       console.error("Webhook error:", error);
+      res.status(500).json({ error: "Erro ao processar webhook" });
+    }
+  });
+
+  // Endpoint adicional para Evolution API (formato padrão)
+  app.post("/api/webhook/messages", async (req, res) => {
+    try {
+      console.log("🔥 WEBHOOK DEBUG - Full request body:", JSON.stringify(req.body, null, 2));
+      
+      // Verificar se temos o formato correto
+      if (!req.body.data || !req.body.sender) {
+        console.log("❌ Invalid webhook format - missing data or sender");
+        return res.status(400).json({ error: "Invalid webhook format" });
+      }
+      
+      const { whatsappWebhookService } = await import("./services/whatsappWebhook");
+      await whatsappWebhookService.handleEvolutionMessage(req.body);
+      res.status(200).json({ 
+        success: true, 
+        processed: true,
+        timestamp: new Date().toISOString() 
+      });
+    } catch (error) {
+      console.error("❌ Evolution webhook error:", error);
       res.status(500).json({ error: "Erro ao processar webhook" });
     }
   });

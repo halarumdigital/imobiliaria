@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { aiService } from "./aiService";
 import { EvolutionApiService } from "./evolutionApi";
 import { getStorage } from "../storage";
+import { WhatsappInstance } from "@shared/schema";
 
 export interface WhatsAppMessage {
   key: {
@@ -27,8 +28,99 @@ export interface WebhookData {
   data: WhatsAppMessage;
 }
 
+export interface EvolutionWebhookData {
+  data: {
+    message: {
+      conversation?: string;
+      extendedTextMessage?: {
+        text: string;
+      };
+    };
+    pushName?: string;
+    messageTimestamp: number;
+    instanceId: string;
+    messageType: string;
+    status?: string;
+  };
+  sender: string;
+  destination: string;
+  date_time: string;
+  server_url: string;
+  apikey: string;
+}
+
 export class WhatsAppWebhookService {
   
+  async handleEvolutionMessage(evolutionData: EvolutionWebhookData): Promise<void> {
+    try {
+      console.log("📨 Processing Evolution API message:", JSON.stringify(evolutionData, null, 2));
+
+      // Verificar se é uma mensagem válida para processar
+      if (!this.shouldProcessEvolutionMessage(evolutionData)) {
+        console.log("❌ Evolution message ignored - not suitable for processing");
+        return;
+      }
+
+      const data = evolutionData.data;
+      
+      // Extrair o conteúdo da mensagem
+      const messageText = data.message.conversation || data.message.extendedTextMessage?.text;
+      if (!messageText) {
+        console.log("❌ No text content found in Evolution message");
+        return;
+      }
+
+      // Extrair o número do remetente
+      const senderPhone = evolutionData.sender.replace('@s.whatsapp.net', '');
+      if (!senderPhone) {
+        console.log("❌ Could not extract sender phone from Evolution message");
+        return;
+      }
+
+      // Buscar o nome da instância no Evolution API pela instanceId
+      console.log(`🔍 About to search for instance ID: ${data.instanceId}`);
+      const instanceName = await this.getInstanceNameById(data.instanceId);
+      console.log(`🔍 Instance search result: ${instanceName}`);
+      if (!instanceName) {
+        console.log(`❌ Could not find instance name for ID: ${data.instanceId}`);
+        return;
+      }
+
+      console.log(`📱 Processing Evolution message from ${senderPhone} to instance ${instanceName}: "${messageText}"`);
+
+      // Processar mensagem com IA
+      const aiResponse = await aiService.processMessage({
+        phone: senderPhone,
+        message: messageText,
+        instanceId: instanceName // Usar o nome da instância, não o ID
+      });
+
+      if (!aiResponse) {
+        console.log("🤖 No AI response generated for Evolution message");
+        return;
+      }
+
+      console.log(`🤖 AI Response for Evolution message: "${aiResponse.response}"`);
+
+      // Enviar resposta via Evolution API
+      await this.sendResponse(instanceName, senderPhone, aiResponse.response);
+
+      // Salvar conversa no banco de dados
+      await aiService.saveConversation(
+        data.instanceId,
+        senderPhone,
+        messageText,
+        aiResponse.response,
+        aiResponse.delegatedAgentId || 'main'
+      );
+
+      console.log("✅ Evolution message processed successfully");
+
+    } catch (error) {
+      console.error("❌ Error processing Evolution API message:", error);
+    }
+  }
+
   async handleMessage(webhookData: WebhookData): Promise<void> {
     try {
       console.log("📨 Received WhatsApp message:", JSON.stringify(webhookData, null, 2));
@@ -111,6 +203,76 @@ export class WhatsAppWebhookService {
     }
 
     return true;
+  }
+
+  private shouldProcessEvolutionMessage(evolutionData: EvolutionWebhookData): boolean {
+    const data = evolutionData.data;
+    
+    // Verificar se tem conteúdo de texto
+    const messageText = data.message.conversation || data.message.extendedTextMessage?.text;
+    if (!messageText || messageText.trim().length === 0) {
+      console.log("❌ Evolution message ignored - no text content");
+      return false;
+    }
+
+    // Verificar se o tipo de mensagem é de texto
+    if (data.messageType !== 'conversation' && data.messageType !== 'extendedTextMessage') {
+      console.log(`❌ Evolution message ignored - unsupported type: ${data.messageType}`);
+      return false;
+    }
+
+    // Aceitar mensagens com DELIVERY_ACK, PENDING ou sem status
+    const validStatuses = ['DELIVERY_ACK', 'PENDING', undefined];
+    if (data.status && !validStatuses.includes(data.status)) {
+      console.log(`❌ Evolution message ignored - invalid status: ${data.status}`);
+      return false;
+    }
+
+    console.log(`✅ Evolution message accepted for processing - type: ${data.messageType}, status: ${data.status || 'none'}`);
+    return true;
+  }
+
+  private async getInstanceNameById(instanceId: string): Promise<string | null> {
+    console.log(`🔍 STARTING getInstanceNameById with ID: ${instanceId}`);
+    
+    try {
+      const storage = getStorage();
+      console.log(`✅ Storage obtained successfully`);
+      
+      // Buscar todas as empresas
+      const companies = await storage.getAllCompanies();
+      console.log(`📋 Found ${companies.length} companies`);
+      
+      if (companies.length === 0) {
+        console.log(`❌ No companies found in database`);
+        return null;
+      }
+      
+      // Buscar primeira instância disponível como fallback
+      for (const company of companies) {
+        console.log(`🏢 Checking company: ${company.name}`);
+        
+        try {
+          const instances = await storage.getWhatsappInstancesByCompany(company.id);
+          console.log(`📱 Company ${company.name} has ${instances.length} instances`);
+          
+          if (instances.length > 0) {
+            const firstInstance = instances[0];
+            console.log(`⚠️  Using first available instance: ${firstInstance.name} (${firstInstance.evolutionInstanceId})`);
+            return firstInstance.evolutionInstanceId;
+          }
+        } catch (instanceError) {
+          console.error(`❌ Error getting instances for company ${company.name}:`, instanceError);
+        }
+      }
+      
+      console.log(`❌ No instances found in any company`);
+      return null;
+    } catch (error) {
+      console.error("❌ Error in getInstanceNameById:", error);
+      console.error("❌ Stack trace:", error.stack);
+      return null;
+    }
   }
 
   private extractMessageText(message: WhatsAppMessage): string | null {

@@ -1,0 +1,179 @@
+   },
+
+    pushName: 'Gilliard Damaceno',
+
+    status: 'DELIVERY_ACK',
+
+    message: { messageContextInfo: [MessageContextInfo], conversation: 'oi' },
+
+    contextInfo: ContextInfo {
+
+      mentionedJid: [],
+
+      groupMentions: [],
+
+      expiration: 0,
+
+      ephemeralSettingTimestamp: [Long],
+
+      disappearingMode: [DisappearingMode]
+
+    },
+
+    messageType: 'conversation',
+
+    messageTimestamp: 1755890584,
+
+    instanceId: 'e5b71c35-276b-417e-a1c3-267f904b2b98',
+
+    source: 'desktop'
+
+  },
+
+  destination: 'https://apizap.halarum.com.br/api/webhook/messages',
+
+  date_time: '2025-08-22T16:23:04.798Z',
+
+  sender: '5514981856962@s.whatsapp.net',
+
+  server_url: 'https://apizap.halarum.com.br',
+
+  apikey: '94eff8b9da7b6c86e50b5c43334f6f69'
+
+} 
+
+[Evolution API]    v2.3.1  163   -  Fri Aug 22 2025 16:23:04     ERROR   [WebhookController]  [object]   
+
+{
+
+  local: 'p.sendData-Webhook',
+
+  message: 'Erro não recuperável (404): Request failed with status code 404. Cancelando retentativas.',
+
+  statusCode: 404,
+
+  url: 'https://apizap.halarum.com.br/api/webhook/messages',
+
+  server_url: 'https://apizap.halarum.com.br'
+
+} 
+
+[Evolution API]    v2.3.1  163   -  Fri Aug 22 2025 16:23:04     ERROR   [WebhookController]  [object]   
+
+{
+
+  local: 'p.sendData-Webhook',
+
+  message: 'Todas as tentativas falharam: Request failed with status code 404',
+
+  hostName: undefined,
+
+  syscall: undefined,
+
+  code: 'ERR_BAD_REQUEST',
+
+  error: undefined,
+
+  stack: 'AxiosError: Request failed with status code 404\n' +
+
+    '    at settle (/evolution/node_modules/axios/dist/node/axios.cjs:2053:12)\n' +
+
+    '    at IncomingMessage.handleStreamEnd (/evolution/node_modules/axios/dist/node/axios.cjs:3170:11)\n' +
+
+    '    at IncomingMessage.emit (node:events:536:35)\n' +
+
+    '    at endReadableNT (node:internal/streams/readable:1698:12)\n' +
+
+    '    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)\n' +
+
+    '    at Axios.request (/evolution/node_modules/axios/dist/node/axios.cjs:4280:41)\n' +
+
+    '    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n' +
+
+    '    at async co.retryWebhookRequest (/evolution/dist/main.js:275:56866)\n' +
+
+    '    at async co.emit (/evolution/dist/main.js:275:55677)\n' +
+
+    '    at async lo.emit (/evolution/dist/main.js:275:61286)\n' +
+
+    '    at async $s.sendDataWebhook (/evolution/dist/main.js:156:16881)',
+
+  name: 'AxiosError',
+
+  url: 'https://apizap.halarum.com.br/api/webhook/messages',
+
+  server_url: 'https://apizap.halarum.com.br'
+
+} 
+
+[Evolution API]    v2.3.1  163   -  Fri Aug 22 2025 16:23:04     LOG   [WebsocketController]  [object]   
+
+{
+
+  local: 'p.sendData-WebsocketGlobal',
+
+  event: 'contacts.update',
+
+  instance: 'deploy2',
+
+
+
+[
+
+    {
+
+      remoteJid: '554999214230@s.whatsapp.net',
+
+      pushName: undefined,
+
+      profilePicUrl: 'https://pps.whatsapp.net/v/t61.24694-24/513624020_1300912378371849_7018201394958780872_n.jpg?ccb=11-4&oh=01_Q5Aa2QFPW_gAg5ihHgy3raK8bsbYEVNnpyHHUlDaokBp16_Ieg&oe=68B5D4C1&_nc_sid=5e03e0&_nc_cat=108',
+
+      instanceId: 'e5b71c35-276b-417e-a1c3-267f904b2b98'
+
+    }
+
+  ],
+
+  server_url: 'https://apizap.halarum.com.br',
+
+  date_time: '2025-08-22T16:23:04.911Z',
+
+  sender: '5514981856962@s.whatsapp.net',
+
+  apikey: '94eff8b9da7b6c86e50b5c43334f6f69'
+
+} 
+
+[Evolution API]    v2.3.1  163   -  Fri Aug 22 2025 16:23:05     LOG   [WebsocketController]  [object]   
+
+{
+
+  local: 'p.sendData-WebsocketGlobal',
+
+  event: 'contacts.update',
+
+  instance: 'deploy2',
+
+
+
+{
+
+    remoteJid: '554999214230@s.whatsapp.net',
+
+    pushName: 'Gilliard Damaceno',
+
+    profilePicUrl: 'https://pps.whatsapp.net/v/t61.24694-24/513624020_1300912378371849_7018201394958780872_n.jpg?ccb=11-4&oh=01_Q5Aa2QFPW_gAg5ihHgy3raK8bsbYEVNnpyHHUlDaokBp16_Ieg&oe=68B5D4C1&_nc_sid=5e03e0&_nc_cat=108',
+
+    instanceId: 'e5b71c35-276b-417e-a1c3-267f904b2b98'
+
+  },
+
+  server_url: 'https://apizap.halarum.com.br',
+
+  date_time: '2025-08-22T16:23:05.160Z',
+
+  sender: '5514981856962@s.whatsapp.net',
+
+  apikey: '94eff8b9da7b6c86e50b5c43334f6f69'
+
+} 
