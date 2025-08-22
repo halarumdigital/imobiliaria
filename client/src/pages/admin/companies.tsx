@@ -347,7 +347,9 @@ export default function Companies() {
                     <TableCell>{company.phone || "-"}</TableCell>
                     <TableCell>{company.city || "-"}</TableCell>
                     <TableCell>
-                      {format(new Date(company.createdAt), "dd/MM/yyyy", { locale: ptBR })}
+                      {company.createdAt && company.createdAt !== '0000-00-00 00:00:00' 
+                        ? format(new Date(company.createdAt), "dd/MM/yyyy", { locale: ptBR })
+                        : "-"}
                     </TableCell>
                     <TableCell>
                       <div className="flex space-x-2">
