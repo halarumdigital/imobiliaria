@@ -1492,17 +1492,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("🔥 WEBHOOK DEBUG - Full request body:", JSON.stringify(req.body, null, 2));
       
-      // Verificar se temos o formato correto
+      // Verificar se temos dados válidos
       if (!req.body.data || !req.body.sender) {
         console.log("❌ Invalid webhook format - missing data or sender");
         return res.status(400).json({ error: "Invalid webhook format" });
       }
       
+      // Verificar se é uma atualização de status de mensagem (nossa mensagem enviada)
+      if (req.body.data && req.body.data.fromMe === true) {
+        console.log("📤 Message status update received (message sent by us), ignoring");
+        return res.status(200).json({ 
+          success: true, 
+          type: "status_update", 
+          ignored: true,
+          timestamp: new Date().toISOString() 
+        });
+      }
+      
+      // Verificar se tem conteúdo de mensagem (para evitar processar status updates)
+      if (!req.body.data.message || (!req.body.data.message.conversation && !req.body.data.message.extendedTextMessage)) {
+        console.log("📊 Non-message event received, ignoring");
+        return res.status(200).json({ 
+          success: true, 
+          type: "non_message_event", 
+          ignored: true,
+          timestamp: new Date().toISOString() 
+        });
+      }
+      
+      // Processar apenas mensagens recebidas (não enviadas por nós)
+      console.log("📨 Processing incoming message");
       const { whatsappWebhookService } = await import("./services/whatsappWebhook");
       await whatsappWebhookService.handleEvolutionMessage(req.body);
       res.status(200).json({ 
         success: true, 
         processed: true,
+        type: "incoming_message",
         timestamp: new Date().toISOString() 
       });
     } catch (error) {
