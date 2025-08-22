@@ -297,7 +297,7 @@ export default function WhatsApp() {
     const { data: statusData, isLoading: statusLoading, error } = getConnectionStatus(instance.id);
     
     const connectionStatus = statusData?.state || statusData?.instance?.state || instance.status || 'disconnected';
-    const instanceName = statusData?.instance?.instanceName || instance.name;
+    const instanceName = instance.name; // Sempre usar o nome limpo do banco de dados
     
     // Debug log para verificar os dados
     console.log('🔍 Instance status debug:', {
