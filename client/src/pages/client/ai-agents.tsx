@@ -187,6 +187,34 @@ export default function AiAgents() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validação para agentes secundários
+    if (formData.agentType === "secondary") {
+      if (!formData.parentAgentId) {
+        toast({
+          title: "Erro",
+          description: "Agentes secundários devem ter um agente principal responsável",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!formData.specialization.trim()) {
+        toast({
+          title: "Erro", 
+          description: "Agentes secundários devem ter uma especialização definida",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (formData.delegationKeywords.length === 0) {
+        toast({
+          title: "Erro",
+          description: "Agentes secundários devem ter pelo menos uma palavra-chave de ativação",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    
     // Adicionar configurações globais de IA automaticamente
     const dataWithAiConfig = {
       ...formData,
@@ -276,6 +304,25 @@ export default function AiAgents() {
 
           {/* Agents List Tab */}
           <TabsContent value="list">
+            <div className="mb-6 flex items-center gap-4">
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold">Lista de Agentes</h3>
+                <p className="text-sm text-muted-foreground">
+                  Gerencie seus agentes principais e especializados
+                </p>
+              </div>
+              <Select value={viewMode} onValueChange={(value: "all" | "main" | "secondary") => setViewMode(value)}>
+                <SelectTrigger className="w-48" data-testid="filter-agents">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">🔍 Todos os Agentes</SelectItem>
+                  <SelectItem value="main">🤖 Agentes Principais</SelectItem>
+                  <SelectItem value="secondary">🔧 Agentes Secundários</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             {agents.length === 0 ? (
               <div className="text-center py-8">
                 <Bot className="w-12 h-12 mx-auto text-muted-foreground mb-2" />
@@ -283,7 +330,14 @@ export default function AiAgents() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {agents.map((agent) => (
+                {agents
+                  .filter(agent => {
+                    if (viewMode === "all") return true;
+                    if (viewMode === "main") return agent.agentType === "main" || !agent.agentType;
+                    if (viewMode === "secondary") return agent.agentType === "secondary";
+                    return true;
+                  })
+                  .map((agent) => (
                   <div key={agent.id} className="border rounded-lg p-4">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center space-x-3">
@@ -291,8 +345,20 @@ export default function AiAgents() {
                           <Bot className="text-purple-600" />
                         </div>
                         <div>
-                          <h4 className="font-medium">{agent.name}</h4>
+                          <h4 className="font-medium flex items-center gap-2">
+                            {agent.name}
+                            {agent.agentType === "secondary" && (
+                              <Badge variant="outline" className="text-xs">
+                                Secundário
+                              </Badge>
+                            )}
+                          </h4>
                           <p className="text-sm text-muted-foreground">{agent.modelo}</p>
+                          {agent.agentType === "secondary" && agent.specialization && (
+                            <p className="text-xs text-blue-600 dark:text-blue-400">
+                              📋 {agent.specialization}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <Badge variant={agent.status === 'active' ? 'default' : 'secondary'}>
@@ -312,12 +378,32 @@ export default function AiAgents() {
                       <span>Tokens: {agent.numeroTokens}</span>
                     </div>
 
+                    {/* Training Files */}
                     {agent.trainingFiles && agent.trainingFiles.length > 0 && (
                       <div className="flex items-center gap-2 mb-3 p-2 bg-green-50 dark:bg-green-900/20 rounded">
                         <FileText className="w-4 h-4 text-green-600" />
                         <span className="text-xs text-green-700 dark:text-green-300">
                           {agent.trainingFiles.length} PDF{agent.trainingFiles.length > 1 ? 's' : ''} carregado{agent.trainingFiles.length > 1 ? 's' : ''}
                         </span>
+                      </div>
+                    )}
+
+                    {/* Delegation Keywords for Secondary Agents */}
+                    {agent.agentType === "secondary" && agent.delegationKeywords && agent.delegationKeywords.length > 0 && (
+                      <div className="mb-3">
+                        <p className="text-xs text-muted-foreground mb-1">Palavras-chave:</p>
+                        <div className="flex flex-wrap gap-1">
+                          {agent.delegationKeywords.slice(0, 3).map((keyword, index) => (
+                            <Badge key={index} variant="secondary" className="text-xs px-1 py-0">
+                              {keyword}
+                            </Badge>
+                          ))}
+                          {agent.delegationKeywords.length > 3 && (
+                            <Badge variant="secondary" className="text-xs px-1 py-0">
+                              +{agent.delegationKeywords.length - 3}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     )}
 
@@ -450,6 +536,100 @@ export default function AiAgents() {
                   Modelo: {(aiConfig as any)?.modelo || "gpt-4o"} | Tokens: {(aiConfig as any)?.numeroTokens || 1000}
                 </p>
               </div>
+
+              {/* Agent Type Selection */}
+              <div>
+                <Label htmlFor="agentType">Tipo de Agente</Label>
+                <Select 
+                  value={formData.agentType} 
+                  onValueChange={(value: "main" | "secondary") => {
+                    setFormData(prev => ({ 
+                      ...prev, 
+                      agentType: value,
+                      parentAgentId: value === "main" ? "" : prev.parentAgentId,
+                      specialization: value === "main" ? "" : prev.specialization,
+                      delegationKeywords: value === "main" ? prev.delegationKeywords : []
+                    }));
+                  }}
+                >
+                  <SelectTrigger data-testid="select-agent-type">
+                    <SelectValue placeholder="Selecione o tipo de agente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="main">🤖 Agente Principal</SelectItem>
+                    <SelectItem value="secondary">🔧 Agente Secundário (Especializado)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {formData.agentType === "main" 
+                    ? "Agente principal que pode delegar tarefas para agentes especializados" 
+                    : "Agente especializado que é chamado pelo agente principal"
+                  }
+                </p>
+              </div>
+
+              {/* Parent Agent Selection (only for secondary agents) */}
+              {formData.agentType === "secondary" && (
+                <div>
+                  <Label htmlFor="parentAgentId">Agente Principal Responsável *</Label>
+                  <Select 
+                    value={formData.parentAgentId} 
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, parentAgentId: value }))}
+                  >
+                    <SelectTrigger data-testid="select-parent-agent">
+                      <SelectValue placeholder="Selecione o agente principal" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {mainAgents.map((agent) => (
+                        <SelectItem key={agent.id} value={agent.id}>
+                          🤖 {agent.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    O agente principal que irá delegar tarefas para este agente especializado
+                  </p>
+                </div>
+              )}
+
+              {/* Specialization (only for secondary agents) */}
+              {formData.agentType === "secondary" && (
+                <div>
+                  <Label htmlFor="specialization">Especialização do Agente *</Label>
+                  <Input
+                    id="specialization"
+                    data-testid="input-specialization"
+                    value={formData.specialization}
+                    onChange={(e) => setFormData(prev => ({ ...prev, specialization: e.target.value }))}
+                    placeholder="Ex: Suporte Técnico, Vendas, Atendimento Médico..."
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Descreva a área de especialização deste agente
+                  </p>
+                </div>
+              )}
+
+              {/* Delegation Keywords (only for secondary agents) */}
+              {formData.agentType === "secondary" && (
+                <div>
+                  <Label htmlFor="delegationKeywords">Palavras-chave para Ativação *</Label>
+                  <Textarea
+                    id="delegationKeywords"
+                    data-testid="textarea-keywords"
+                    rows={3}
+                    value={formData.delegationKeywords.join(", ")}
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      delegationKeywords: e.target.value.split(",").map(k => k.trim()).filter(k => k.length > 0)
+                    }))}
+                    placeholder="Ex: suporte, ajuda, problema, erro, bug, técnico, instalação..."
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Palavras-chave separadas por vírgula que ativarão este agente especializado
+                  </p>
+                </div>
+              )}
 
               <div>
                 <Label htmlFor="prompt">Prompt do Agente</Label>
