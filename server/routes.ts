@@ -1059,17 +1059,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: "Configuração da Evolution API não encontrada" });
       }
 
-      // Use configured system URL from admin settings
+      // Use configured system URL from admin settings or current Replit URL
       console.log("🔧 Buscando URL do sistema das configurações do administrador...");
-      if (!evolutionConfig.urlGlobalSistema) {
-        console.log("❌ URL do sistema não configurada pelo administrador");
+      let systemUrl = evolutionConfig.urlGlobalSistema;
+      
+      // If not configured by admin, use current Replit URL
+      if (!systemUrl && process.env.REPLIT_DEV_DOMAIN) {
+        systemUrl = `https://${process.env.REPLIT_DEV_DOMAIN}`;
+        console.log("🔧 URL do administrador não configurada, usando URL atual do Replit:", systemUrl);
+      } else if (!systemUrl) {
+        console.log("❌ URL do sistema não configurada pelo administrador e não está no Replit");
         return res.status(400).json({ 
           error: "URL do sistema não configurada", 
           details: "O administrador precisa configurar a URL global do sistema nas configurações da Evolution API" 
         });
       }
-      const systemUrl = evolutionConfig.urlGlobalSistema;
-      console.log("✅ URL do webhook obtida das configurações:", systemUrl);
+      console.log("✅ URL do webhook a ser configurada:", systemUrl);
 
       // Check if instance has evolutionInstanceId
       if (!instance.evolutionInstanceId) {
@@ -1132,6 +1137,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("❌ Erro ao configurar webhook:", error);
       res.status(500).json({ error: "Erro ao configurar IA" });
+    }
+  });
+
+  // Rota para reconfigurar webhook automaticamente
+  app.post("/api/reconfigure-webhook/:instanceId", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { instanceId } = req.params;
+      console.log(`🔄 Reconfigurando webhook automaticamente para instância: ${instanceId}`);
+      
+      // Buscar a instância
+      const instance = await storage.getWhatsappInstance(instanceId);
+      if (!instance) {
+        return res.status(404).json({ error: "Instância não encontrada" });
+      }
+
+      // Verificar acesso da empresa
+      if (req.user?.role !== 'admin' && instance.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Acesso negado" });
+      }
+
+      // Buscar configuração da Evolution API
+      const evolutionConfig = await storage.getEvolutionApiConfiguration();
+      if (!evolutionConfig) {
+        return res.status(500).json({ error: "Configuração da Evolution API não encontrada" });
+      }
+
+      // Usar URL global do sistema ou URL atual do Replit
+      let systemUrl = evolutionConfig.urlGlobalSistema;
+      if (!systemUrl && process.env.REPLIT_DEV_DOMAIN) {
+        systemUrl = `https://${process.env.REPLIT_DEV_DOMAIN}`;
+      }
+
+      if (!systemUrl) {
+        return res.status(400).json({ error: "URL do sistema não configurada" });
+      }
+
+      const evolutionService = new EvolutionApiService({
+        baseURL: evolutionConfig.evolutionURL,
+        token: evolutionConfig.evolutionToken
+      });
+
+      const webhookUrl = `${systemUrl}/api/webhook/messages`;
+      const webhook = {
+        webhook: {
+          enabled: true,
+          url: webhookUrl,
+          headers: {
+            "Content-Type": "application/json"
+          },
+          byEvents: false,
+          base64: true,
+          events: [
+            "MESSAGES_UPSERT",
+            "MESSAGES_UPDATE", 
+            "MESSAGES_DELETE",
+            "SEND_MESSAGE",
+            "CHATS_SET",
+            "CHATS_UPSERT",
+            "CHATS_UPDATE",
+            "CHATS_DELETE"
+          ]
+        }
+      };
+
+      console.log(`🔧 Reconfigurando webhook para: ${webhookUrl}`);
+      const result = await evolutionService.setWebhook(instance.evolutionInstanceId, webhook);
+      
+      console.log("✅ Webhook reconfigurado com sucesso:", JSON.stringify(result, null, 2));
+      res.json({ success: true, webhookUrl, result });
+      
+    } catch (error) {
+      console.error("❌ Erro ao reconfigurar webhook:", error);
+      res.status(500).json({ error: "Erro ao reconfigurar webhook" });
     }
   });
 
