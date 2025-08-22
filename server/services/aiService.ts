@@ -118,9 +118,19 @@ export class AIService {
       });
       console.log(`✅ Agent found: ${mainAgent.name}, ID: ${mainAgent.id}`);
 
+      // Buscar histórico da conversa
+      console.log(`📚 Carregando histórico da conversa para ${context.phone}...`);
+      const conversationHistory = await this.getConversationHistory(context.instanceId, context.phone);
+      const contextWithHistory = {
+        ...context,
+        conversationHistory
+      };
+      
+      console.log(`📚 Histórico carregado: ${conversationHistory.length} mensagens`);
+      
       // Gerar resposta usando OpenAI
       console.log(`🤖 Gerando resposta com agente ativo: ${activeAgent.name} (Tipo: ${activeAgent.agentType || 'main'})`);
-      const response = await this.generateResponse(activeAgent, context, aiConfig);
+      const response = await this.generateResponse(activeAgent, contextWithHistory, aiConfig);
 
       return {
         response,
@@ -131,6 +141,41 @@ export class AIService {
     } catch (error) {
       console.error("Error processing message:", error);
       return null;
+    }
+  }
+
+  private async getConversationHistory(instanceId: string, phone: string): Promise<Array<{role: 'user' | 'assistant', content: string}>> {
+    try {
+      const storage = getStorage();
+      
+      // Buscar conversa existente
+      const conversations = await storage.getConversationsByInstance(instanceId);
+      const conversation = conversations.find(c => c.contactPhone === phone);
+      
+      if (!conversation) {
+        console.log(`📚 Nenhuma conversa encontrada para ${phone}`);
+        return [];
+      }
+      
+      // Buscar mensagens da conversa
+      const messages = await storage.getMessagesByConversation(conversation.id);
+      console.log(`📚 Encontradas ${messages.length} mensagens na conversa`);
+      
+      // Converter para formato OpenAI (últimas 10 mensagens para não sobrecarregar)
+      const history = messages
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+        .slice(-10)
+        .map(msg => ({
+          role: msg.isFromUser ? 'user' as const : 'assistant' as const,
+          content: msg.content
+        }));
+      
+      console.log(`📚 Histórico formatado: ${history.length} mensagens`);
+      return history;
+      
+    } catch (error) {
+      console.error("❌ Erro ao carregar histórico da conversa:", error);
+      return [];
     }
   }
 
