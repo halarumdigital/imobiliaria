@@ -33,9 +33,19 @@ select:focus,
 /* Menu sidebar - item ativo/selecionado */
 .bg-sidebar-primary {
   background-color: hsl(var(--primary)) !important;
+  color: white !important;
 }
 
 .text-sidebar-primary-foreground {
+  color: white !important;
+}
+
+/* Forçar estilo do item ativo com seletor mais específico */
+nav .bg-sidebar-primary {
+  background-color: hsl(var(--primary)) !important;
+}
+
+nav .bg-sidebar-primary * {
   color: white !important;
 }
 
