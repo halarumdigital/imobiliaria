@@ -73,8 +73,8 @@ nav div.bg-sidebar-primary.text-sidebar-primary-foreground span {
 
 /* APENAS botão de login - muito específico */
 form button[type="submit"] {
-  background-color: hsl(222.2 84% 4.9%) !important;
-  color: hsl(210 40% 98%) !important;
+  background-color: #bd64dd !important;
+  color: white !important;
 }
 
 /* Garantir que variáveis CSS sejam atualizadas */
