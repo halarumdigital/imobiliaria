@@ -509,12 +509,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/whatsapp-instances/:id/qr", authenticate, requireClient, requireCompanyAccess, async (req, res) => {
+  app.get("/api/whatsapp-instances/:id/qr", authenticate, requireClient, async (req: AuthRequest, res) => {
     try {
       const { id } = req.params;
+      
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+
       const instance = await storage.getWhatsappInstance(id);
       
-      if (!instance) {
+      if (!instance || instance.companyId !== req.user.companyId) {
         return res.status(404).json({ error: "Instância não encontrada" });
       }
 
@@ -528,14 +533,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         token: evolutionConfig.evolutionToken
       });
 
-      const qrResponse = await evolutionService.generateQRCode(instance.evolutionInstanceId || instance.id);
+      const instanceNameToUse = instance.evolutionInstanceId || instance.id;
+      console.log("Generating QR for instance:", instanceNameToUse);
+      
+      const qrResponse = await evolutionService.generateQRCode(instanceNameToUse);
+      console.log("QR Response from Evolution API:", JSON.stringify(qrResponse, null, 2));
       
       // Update instance with QR code
       await storage.updateWhatsappInstance(id, {
-        qrCode: qrResponse.qrcode.base64
+        qrCode: qrResponse.qrcode?.base64 || qrResponse.base64
       });
 
-      res.json({ qrCode: qrResponse.qrcode.base64 });
+      res.json({ qrCode: qrResponse.qrcode?.base64 || qrResponse.base64 });
     } catch (error) {
       console.error("Generate QR code error:", error);
       res.status(500).json({ error: "Erro ao gerar QR Code" });

@@ -110,7 +110,7 @@ export default function WhatsApp() {
       setQrCode(null);
       
       // Call Evolution API to generate QR code
-      const response = await apiGet(`/whatsapp-instances/${instanceId}/qrcode`);
+      const response = await apiGet(`/whatsapp-instances/${instanceId}/qr`);
       setQrCode(response.qrCode);
     } catch (error) {
       toast({
