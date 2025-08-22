@@ -1,20 +1,20 @@
 import { sql } from "drizzle-orm";
-import { mysqlTable, varchar, text, json, timestamp, int, boolean, decimal } from "drizzle-orm/mysql-core";
+import { pgTable, varchar, text, json, timestamp, integer, boolean, decimal } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = mysqlTable("users", {
-  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+export const users = pgTable("users", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email", { length: 255 }).notNull().unique(),
   password: text("password").notNull(),
   role: varchar("role", { length: 20 }).notNull().default("client"), // 'admin' | 'client'
   companyId: varchar("company_id", { length: 36 }),
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const companies = mysqlTable("companies", {
-  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+export const companies = pgTable("companies", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name", { length: 255 }).notNull(),
   email: varchar("email", { length: 255 }),
   cnpj: varchar("cnpj", { length: 18 }),
@@ -25,11 +25,11 @@ export const companies = mysqlTable("companies", {
   avatar: text("avatar"), // Object storage path
   status: varchar("status", { length: 20 }).notNull().default("active"),
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const globalConfigurations = mysqlTable("global_configurations", {
-  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+export const globalConfigurations = pgTable("global_configurations", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
   logo: text("logo"),
   favicon: text("favicon"),
   cores_primaria: varchar("cores_primaria", { length: 7 }).default("#3B82F6"),
@@ -38,29 +38,29 @@ export const globalConfigurations = mysqlTable("global_configurations", {
   nome_sistema: varchar("nome_sistema", { length: 255 }).default("Sistema Multi-Empresa"),
   nome_rodape: varchar("nome_rodape", { length: 255 }).default("© 2024 Multi-Empresa System"),
   nome_aba_navegador: varchar("nome_aba_navegador", { length: 255 }).default("Multi-Empresa Dashboard"),
-  updated_at: timestamp("updated_at").defaultNow().onUpdateNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
 });
 
-export const evolutionApiConfigurations = mysqlTable("evolution_api_configurations", {
-  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+export const evolutionApiConfigurations = pgTable("evolution_api_configurations", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
   evolutionURL: text("evolution_url").notNull(),
   evolutionToken: text("evolution_token").notNull(),
   urlGlobalSistema: text("url_global_sistema"),
   status: varchar("status", { length: 20 }).default("disconnected"),
-  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const aiConfigurations = mysqlTable("ai_configurations", {
-  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+export const aiConfigurations = pgTable("ai_configurations", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
   apiKey: text("api_key").notNull(),
   modelo: varchar("modelo", { length: 50 }).default("gpt-4o"),
   temperatura: decimal("temperatura", { precision: 3, scale: 2 }).default("0.7"),
-  numeroTokens: int("numero_tokens").default(1000),
-  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+  numeroTokens: integer("numero_tokens").default(1000),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const whatsappInstances = mysqlTable("whatsapp_instances", {
-  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+export const whatsappInstances = pgTable("whatsapp_instances", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
   companyId: varchar("company_id", { length: 36 }).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   phone: varchar("phone", { length: 20 }),
@@ -69,16 +69,16 @@ export const whatsappInstances = mysqlTable("whatsapp_instances", {
   qrCode: text("qr_code"),
   aiAgentId: varchar("ai_agent_id", { length: 36 }),
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const aiAgents = mysqlTable("ai_agents", {
-  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+export const aiAgents = pgTable("ai_agents", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
   companyId: varchar("company_id", { length: 36 }).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   prompt: text("prompt").notNull(),
   temperatura: decimal("temperatura", { precision: 3, scale: 2 }).default("0.7"),
-  numeroTokens: int("numero_tokens").default(1000),
+  numeroTokens: integer("numero_tokens").default(1000),
   modelo: varchar("modelo", { length: 50 }).default("gpt-4o"),
   trainingFiles: json("training_files"), // Array of file paths
   trainingContent: text("training_content"), // Extracted content from PDFs
@@ -88,11 +88,11 @@ export const aiAgents = mysqlTable("ai_agents", {
   delegationKeywords: json("delegation_keywords"), // Array of keywords that trigger this agent
   status: varchar("status", { length: 20 }).default("active"),
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const conversations = mysqlTable("conversations", {
-  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+export const conversations = pgTable("conversations", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
   whatsappInstanceId: varchar("whatsapp_instance_id", { length: 36 }).notNull(),
   contactName: varchar("contact_name", { length: 255 }),
   contactPhone: varchar("contact_phone", { length: 20 }).notNull(),
@@ -100,11 +100,11 @@ export const conversations = mysqlTable("conversations", {
   lastMessageAt: timestamp("last_message_at"),
   status: varchar("status", { length: 20 }).default("active"),
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const messages = mysqlTable("messages", {
-  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+export const messages = pgTable("messages", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
   conversationId: varchar("conversation_id", { length: 36 }).notNull(),
   content: text("content").notNull(),
   sender: varchar("sender", { length: 20 }).notNull(), // 'user' | 'ai' | 'agent'
