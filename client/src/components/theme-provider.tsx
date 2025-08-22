@@ -56,49 +56,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
     };
     
-    // Apply CSS custom properties to Tailwind variables
+    // Apply CSS custom properties apenas para elementos principais
     const root = document.documentElement;
     const primaryHsl = hexToHsl(newConfig.cores_primaria);
     const secondaryHsl = hexToHsl(newConfig.cores_secundaria);
-    const backgroundHsl = hexToHsl(newConfig.cores_fundo);
     
-    // Core theme colors
+    // Aplicar apenas cores primárias e secundárias
     root.style.setProperty("--primary", `hsl(${primaryHsl})`);
     root.style.setProperty("--secondary", `hsl(${secondaryHsl})`);
-    root.style.setProperty("--background", `hsl(${backgroundHsl})`);
-    root.style.setProperty("--card", `hsl(${backgroundHsl})`);
     
-    // Form elements
-    root.style.setProperty("--input", `hsl(${primaryHsl.replace(/(\d+)%/, (_, p) => `${Math.min(parseInt(p) + 30, 97)}%`)})`);
-    root.style.setProperty("--border", `hsl(${primaryHsl.replace(/(\d+)%/, (_, p) => `${Math.min(parseInt(p) + 20, 90)}%`)})`);
-    root.style.setProperty("--ring", `hsl(${primaryHsl})`);
-    root.style.setProperty("--accent", `hsl(${primaryHsl.replace(/(\d+)%/, (_, p) => `${Math.min(parseInt(p) + 25, 95)}%`)})`);
-    root.style.setProperty("--accent-foreground", `hsl(${primaryHsl})`);
-    
-    // Sidebar colors
-    root.style.setProperty("--sidebar", `hsl(${backgroundHsl})`);
+    // Sidebar - apenas cor primária
     root.style.setProperty("--sidebar-primary", `hsl(${primaryHsl})`);
-    root.style.setProperty("--sidebar-accent", `hsl(${secondaryHsl})`);
-    root.style.setProperty("--sidebar-border", `hsl(${primaryHsl.replace(/(\d+)%/, (_, p) => `${Math.min(parseInt(p) + 20, 90)}%`)})`);
-    root.style.setProperty("--sidebar-ring", `hsl(${primaryHsl})`);
-    
-    // Charts and other elements
-    root.style.setProperty("--chart-1", `hsl(${primaryHsl})`);
-    root.style.setProperty("--chart-2", `hsl(${secondaryHsl})`);
-    
-    // Muted colors based on background
-    const [h, s, l] = backgroundHsl.split(' ');
-    const lightness = parseInt(l.replace('%', ''));
-    const mutedLightness = Math.max(lightness - 4, 92);
-    root.style.setProperty("--muted", `hsl(${h} ${s} ${mutedLightness}%)`);
-    
-    // Apply background color to body
-    document.body.style.backgroundColor = `hsl(${backgroundHsl})`;
-    
-    // Force repaint
-    document.body.style.display = 'none';
-    document.body.offsetHeight; // trigger reflow
-    document.body.style.display = '';
     
     // Update document title
     document.title = newConfig.nome_aba_navegador;
