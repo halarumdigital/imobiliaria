@@ -608,6 +608,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Criar instância via Evolution API
+  app.post("/api/whatsapp-instances/create-evolution", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+
+      const { name, phone } = req.body;
+      
+      if (!name || !phone) {
+        return res.status(400).json({ error: "Nome e telefone são obrigatórios" });
+      }
+
+      // Buscar configurações da Evolution API
+      const evolutionConfig = await storage.getEvolutionApiConfiguration();
+      if (!evolutionConfig || !evolutionConfig.evolutionURL || !evolutionConfig.evolutionToken) {
+        return res.status(404).json({ error: "Configurações da Evolution API não encontradas" });
+      }
+
+      // Criar instância na Evolution API
+      const evolutionService = new EvolutionApiService({
+        baseURL: evolutionConfig.evolutionURL,
+        token: evolutionConfig.evolutionToken
+      });
+
+      // Nome da instância será baseado no nome fornecido + companyId para evitar conflitos
+      const instanceName = `${name.replace(/\s+/g, '_').toLowerCase()}_${req.user.companyId.substring(0, 8)}`;
+      
+      const evolutionResponse = await evolutionService.createInstance({
+        instanceName,
+        qrcode: true
+      });
+
+      // Salvar instância no banco de dados local
+      const instanceData = {
+        name,
+        phone,
+        companyId: req.user.companyId,
+        instanceName, // Nome usado na Evolution API
+        status: 'disconnected' as const
+      };
+      
+      const savedInstance = await storage.createWhatsappInstance(instanceData);
+      
+      res.json({
+        success: true,
+        instance: savedInstance,
+        evolutionResponse,
+        message: "Instância criada com sucesso na Evolution API!"
+      });
+    } catch (error) {
+      console.error("Create evolution instance error:", error);
+      res.status(500).json({ 
+        error: "Erro ao criar instância na Evolution API",
+        details: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
   // Link AI agent to WhatsApp instance
   app.post("/api/whatsapp-instances/:instanceId/link-agent", authenticate, requireClient, requireCompanyAccess, async (req, res) => {
     try {

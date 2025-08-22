@@ -21,26 +21,25 @@ export default function WhatsApp() {
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
-    aiAgentId: "",
   });
 
   const { data: instances = [], isLoading } = useQuery<WhatsappInstance[]>({
-    queryKey: ["/whatsapp-instances"],
+    queryKey: ["/api/whatsapp-instances"],
   });
 
   const { data: agents = [] } = useQuery<AiAgent[]>({
-    queryKey: ["/ai-agents"],
+    queryKey: ["/api/ai-agents"],
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => apiPost("/whatsapp-instances", data),
+    mutationFn: (data: any) => apiPost("/whatsapp-instances/create-evolution", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/whatsapp-instances"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-instances"] });
       setIsDialogOpen(false);
       resetForm();
       toast({
         title: "Sucesso",
-        description: "Instância criada com sucesso!",
+        description: "Instância criada com sucesso na Evolution API!",
       });
     },
     onError: (error) => {
@@ -55,7 +54,7 @@ export default function WhatsApp() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiDelete(`/whatsapp-instances/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/whatsapp-instances"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-instances"] });
       toast({
         title: "Sucesso",
         description: "Instância excluída com sucesso!",
@@ -74,7 +73,7 @@ export default function WhatsApp() {
     mutationFn: ({ instanceId, agentId }: { instanceId: string; agentId: string }) =>
       apiPost(`/whatsapp-instances/${instanceId}/link-agent`, { agentId }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/whatsapp-instances"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-instances"] });
       toast({
         title: "Sucesso",
         description: "Agente vinculado com sucesso!",
@@ -93,7 +92,6 @@ export default function WhatsApp() {
     setFormData({
       name: "",
       phone: "",
-      aiAgentId: "",
     });
   };
 
@@ -123,7 +121,8 @@ export default function WhatsApp() {
   };
 
   const handleLinkAgent = (instanceId: string, agentId: string) => {
-    linkAgentMutation.mutate({ instanceId, agentId });
+    const finalAgentId = agentId === "none" ? "" : agentId;
+    linkAgentMutation.mutate({ instanceId, agentId: finalAgentId });
   };
 
   const getAgentName = (agentId?: string) => {
@@ -171,32 +170,17 @@ export default function WhatsApp() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="phone">Telefone (opcional)</Label>
+                    <Label htmlFor="phone">Telefone</Label>
                     <Input
                       id="phone"
                       value={formData.phone}
                       onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
                       placeholder="Ex: +55 11 99999-9999"
+                      required
                     />
-                  </div>
-                  <div>
-                    <Label htmlFor="aiAgentId">Agente IA (opcional)</Label>
-                    <Select
-                      value={formData.aiAgentId}
-                      onValueChange={(value) => setFormData(prev => ({ ...prev, aiAgentId: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecionar agente" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="">Nenhum agente</SelectItem>
-                        {agents.map((agent) => (
-                          <SelectItem key={agent.id} value={agent.id}>
-                            {agent.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Telefone que será usado na instância WhatsApp
+                    </p>
                   </div>
                   <div className="flex justify-end space-x-2">
                     <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
@@ -270,14 +254,14 @@ export default function WhatsApp() {
                     <div className="mt-3 pt-3 border-t">
                       <div className="flex items-center space-x-2">
                         <Select
-                          value={instance.aiAgentId || ""}
+                          value={instance.aiAgentId || "none"}
                           onValueChange={(value) => handleLinkAgent(instance.id, value)}
                         >
                           <SelectTrigger className="flex-1">
                             <SelectValue placeholder="Vincular agente" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">Remover agente</SelectItem>
+                            <SelectItem value="none">Remover agente</SelectItem>
                             {agents.map((agent) => (
                               <SelectItem key={agent.id} value={agent.id}>
                                 {agent.name}
