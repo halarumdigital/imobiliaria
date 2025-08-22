@@ -390,18 +390,25 @@ export class MySQLStorage implements IStorage {
   async saveEvolutionApiConfiguration(config: InsertEvolutionApiConfiguration): Promise<EvolutionApiConfiguration> {
     if (!this.connection) throw new Error('No database connection');
     
+    console.log('Save evolution config:', config);
+    
     const existing = await this.getEvolutionApiConfiguration();
+    
+    // Garantir que os valores não sejam undefined
+    const evolutionURL = config.evolutionURL || null;
+    const evolutionToken = config.evolutionToken || null;
+    const urlGlobalSistema = config.urlGlobalSistema || null;
     
     if (existing) {
       await this.connection.execute(
         'UPDATE evolution_api_configurations SET evolution_url = ?, evolution_token = ?, url_global_sistema = ? WHERE id = ?',
-        [config.evolutionURL, config.evolutionToken, config.urlGlobalSistema, existing.id]
+        [evolutionURL, evolutionToken, urlGlobalSistema, existing.id]
       );
     } else {
       const id = randomUUID();
       await this.connection.execute(
         'INSERT INTO evolution_api_configurations (id, evolution_url, evolution_token, url_global_sistema) VALUES (?, ?, ?, ?)',
-        [id, config.evolutionURL, config.evolutionToken, config.urlGlobalSistema]
+        [id, evolutionURL, evolutionToken, urlGlobalSistema]
       );
     }
     
