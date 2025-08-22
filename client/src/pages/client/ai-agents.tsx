@@ -23,8 +23,6 @@ export default function AiAgents() {
     name: "",
     prompt: "",
     temperatura: "0.7",
-    numeroTokens: 1000,
-    modelo: "gpt-4o",
     trainingFiles: [] as string[],
   });
 
@@ -34,6 +32,11 @@ export default function AiAgents() {
 
   const { data: instances = [] } = useQuery<WhatsappInstance[]>({
     queryKey: ["/whatsapp-instances"],
+  });
+
+  // Buscar configurações globais de IA do administrador
+  const { data: aiConfig } = useQuery({
+    queryKey: ["/api/ai-config/public"],
   });
 
   const createMutation = useMutation({
@@ -99,8 +102,6 @@ export default function AiAgents() {
       name: "",
       prompt: "",
       temperatura: "0.7",
-      numeroTokens: 1000,
-      modelo: "gpt-4o",
       trainingFiles: [],
     });
     setEditingAgent(null);
@@ -109,10 +110,17 @@ export default function AiAgents() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Adicionar configurações globais de IA automaticamente
+    const dataWithAiConfig = {
+      ...formData,
+      modelo: (aiConfig as any)?.modelo || "gpt-4o",
+      numeroTokens: (aiConfig as any)?.numeroTokens || 1000,
+    };
+    
     if (editingAgent) {
-      updateMutation.mutate({ id: editingAgent.id, data: formData });
+      updateMutation.mutate({ id: editingAgent.id, data: dataWithAiConfig });
     } else {
-      createMutation.mutate(formData);
+      createMutation.mutate(dataWithAiConfig);
     }
   };
 
@@ -122,8 +130,6 @@ export default function AiAgents() {
       name: agent.name,
       prompt: agent.prompt,
       temperatura: agent.temperatura.toString(),
-      numeroTokens: agent.numeroTokens,
-      modelo: agent.modelo,
       trainingFiles: agent.trainingFiles || [],
     });
     setActiveTab("create");
@@ -259,49 +265,20 @@ export default function AiAgents() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div>
-                  <Label htmlFor="modelo">Modelo</Label>
-                  <Select
-                    value={formData.modelo}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, modelo: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
-                      <SelectItem value="gpt-4">GPT-4</SelectItem>
-                      <SelectItem value="gpt-4o">GPT-4o</SelectItem>
-                      <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="temperatura">Temperatura</Label>
-                  <Input
-                    id="temperatura"
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="2"
-                    value={formData.temperatura}
-                    onChange={(e) => setFormData(prev => ({ ...prev, temperatura: e.target.value }))}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="numeroTokens">Quantidade de Tokens</Label>
-                  <Input
-                    id="numeroTokens"
-                    type="number"
-                    min="1"
-                    max="4000"
-                    value={formData.numeroTokens}
-                    onChange={(e) => setFormData(prev => ({ ...prev, numeroTokens: parseInt(e.target.value) }))}
-                  />
-                </div>
+              <div>
+                <Label htmlFor="temperatura">Temperatura</Label>
+                <Input
+                  id="temperatura"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="2"
+                  value={formData.temperatura}
+                  onChange={(e) => setFormData(prev => ({ ...prev, temperatura: e.target.value }))}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Modelo: {(aiConfig as any)?.modelo || "gpt-4o"} | Tokens: {(aiConfig as any)?.numeroTokens || 1000}
+                </p>
               </div>
 
               <div>

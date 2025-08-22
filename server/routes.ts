@@ -317,6 +317,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Endpoint público para clientes acessarem configurações de IA (sem chave da API)
+  app.get("/api/ai-config/public", authenticate, async (req, res) => {
+    try {
+      const config = await storage.getAiConfiguration();
+      if (!config) {
+        return res.json({ modelo: "gpt-4o", numeroTokens: 1000, temperatura: 0.7 });
+      }
+      
+      // Retornar apenas campos seguros (sem a chave da API)
+      res.json({
+        modelo: config.modelo || "gpt-4o",
+        numeroTokens: config.numeroTokens || 1000,
+        temperatura: config.temperatura || 0.7
+      });
+    } catch (error) {
+      console.error("Get public AI config error:", error);
+      res.status(500).json({ error: "Erro ao buscar configurações" });
+    }
+  });
+
   app.post("/api/ai-config/test", authenticate, requireAdmin, async (req, res) => {
     try {
       const { prompt } = req.body;
