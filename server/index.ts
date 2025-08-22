@@ -24,6 +24,18 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      
+      // Special logging for QR requests
+      if (path.includes('/qr')) {
+        console.log("🔍 QR REQUEST INTERCEPTED:", {
+          method: req.method,
+          path: path,
+          status: res.statusCode,
+          duration: duration + "ms",
+          hasAuth: !!req.headers.authorization
+        });
+      }
+      
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
