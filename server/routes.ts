@@ -890,6 +890,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`⚙️ Configurando settings da instância: ${instance.evolutionInstanceId}`);
       console.log(`📋 Settings:`, JSON.stringify(settings, null, 2));
       
+      // First check if instance exists in Evolution API
+      try {
+        console.log(`🔍 Verificando se instância existe na Evolution API: ${instance.evolutionInstanceId}`);
+        const statusCheck = await evolutionService.getInstanceStatus(instance.evolutionInstanceId);
+        console.log(`✅ Instância encontrada na Evolution API:`, JSON.stringify(statusCheck, null, 2));
+      } catch (statusError) {
+        console.error(`❌ Instância não encontrada na Evolution API:`, statusError);
+        return res.status(400).json({ 
+          error: "Instância não encontrada na Evolution API",
+          details: `A instância '${instance.evolutionInstanceId}' não existe na Evolution API`
+        });
+      }
+      
       const result = await evolutionService.setSettings(instance.evolutionInstanceId, settings);
       
       console.log("✅ Settings configuradas com sucesso:", JSON.stringify(result, null, 2));
