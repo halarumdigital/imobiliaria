@@ -45,7 +45,7 @@ export class EvolutionApiService {
       method,
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.config.token}`,
+        'apikey': this.config.token,
       },
       body: data ? JSON.stringify(data) : undefined,
     });
