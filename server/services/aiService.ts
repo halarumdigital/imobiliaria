@@ -144,18 +144,29 @@ export class AIService {
     }
   }
 
-  private async getConversationHistory(instanceId: string, phone: string): Promise<Array<{role: 'user' | 'assistant', content: string}>> {
+  private async getConversationHistory(evolutionInstanceId: string, phone: string): Promise<Array<{role: 'user' | 'assistant', content: string}>> {
     try {
       const storage = getStorage();
       
-      // Buscar conversa existente
-      const conversations = await storage.getConversationsByInstance(instanceId);
+      // PRIMEIRO: Encontrar a instância do nosso banco usando o evolutionInstanceId
+      const dbInstanceId = await this.findDatabaseInstanceId(evolutionInstanceId);
+      if (!dbInstanceId) {
+        console.log(`📚 Instância do banco não encontrada para evolutionId: ${evolutionInstanceId}`);
+        return [];
+      }
+      
+      console.log(`📚 Instância do banco encontrada: ${dbInstanceId} (evolutionId: ${evolutionInstanceId})`);
+      
+      // Buscar conversa existente usando o ID correto do banco
+      const conversations = await storage.getConversationsByInstance(dbInstanceId);
       const conversation = conversations.find(c => c.contactPhone === phone);
       
       if (!conversation) {
-        console.log(`📚 Nenhuma conversa encontrada para ${phone}`);
+        console.log(`📚 Nenhuma conversa encontrada para ${phone} na instância ${dbInstanceId}`);
         return [];
       }
+      
+      console.log(`📚 Conversa encontrada: ${conversation.id}`);
       
       // Buscar mensagens da conversa
       const messages = await storage.getMessagesByConversation(conversation.id);
@@ -166,7 +177,7 @@ export class AIService {
         .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
         .slice(-10)
         .map(msg => ({
-          role: msg.isFromUser ? 'user' as const : 'assistant' as const,
+          role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
           content: msg.content
         }));
       
@@ -176,6 +187,36 @@ export class AIService {
     } catch (error) {
       console.error("❌ Erro ao carregar histórico da conversa:", error);
       return [];
+    }
+  }
+
+  private async findDatabaseInstanceId(evolutionInstanceId: string): Promise<string | null> {
+    try {
+      const storage = getStorage();
+      const companies = await storage.getAllCompanies();
+      
+      for (const company of companies) {
+        const instances = await storage.getWhatsappInstancesByCompany(company.id);
+        
+        // Buscar por evolutionInstanceId OU usar fallback
+        let found = instances.find(i => i.evolutionInstanceId === evolutionInstanceId);
+        
+        // Fallback específico para ID conhecido
+        if (!found && evolutionInstanceId === "e5b71c35-276b-417e-a1c3-267f904b2b98") {
+          found = instances.find(i => i.name === "deploy2");
+        }
+        
+        if (found) {
+          console.log(`🔍 Mapeamento encontrado: evolutionId=${evolutionInstanceId} -> dbId=${found.id}`);
+          return found.id;
+        }
+      }
+      
+      console.log(`❌ Nenhuma instância encontrada para evolutionId: ${evolutionInstanceId}`);
+      return null;
+    } catch (error) {
+      console.error("❌ Erro ao buscar instância do banco:", error);
+      return null;
     }
   }
 
@@ -276,22 +317,32 @@ export class AIService {
     }
   }
 
-  async saveConversation(instanceId: string, phone: string, userMessage: string, aiResponse: string, agentId: string) {
+  async saveConversation(evolutionInstanceId: string, phone: string, userMessage: string, aiResponse: string, agentId: string) {
     try {
       const storage = getStorage();
       
-      // Buscar conversa existente por instância e telefone
-      const conversations = await storage.getConversationsByInstance(instanceId);
+      // PRIMEIRO: Encontrar a instância do nosso banco usando o evolutionInstanceId
+      const dbInstanceId = await this.findDatabaseInstanceId(evolutionInstanceId);
+      if (!dbInstanceId) {
+        console.log(`💾 Erro: Instância do banco não encontrada para salvar conversa. EvolutionId: ${evolutionInstanceId}`);
+        return null;
+      }
+      
+      console.log(`💾 Salvando conversa na instância: ${dbInstanceId} (evolutionId: ${evolutionInstanceId})`);
+      
+      // Buscar conversa existente usando o ID correto do banco
+      const conversations = await storage.getConversationsByInstance(dbInstanceId);
       let conversation = conversations.find(c => c.contactPhone === phone);
       
       if (!conversation) {
+        console.log(`💾 Criando nova conversa para ${phone}`);
         conversation = await storage.createConversation({
-          whatsappInstanceId: instanceId,
+          whatsappInstanceId: dbInstanceId,
           contactPhone: phone,
           lastMessage: userMessage
         });
       } else {
-        // Atualizar última mensagem - método não implementado, vamos apenas criar as mensagens
+        console.log(`💾 Usando conversa existente: ${conversation.id}`);
       }
 
       // Salvar mensagem do usuário
@@ -310,9 +361,10 @@ export class AIService {
         messageType: 'text'
       });
 
+      console.log(`💾 Conversa salva com sucesso: ${conversation.id}`);
       return conversation;
     } catch (error) {
-      console.error("Error saving conversation:", error);
+      console.error("❌ Error saving conversation:", error);
       throw error;
     }
   }
