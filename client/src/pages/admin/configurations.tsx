@@ -194,13 +194,13 @@ export default function Configurations() {
               <div className="flex items-center space-x-3">
                 <input
                   type="color"
-                  value={formData.coresPrimaria || "#3B82F6"}
-                  onChange={(e) => handleInputChange("coresPrimaria", e.target.value)}
+                  value={formData.cores_primaria || "#3B82F6"}
+                  onChange={(e) => handleInputChange("cores_primaria", e.target.value)}
                   className="h-10 w-16 rounded border border-input"
                 />
                 <Input
-                  value={formData.coresPrimaria || "#3B82F6"}
-                  onChange={(e) => handleInputChange("coresPrimaria", e.target.value)}
+                  value={formData.cores_primaria || "#3B82F6"}
+                  onChange={(e) => handleInputChange("cores_primaria", e.target.value)}
                   className="flex-1"
                 />
               </div>
@@ -211,13 +211,13 @@ export default function Configurations() {
               <div className="flex items-center space-x-3">
                 <input
                   type="color"
-                  value={formData.coresSecundaria || "#6366F1"}
-                  onChange={(e) => handleInputChange("coresSecundaria", e.target.value)}
+                  value={formData.cores_secundaria || "#6366F1"}
+                  onChange={(e) => handleInputChange("cores_secundaria", e.target.value)}
                   className="h-10 w-16 rounded border border-input"
                 />
                 <Input
-                  value={formData.coresSecundaria || "#6366F1"}
-                  onChange={(e) => handleInputChange("coresSecundaria", e.target.value)}
+                  value={formData.cores_secundaria || "#6366F1"}
+                  onChange={(e) => handleInputChange("cores_secundaria", e.target.value)}
                   className="flex-1"
                 />
               </div>
@@ -228,13 +228,13 @@ export default function Configurations() {
               <div className="flex items-center space-x-3">
                 <input
                   type="color"
-                  value={formData.coresFundo || "#F8FAFC"}
-                  onChange={(e) => handleInputChange("coresFundo", e.target.value)}
+                  value={formData.cores_fundo || "#F8FAFC"}
+                  onChange={(e) => handleInputChange("cores_fundo", e.target.value)}
                   className="h-10 w-16 rounded border border-input"
                 />
                 <Input
-                  value={formData.coresFundo || "#F8FAFC"}
-                  onChange={(e) => handleInputChange("coresFundo", e.target.value)}
+                  value={formData.cores_fundo || "#F8FAFC"}
+                  onChange={(e) => handleInputChange("cores_fundo", e.target.value)}
                   className="flex-1"
                 />
               </div>
@@ -247,8 +247,8 @@ export default function Configurations() {
               <Label htmlFor="nomeSistema">Nome do Sistema</Label>
               <Input
                 id="nomeSistema"
-                value={formData.nomeSistema || ""}
-                onChange={(e) => handleInputChange("nomeSistema", e.target.value)}
+                value={formData.nome_sistema || ""}
+                onChange={(e) => handleInputChange("nome_sistema", e.target.value)}
                 placeholder="Sistema Multi-Empresa"
               />
             </div>
@@ -257,8 +257,8 @@ export default function Configurations() {
               <Label htmlFor="nomeRodape">Nome do Rodapé</Label>
               <Input
                 id="nomeRodape"
-                value={formData.nomeRodape || ""}
-                onChange={(e) => handleInputChange("nomeRodape", e.target.value)}
+                value={formData.nome_rodape || ""}
+                onChange={(e) => handleInputChange("nome_rodape", e.target.value)}
                 placeholder="© 2024 Multi-Empresa System"
               />
             </div>
@@ -267,8 +267,8 @@ export default function Configurations() {
               <Label htmlFor="nomeAbaNavegador">Título da Aba</Label>
               <Input
                 id="nomeAbaNavegador"
-                value={formData.nomeAbaNavegador || ""}
-                onChange={(e) => handleInputChange("nomeAbaNavegador", e.target.value)}
+                value={formData.nome_aba_navegador || ""}
+                onChange={(e) => handleInputChange("nome_aba_navegador", e.target.value)}
                 placeholder="Multi-Empresa Dashboard"
               />
             </div>

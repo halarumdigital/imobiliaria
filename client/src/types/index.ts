@@ -29,13 +29,13 @@ export interface GlobalConfiguration {
   id: string;
   logo?: string;
   favicon?: string;
-  coresPrimaria: string;
-  coresSecundaria: string;
-  coresFundo: string;
-  nomeSistema: string;
-  nomeRodape: string;
-  nomeAbaNavegador: string;
-  updatedAt: string;
+  cores_primaria: string;
+  cores_secundaria: string;
+  cores_fundo: string;
+  nome_sistema: string;
+  nome_rodape: string;
+  nome_aba_navegador: string;
+  updated_at: string;
 }
 
 export interface EvolutionApiConfiguration {
