@@ -18,6 +18,7 @@ import { OpenAiService } from "./services/openai";
 import { ObjectStorageService } from "./objectStorage";
 import { extractTextFromMultiplePDFs } from "./pdfProcessor";
 import { AiResponseService } from "./aiResponseService";
+import { whatsappWebhookService } from "./services/whatsappWebhook";
 import { 
   insertUserSchema, insertCompanySchema, insertGlobalConfigSchema, 
   insertEvolutionConfigSchema, insertAiConfigSchema, insertWhatsappInstanceSchema,
