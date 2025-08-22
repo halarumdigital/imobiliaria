@@ -69,42 +69,17 @@ nav div.bg-sidebar-primary.text-sidebar-primary-foreground span {
   color: white !important;
 }
 
-/* Garantir visibilidade de todos os botões primários */
+/* Aplicar cores personalizadas apenas onde necessário */
+
+/* Botões primários - apenas os que têm classe bg-primary */
 .bg-primary {
   background-color: hsl(var(--primary)) !important;
   color: white !important;
 }
 
-button[type="submit"] {
+/* Botão de login específico */
+button[type="submit"]:not([variant="outline"]):not([variant="ghost"]):not([variant="link"]):not([variant="secondary"]):not([variant="destructive"]) {
   background-color: hsl(var(--primary)) !important;
-  color: white !important;
-}
-
-/* Garantir que botões primários do shadcn sejam visíveis */
-button.inline-flex.items-center.justify-center.whitespace-nowrap.rounded-md.text-sm.font-medium,
-button.bg-primary.text-primary-foreground.hover\:bg-primary\/90,
-.bg-primary.text-primary-foreground {
-  background-color: hsl(var(--primary)) !important;
-  color: white !important;
-}
-
-/* Forçar visibilidade dos botões de ação - seletor mais específico */
-form button[type="submit"]:not([variant="outline"]):not([variant="ghost"]):not([variant="link"]):not([variant="secondary"]) {
-  background-color: hsl(var(--primary)) !important;
-  color: white !important;
-  border: none !important;
-}
-
-/* Garantir que o botão de salvar configurações seja visível */
-button[type="submit"][disabled],
-button[type="submit"]:not([disabled]) {
-  background-color: hsl(var(--primary)) !important;
-  color: white !important;
-}
-
-/* Específico para disabled state */
-button[type="submit"][disabled] {
-  background-color: hsl(var(--primary) / 0.7) !important;
   color: white !important;
 }
 
