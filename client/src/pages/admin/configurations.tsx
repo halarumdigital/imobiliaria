@@ -18,8 +18,9 @@ export default function Configurations() {
   const logoInputRef = useRef<HTMLInputElement>(null);
   const faviconInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: config, isLoading } = useQuery<GlobalConfiguration>({
+  const { data: config, isLoading, error } = useQuery<GlobalConfiguration>({
     queryKey: ["/global-config"],
+    queryFn: () => apiGet("/global-config"),
   });
 
   useEffect(() => {
@@ -31,8 +32,14 @@ export default function Configurations() {
   const mutation = useMutation({
     mutationFn: (data: Partial<GlobalConfiguration>) => apiPost("/global-config", data),
     onSuccess: (data) => {
+      // Força a atualização do cache e refetch
       queryClient.invalidateQueries({ queryKey: ["/global-config"] });
+      queryClient.refetchQueries({ queryKey: ["/global-config"] });
+      
+      // Atualiza o estado local imediatamente também
+      setFormData(data);
       applyTheme(data);
+      
       toast({
         title: "Sucesso",
         description: "Configurações salvas com sucesso!",
