@@ -275,13 +275,7 @@ export default function WhatsApp() {
           </div>
         )}
 
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
-            <span>Agente IA: </span>
-            <span className="font-medium text-purple-600">
-              {getAgentName(instance.aiAgentId)}
-            </span>
-          </div>
+        <div className="flex items-center justify-end">
           <div className="flex space-x-2">
             <Button
               variant="outline"
