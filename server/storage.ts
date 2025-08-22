@@ -520,11 +520,21 @@ export class MySQLStorage implements IStorage {
   async updateWhatsappInstance(id: string, updates: Partial<WhatsappInstance>): Promise<WhatsappInstance> {
     if (!this.connection) throw new Error('No database connection');
     
+    // Map camelCase to snake_case for MySQL columns
+    const fieldMapping: Record<string, string> = {
+      companyId: 'company_id',
+      aiAgentId: 'ai_agent_id',
+      evolutionInstanceId: 'evolution_instance_id',
+      qrCode: 'qr_code',
+      createdAt: 'created_at',
+      updatedAt: 'updated_at'
+    };
+    
     const fields = Object.keys(updates).filter(key => updates[key as keyof WhatsappInstance] !== undefined);
     const values = fields.map(key => updates[key as keyof WhatsappInstance]);
     
     if (fields.length > 0) {
-      const setClause = fields.map(field => `${field} = ?`).join(', ');
+      const setClause = fields.map(field => `${fieldMapping[field] || field} = ?`).join(', ');
       await this.connection.execute(
         `UPDATE whatsapp_instances SET ${setClause} WHERE id = ?`,
         [...values, id]

@@ -551,8 +551,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Fix for existing instances without companyId
       if (!instance.companyId && req.user.companyId) {
         console.log("Fixing missing companyId for instance");
-        // Use snake_case for MySQL column
-        await storage.updateWhatsappInstance(id, { company_id: req.user.companyId } as any);
+        await storage.updateWhatsappInstance(id, { companyId: req.user.companyId });
         instance.companyId = req.user.companyId;
       }
       
