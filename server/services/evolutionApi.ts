@@ -72,7 +72,7 @@ export class EvolutionApiService {
   }
 
   async getInstanceStatus(instanceName: string): Promise<InstanceStatus> {
-    return this.makeRequest(`/instance/status/${instanceName}`);
+    return this.makeRequest(`/instance/connectionState/${instanceName}`);
   }
 
   async generateQRCode(instanceName: string): Promise<QRCodeResponse> {
