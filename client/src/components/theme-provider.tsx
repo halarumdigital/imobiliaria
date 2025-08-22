@@ -30,6 +30,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [globalConfig]);
 
   const applyTheme = (newConfig: GlobalConfiguration) => {
+    console.log('Aplicando tema:', newConfig);
     setConfig(newConfig);
     
     // Convert hex to HSL for Tailwind CSS compatibility
@@ -56,13 +57,35 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
     };
     
+    console.log('Cores originais:', {
+      primaria: newConfig.cores_primaria,
+      secundaria: newConfig.cores_secundaria,
+      fundo: newConfig.cores_fundo
+    });
+    
+    const primaryHsl = hexToHsl(newConfig.cores_primaria);
+    const secondaryHsl = hexToHsl(newConfig.cores_secundaria);
+    const backgroundHsl = hexToHsl(newConfig.cores_fundo);
+    
+    console.log('Cores convertidas para HSL:', {
+      primary: primaryHsl,
+      secondary: secondaryHsl,
+      background: backgroundHsl
+    });
+    
     // Apply CSS custom properties to Tailwind variables
     const root = document.documentElement;
-    root.style.setProperty("--primary", hexToHsl(newConfig.cores_primaria));
-    root.style.setProperty("--secondary", hexToHsl(newConfig.cores_secundaria));
-    root.style.setProperty("--background", hexToHsl(newConfig.cores_fundo));
-    root.style.setProperty("--sidebar-primary", hexToHsl(newConfig.cores_primaria));
-    root.style.setProperty("--sidebar-accent", hexToHsl(newConfig.cores_secundaria));
+    root.style.setProperty("--primary", primaryHsl);
+    root.style.setProperty("--secondary", secondaryHsl);
+    root.style.setProperty("--background", backgroundHsl);
+    root.style.setProperty("--sidebar-primary", primaryHsl);
+    root.style.setProperty("--sidebar-accent", secondaryHsl);
+    
+    console.log('Variáveis CSS aplicadas:', {
+      '--primary': getComputedStyle(root).getPropertyValue('--primary'),
+      '--secondary': getComputedStyle(root).getPropertyValue('--secondary'),
+      '--background': getComputedStyle(root).getPropertyValue('--background')
+    });
     
     // Update document title
     document.title = newConfig.nome_aba_navegador;
