@@ -767,7 +767,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`✅ Acesso liberado para status`);
       
 
-      console.log(`🔍 Buscando status da instância: ${instance.name} (${instance.evolutionInstance})`);
+      console.log(`🔍 Buscando status da instância: ${instance.name} (${instance.evolutionInstanceId})`);
 
       // Get Evolution API configuration
       const evolutionConfig = await storage.getEvolutionApiConfiguration();
@@ -775,8 +775,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: "Configuração da Evolution API não encontrada" });
       }
 
+      // Check if instance has evolutionInstanceId
+      if (!instance.evolutionInstanceId) {
+        console.log(`❌ Instância não tem evolutionInstanceId definido`);
+        return res.status(400).json({ error: "Instância não está configurada na Evolution API" });
+      }
+
       // Check connection status from Evolution API
-      const statusUrl = `${evolutionConfig.evolutionURL}/instance/connectionState/${instance.evolutionInstance}`;
+      const statusUrl = `${evolutionConfig.evolutionURL}/instance/connectionState/${instance.evolutionInstanceId}`;
       console.log(`📡 Consultando status em: ${statusUrl}`);
 
       const response = await fetch(statusUrl, {
