@@ -1636,12 +1636,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid webhook format" });
       }
       
-      // Verificar se é uma atualização de status de mensagem (nossa mensagem enviada)
-      if (req.body.data && req.body.data.fromMe === true) {
-        console.log("📤 Message status update received (message sent by us), ignoring");
+      // Verificar se é uma mensagem enviada por nós (evitar loop infinito)
+      if (req.body.event === "send.message" || 
+          (req.body.data && req.body.data.fromMe === true) ||
+          (req.body.data && req.body.data.key && req.body.data.key.fromMe === true)) {
+        console.log("📤 Message sent by us, ignoring to prevent loop");
         return res.status(200).json({ 
           success: true, 
-          type: "status_update", 
+          type: "outgoing_message", 
           ignored: true,
           timestamp: new Date().toISOString() 
         });
