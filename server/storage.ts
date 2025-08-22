@@ -419,8 +419,19 @@ export class MySQLStorage implements IStorage {
   async getAiConfiguration(): Promise<AiConfiguration | undefined> {
     if (!this.connection) throw new Error('No database connection');
     
-    const [rows] = await this.connection.execute('SELECT * FROM ai_configurations LIMIT 1');
-    return (rows as AiConfiguration[])[0];
+    const [rows] = await this.connection.execute('SELECT * FROM ai_configurations LIMIT 1') as any;
+    const rawData = rows[0];
+    if (!rawData) return undefined;
+    
+    // Mapeamento dos campos do banco para o frontend
+    return {
+      id: rawData.id,
+      apiKey: rawData.api_key,
+      modelo: rawData.modelo,
+      temperatura: rawData.temperatura,
+      numeroTokens: rawData.numero_tokens,
+      updatedAt: rawData.updated_at,
+    } as AiConfiguration;
   }
 
   async saveAiConfiguration(config: InsertAiConfiguration): Promise<AiConfiguration> {
