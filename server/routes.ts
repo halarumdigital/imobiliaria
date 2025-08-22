@@ -881,7 +881,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Object storage endpoints for file uploads
   const objectStorageService = new ObjectStorageService();
 
-  app.post("/api/objects/upload", authenticate, async (req, res) => {
+  app.post("/api/objects/upload", authenticate, requireClient, async (req, res) => {
     try {
       const uploadURL = await objectStorageService.getObjectEntityUploadURL();
       res.json({ uploadURL });
