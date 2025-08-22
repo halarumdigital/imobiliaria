@@ -113,6 +113,9 @@ export class EvolutionApiService {
     return this.makeRequest(`/chat/findMessages/${instanceName}`);
   }
 
+  async setSettings(instanceName: string, settings: any): Promise<any> {
+    return this.makeRequest(`/settings/set/${instanceName}`, 'POST', settings);
+  }
 
   async testConnection(): Promise<boolean> {
     try {

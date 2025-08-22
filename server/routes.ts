@@ -828,6 +828,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Configure WhatsApp settings
+  app.post("/api/whatsapp-instances/:id/settings", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const instance = await storage.getWhatsappInstance(id);
+      
+      if (!instance) {
+        return res.status(404).json({ error: "Instância não encontrada" });
+      }
+
+      // Fix for existing instances without companyId
+      if (!instance.companyId && req.user?.companyId) {
+        console.log("🔧 Corrigindo companyId ausente para configuração");
+        await storage.updateWhatsappInstance(id, { companyId: req.user.companyId });
+        instance.companyId = req.user.companyId;
+      }
+
+      // Check company access
+      if (req.user?.role !== 'admin' && instance.companyId !== req.user?.companyId) {
+        console.log(`❌ Acesso negado para configuração: companyId não confere`);
+        return res.status(403).json({ error: "Acesso negado: instância não pertence à sua empresa" });
+      }
+
+      // Get Evolution API configuration
+      const evolutionConfig = await storage.getEvolutionApiConfiguration();
+      if (!evolutionConfig) {
+        return res.status(500).json({ error: "Configuração da Evolution API não encontrada" });
+      }
+
+      // Check if instance has evolutionInstanceId
+      if (!instance.evolutionInstanceId) {
+        console.log(`❌ Instância não tem evolutionInstanceId definido para configuração`);
+        return res.status(400).json({ error: "Instância não está configurada na Evolution API" });
+      }
+
+      const evolutionService = new EvolutionApiService({
+        baseURL: evolutionConfig.evolutionURL,
+        token: evolutionConfig.evolutionToken
+      });
+
+      // Default settings payload
+      const settings = {
+        rejectCall: true,
+        msgCall: "I do not accept calls",
+        groupsIgnore: true,
+        alwaysOnline: true,
+        readMessages: true,
+        syncFullHistory: false,
+        readStatus: true
+      };
+
+      console.log(`⚙️ Configurando settings da instância: ${instance.evolutionInstanceId}`);
+      console.log(`📋 Settings:`, JSON.stringify(settings, null, 2));
+      
+      const result = await evolutionService.setSettings(instance.evolutionInstanceId, settings);
+      
+      console.log("✅ Settings configuradas com sucesso:", JSON.stringify(result, null, 2));
+      
+      res.json({ success: true, result });
+    } catch (error) {
+      console.error("❌ Erro ao configurar settings:", error);
+      res.status(500).json({ error: "Erro ao configurar WhatsApp" });
+    }
+  });
+
   // AI Agents
   app.get("/api/ai-agents", authenticate, requireClient, async (req: AuthRequest, res) => {
     try {

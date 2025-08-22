@@ -146,6 +146,29 @@ export default function WhatsApp() {
     }
   };
 
+  const handleWhatsAppConfig = async (instanceId: string) => {
+    try {
+      toast({
+        title: "Configurando...",
+        description: "Aplicando configurações do WhatsApp...",
+      });
+
+      await apiPost(`/whatsapp-instances/${instanceId}/settings`, {});
+      
+      toast({
+        title: "Sucesso",
+        description: "Configurações do WhatsApp aplicadas com sucesso",
+      });
+    } catch (error) {
+      console.error("Error configuring WhatsApp:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao configurar WhatsApp",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleLinkAgent = (instanceId: string, agentId: string) => {
     const finalAgentId = agentId === "none" ? "" : agentId;
     linkAgentMutation.mutate({ instanceId, agentId: finalAgentId });
@@ -293,12 +316,7 @@ export default function WhatsApp() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                toast({
-                  title: "Configurar WhatsApp",
-                  description: "Funcionalidade em desenvolvimento",
-                });
-              }}
+              onClick={() => handleWhatsAppConfig(instance.id)}
             >
               <Settings className="w-4 h-4 mr-1" />
               Configurar WhatsApp
