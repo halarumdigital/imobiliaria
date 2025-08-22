@@ -592,12 +592,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         token: evolutionConfig.evolutionToken
       });
 
-      const instanceNameToUse = instance.evolutionInstanceId || instance.id;
-      console.log("Generating QR for instance:", instanceNameToUse);
-      console.log("Instance details:", { evolutionInstanceId: instance.evolutionInstanceId, id: instance.id });
+      const instanceNameToUse = instance.evolutionInstanceId || instance.name?.replace(/\s+/g, '_').toLowerCase() || instance.id;
+      console.log("🔍 Generating QR for instance:", instanceNameToUse);
+      console.log("📋 Instance details:", { 
+        evolutionInstanceId: instance.evolutionInstanceId, 
+        name: instance.name,
+        id: instance.id,
+        nameToUse: instanceNameToUse
+      });
       
       try {
         // First try to get QR Code
+        console.log(`📱 Requesting QR Code for: ${instanceNameToUse}`);
         const qrResponse = await evolutionService.generateQRCode(instanceNameToUse);
         console.log("QR Response from Evolution API:", JSON.stringify(qrResponse, null, 2));
         
@@ -613,20 +619,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // If QR fails, try to recreate the instance in Evolution API
         try {
+          const newInstanceName = instance.name?.replace(/\s+/g, '_').toLowerCase() || instance.id;
+          console.log(`🔄 Recreating instance with name: ${newInstanceName}`);
+          
           const evolutionResponse = await evolutionService.createInstance({
-            instanceName: instance.id,
+            instanceName: newInstanceName,
             qrcode: true
           });
           
-          console.log("Instance recreated:", evolutionResponse);
+          console.log("✅ Instance recreated:", evolutionResponse);
           
           // Update database with new Evolution instance ID
           await storage.updateWhatsappInstance(id, {
-            evolutionInstanceId: evolutionResponse.instance?.instanceName || instance.id
+            evolutionInstanceId: newInstanceName
           });
           
           // Now try QR Code again
-          const newQrResponse = await evolutionService.generateQRCode(instance.id);
+          const newQrResponse = await evolutionService.generateQRCode(newInstanceName);
           console.log("New QR Response:", JSON.stringify(newQrResponse, null, 2));
           
           res.json({ qrCode: newQrResponse.qrcode?.base64 || newQrResponse.base64 });
@@ -899,12 +908,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Nome da instância será exatamente o nome fornecido pelo usuário
       const instanceName = name.replace(/\s+/g, '_').toLowerCase();
       
+      console.log(`🚀 Creating Evolution instance with name: ${instanceName}`);
       const evolutionResponse = await evolutionService.createInstance({
         instanceName,
-        token: evolutionConfig.evolutionToken,
         qrcode: true,
-        number: phone,
-        integration: "WHATSAPP-BAILEYS"
+        number: phone
       });
 
       // Salvar instância no banco de dados local
@@ -912,7 +920,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name,
         phone,
         companyId: req.user.companyId,
-        instanceName, // Nome usado na Evolution API
+        evolutionInstanceId: instanceName, // Nome usado na Evolution API
         status: 'disconnected' as const
       };
       
