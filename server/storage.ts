@@ -477,14 +477,17 @@ export class MySQLStorage implements IStorage {
     if (!rawData) return undefined;
     
     // Mapeamento dos campos do banco para o frontend
-    return {
+    const config = {
       id: rawData.id,
       apiKey: rawData.api_key,
       modelo: rawData.modelo,
-      temperatura: rawData.temperatura,
-      numeroTokens: rawData.numero_tokens,
+      temperatura: parseFloat(rawData.temperatura?.toString() || "0.7"),
+      numeroTokens: parseInt(rawData.numero_tokens?.toString() || "1000"),
       updatedAt: rawData.updated_at,
     } as AiConfiguration;
+    
+    console.log(`📊 Storage returning AI config:`, config);
+    return config;
   }
 
   async saveAiConfiguration(config: InsertAiConfiguration): Promise<AiConfiguration> {

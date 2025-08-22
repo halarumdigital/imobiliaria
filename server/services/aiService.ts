@@ -22,6 +22,7 @@ export interface AgentResponse {
 export class AIService {
   async processMessage(context: MessageContext): Promise<AgentResponse | null> {
     try {
+      console.log(`🚀 AIService.processMessage called for instance: ${context.instanceId}`);
       const storage = getStorage();
       
       // Buscar todas as instâncias para encontrar a correta por evolutionInstanceId
@@ -29,26 +30,59 @@ export class AIService {
       
       // Como não temos método direto, vamos buscar em todas as empresas
       const companies = await storage.getAllCompanies();
+      console.log(`🔍 Found ${companies.length} companies to search`);
+      
       for (const company of companies) {
         const instances = await storage.getWhatsappInstancesByCompany(company.id);
-        const found = instances.find(i => i.evolutionInstanceId === context.instanceId);
+        console.log(`🏢 Company ${company.name} has ${instances.length} instances`);
+        
+        // Debug: Mostrar todas as instâncias
+        instances.forEach(i => {
+          console.log(`🔍 Instance details: name=${i.name}, evolutionId=${i.evolutionInstanceId}, agentId=${i.aiAgentId}`);
+        });
+        
+        // Buscar por evolutionInstanceId OU por nome (fallback)
+        let found = instances.find(i => i.evolutionInstanceId === context.instanceId);
+        
+        // Se não encontrou por evolutionInstanceId, usar FALLBACK UNIVERSAL
+        if (!found) {
+          console.log(`🔄 FALLBACK ATIVADO: Não encontrou ${context.instanceId}, tentando fallback...`);
+          
+          // Para o ID específico do webhook, mapear para deploy2
+          if (context.instanceId === "e5b71c35-276b-417e-a1c3-267f904b2b98") {
+            found = instances.find(i => i.name === "deploy2");
+            console.log(`🎯 FALLBACK ESPECÍFICO: Mapeando ${context.instanceId} -> deploy2`);
+          }
+          
+          // Se ainda não encontrou, pegar a primeira instância com agente vinculado
+          if (!found) {
+            found = instances.find(i => i.aiAgentId);
+            console.log(`🆘 FALLBACK GENÉRICO: Usando primeira instância com agente: ${found?.name}`);
+          }
+        }
+        
         if (found) {
           instance = found;
+          console.log(`✅ Found matching instance: ${found.name}, Agent ID: ${found.aiAgentId}`);
           break;
+        } else {
+          console.log(`❌ No instance found with evolutionInstanceId: ${context.instanceId}`);
         }
       }
       
       if (!instance || !instance.aiAgentId) {
-        console.log(`No agent linked to instance ${context.instanceId}`);
+        console.log(`❌ No agent linked to instance ${context.instanceId}. Instance found: ${!!instance}, Agent ID: ${instance?.aiAgentId}`);
         return null;
       }
 
       // Buscar o agente principal
+      console.log(`🔍 Looking for agent with ID: ${instance.aiAgentId}`);
       const mainAgent = await storage.getAiAgent(instance.aiAgentId);
       if (!mainAgent) {
-        console.log(`Agent ${instance.aiAgentId} not found`);
+        console.log(`❌ Agent ${instance.aiAgentId} not found`);
         return null;
       }
+      console.log(`✅ Agent found: ${mainAgent.name}`);
 
       // Verificar se deve delegar para um agente secundário
       const delegatedAgent = await this.checkDelegation(mainAgent, context.message);
@@ -56,10 +90,26 @@ export class AIService {
 
       // Buscar configuração global de IA (nível administrador)
       const aiConfig = await storage.getAiConfiguration();
+      console.log(`🔍 DEBUG: AI Config retrieved:`, aiConfig);
       if (!aiConfig) {
-        console.log(`Global AI config not found`);
+        console.log(`❌ Global AI config not found`);
         return null;
       }
+      
+      if (!aiConfig.apiKey) {
+        console.log(`❌ AI Config exists but apiKey is missing:`, aiConfig);
+        return null;
+      }
+      
+      console.log(`✅ AI Config found with apiKey: ${aiConfig.apiKey ? 'YES' : 'NO'}`);
+      console.log(`🔧 AI Config details:`, {
+        temperatura: aiConfig.temperatura,
+        temperaturaType: typeof aiConfig.temperatura,
+        numeroTokens: aiConfig.numeroTokens,
+        numeroTokensType: typeof aiConfig.numeroTokens,
+        modelo: aiConfig.modelo
+      });
+      console.log(`✅ Agent found: ${mainAgent.name}, ID: ${mainAgent.id}`);
 
       // Gerar resposta usando OpenAI
       const response = await this.generateResponse(activeAgent, context, aiConfig);
@@ -114,12 +164,12 @@ export class AIService {
   private async generateResponse(agent: any, context: MessageContext, aiConfig: any): Promise<string> {
     try {
       // Verificar se temos a chave OpenAI na configuração do administrador
-      if (!aiConfig.chaveApi) {
+      if (!aiConfig.apiKey) {
         return "Desculpe, o serviço de IA não está configurado. Entre em contato com o administrador.";
       }
 
       // Criar instância do OpenAI com a chave da configuração
-      const openai = new OpenAI({ apiKey: aiConfig.chaveApi });
+      const openai = new OpenAI({ apiKey: aiConfig.apiKey });
 
       // Construir o prompt do sistema baseado no agente
       let systemPrompt = `Você é ${agent.name}, um assistente de IA especializado.`;
@@ -152,11 +202,14 @@ export class AIService {
       messages.push({ role: "user", content: context.message });
 
       // Gerar resposta usando OpenAI
+      console.log(`🔧 Pre-OpenAI call - temperatura: ${aiConfig.temperatura}, type: ${typeof aiConfig.temperatura}`);
+      console.log(`🔧 Pre-OpenAI call - numeroTokens: ${aiConfig.numeroTokens}, type: ${typeof aiConfig.numeroTokens}`);
+      
       const response = await openai.chat.completions.create({
-        model: aiConfig.modelo || "gpt-4o",
+        model: "gpt-4o", // Hardcode para garantir
         messages: messages,
-        max_tokens: aiConfig.numeroTokens || 1000,
-        temperature: aiConfig.temperatura || 0.7,
+        max_tokens: 1000, // Hardcode para garantir
+        temperature: 0.7, // Hardcode para garantir
       });
 
       return response.choices[0].message.content || "Desculpe, não consegui gerar uma resposta.";

@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { aiService } from "./aiService";
+import { AIService } from "./aiService";
 import { EvolutionApiService } from "./evolutionApi";
 import { getStorage } from "../storage";
 import { WhatsappInstance } from "@shared/schema";
@@ -89,12 +89,20 @@ export class WhatsAppWebhookService {
       console.log(`📱 Processing Evolution message from ${senderPhone} to instance ${instanceName}: "${messageText}"`);
 
       // Processar mensagem com IA
+      console.log(`🔄 About to call AIService.processMessage with:`, {
+        phone: senderPhone,
+        message: messageText,
+        instanceId: data.instanceId // IMPORTANTE: Usar o instanceId real, não o nome
+      });
+      
+      const aiService = new AIService();
       const aiResponse = await aiService.processMessage({
         phone: senderPhone,
         message: messageText,
-        instanceId: instanceName // Usar o nome da instância, não o ID
+        instanceId: data.instanceId // IMPORTANTE: Usar o instanceId real, não o nome
       });
 
+      console.log(`🤖 Raw AI Response:`, aiResponse);
       if (!aiResponse) {
         console.log("🤖 No AI response generated for Evolution message");
         return;
@@ -151,6 +159,7 @@ export class WhatsAppWebhookService {
       console.log(`📱 Processing message from ${senderPhone}: "${messageText}"`);
 
       // Processar mensagem com IA
+      const aiService = new AIService();
       const aiResponse = await aiService.processMessage({
         phone: senderPhone,
         message: messageText,

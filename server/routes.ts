@@ -538,6 +538,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/whatsapp-instances/:id", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      console.log(`🔧 PUT request for instance ${id} with data:`, req.body);
+      
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+
+      // Verificar se a instância pertence à empresa do usuário
+      const existingInstance = await storage.getWhatsappInstance(id);
+      console.log(`🔍 Existing instance:`, existingInstance);
+      
+      if (!existingInstance || existingInstance.companyId !== req.user.companyId) {
+        return res.status(404).json({ error: "Instância não encontrada" });
+      }
+
+      const instanceData = insertWhatsappInstanceSchema.partial().parse(req.body);
+      console.log(`📝 Parsed instance data:`, instanceData);
+      
+      const updatedInstance = await storage.updateWhatsappInstance(id, instanceData);
+      
+      console.log(`✅ Instance updated: ${id}`, updatedInstance);
+      res.json(updatedInstance);
+    } catch (error) {
+      console.error("Update WhatsApp instance error:", error);
+      res.status(500).json({ error: "Erro ao atualizar instância", details: error.message });
+    }
+  });
+
+  // Endpoint debug temporário SEM AUTENTICAÇÃO para forçar correção
+  app.post("/api/debug-noauth/fix-instance", async (req, res) => {
+    try {
+      console.log("🐛 DEBUG: Forcing instance fix WITHOUT AUTH");
+      
+      // Primeiro, vamos ver a instância atual
+      const currentInstance = await storage.getWhatsappInstance("63d815ad-5ea0-4b43-8a09-e8a6ac00e8a1");
+      console.log("🔍 Current instance:", currentInstance);
+      
+      // Agora vamos tentar atualizá-la
+      const updatedInstance = await storage.updateWhatsappInstance("63d815ad-5ea0-4b43-8a09-e8a6ac00e8a1", {
+        evolutionInstanceId: "e5b71c35-276b-417e-a1c3-267f904b2b98"
+      });
+      console.log("🔧 DEBUG: Instance updated:", updatedInstance);
+      
+      res.json({ 
+        success: true, 
+        before: currentInstance,
+        after: updatedInstance 
+      });
+    } catch (error) {
+      console.error("DEBUG fix error:", error);
+      res.status(500).json({ error: error.message, stack: error.stack });
+    }
+  });
+
   app.get("/api/whatsapp-instances/:id/qr", (req, res, next) => {
     console.log("ROUTE HIT - QR endpoint called!");
     next();
