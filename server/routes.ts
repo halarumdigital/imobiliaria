@@ -136,6 +136,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ user: req.user });
   });
 
+  // Global configurations - Public view for branding
+  app.get("/api/global-config/public", authenticate, async (req, res) => {
+    try {
+      const config = await storage.getGlobalConfiguration();
+      if (config) {
+        // Return only visual/branding information
+        const publicConfig = {
+          logo: config.logo,
+          favicon: config.favicon,
+          coresPrimaria: config.coresPrimaria,
+          coresSecundaria: config.coresSecundaria,
+          coresFundo: config.coresFundo,
+          nomeSistema: config.nomeSistema,
+          nomeRodape: config.nomeRodape,
+          nomeAbaNavegador: config.nomeAbaNavegador
+        };
+        res.json(publicConfig);
+      } else {
+        res.json({});
+      }
+    } catch (error) {
+      console.error("Get public global config error:", error);
+      res.status(500).json({ error: "Erro ao buscar configurações" });
+    }
+  });
+
   // Global configurations (Admin only)
   app.get("/api/global-config", authenticate, requireAdmin, async (req, res) => {
     try {

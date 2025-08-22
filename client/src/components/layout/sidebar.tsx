@@ -1,4 +1,5 @@
 import { Link, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import {
   MessageCircle, LogOut 
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { GlobalConfiguration } from "@/types";
 
 interface NavItem {
   href: string;
@@ -37,6 +39,11 @@ export function Sidebar() {
   const { config } = useTheme();
   const [location] = useLocation();
 
+  const { data: globalConfig } = useQuery<Partial<GlobalConfiguration>>({
+    queryKey: ["/global-config/public"],
+    enabled: !!user
+  });
+
   if (!user) return null;
 
   const navItems = user.role === "admin" ? adminNavItems : clientNavItems;
@@ -44,28 +51,25 @@ export function Sidebar() {
 
   return (
     <div className="fixed inset-y-0 left-0 w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
-      {/* Logo/Brand Section */}
+      {/* Logo Section */}
       <div className="p-6 border-b border-sidebar-border">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-sidebar-primary rounded-lg flex items-center justify-center">
-            <Building className="text-sidebar-primary-foreground text-lg" />
-          </div>
-          <div>
-            <h2 className="font-bold text-sidebar-foreground">
-              {config?.nomeSistema || "Sistema Multi-Empresa"}
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              {isAdmin ? "Administrador" : "Cliente"}
-            </p>
-          </div>
+        <div className="flex items-center justify-center">
+          {globalConfig?.logo ? (
+            <img 
+              src={globalConfig.logo} 
+              alt="Logo" 
+              className="h-12 w-auto object-contain"
+            />
+          ) : (
+            <div className="w-12 h-12 bg-sidebar-primary rounded-lg flex items-center justify-center">
+              <Building className="text-sidebar-primary-foreground text-xl" />
+            </div>
+          )}
         </div>
       </div>
 
       {/* Navigation Menu */}
       <nav className="flex-1 px-4 py-6 space-y-2">
-        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-          {isAdmin ? "Administração" : "Área do Cliente"}
-        </div>
         
         {navItems.map((item) => {
           const isActive = location === item.href;
