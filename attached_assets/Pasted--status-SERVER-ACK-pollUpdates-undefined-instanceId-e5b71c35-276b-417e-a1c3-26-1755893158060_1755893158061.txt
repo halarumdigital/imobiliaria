@@ -1,0 +1,196 @@
+ status: 'SERVER_ACK',
+
+    pollUpdates: undefined,
+
+    instanceId: 'e5b71c35-276b-417e-a1c3-267f904b2b98'
+
+  },
+
+  server_url: 'https://apizap.halarum.com.br',
+
+  date_time: '2025-08-22T17:05:07.137Z',
+
+  sender: '5514981856962@s.whatsapp.net',
+
+  apikey: '94eff8b9da7b6c86e50b5c43334f6f69'
+
+} 
+
+normalUsers [ { number: '5514981856962', jid: '5514981856962@s.whatsapp.net' } ]
+
+numbersToVerify [ '5514981856962@s.whatsapp.net' ]
+
+cachedNumbers [
+
+  {
+
+    remoteJid: '5514981856962@s.whatsapp.net',
+
+    number: '5514981856962',
+
+    jidOptions: [ '5514981856962@s.whatsapp.net', '551481856962@s.whatsapp.net' ],
+
+    lid: '41576004849785@lid'
+
+  }
+
+]
+
+filteredNumbers []
+
+
+
+]
+
+[Evolution API]  [deploy2]  v2.3.1  163   -  Fri Aug 22 2025 17:05:09     VERBOSE   [ChannelStartupService]  [string]  Sending message to 5514981856962@s.whatsapp.net 
+
+[Evolution API]  [deploy2]  v2.3.1  163   -  Fri Aug 22 2025 17:05:10     LOG   [ChannelStartupService]  [object]   
+
+{
+
+  key: MessageKey {
+
+    remoteJid: '5514981856962@s.whatsapp.net',
+
+    fromMe: true,
+
+    id: '3EB03D3A33FB5962FF033DB4057212CE59D62898'
+
+  },
+
+  pushName: 'Você',
+
+  status: 'PENDING',
+
+  message: { conversation: 'Olá! Em que posso ajudar você hoje?' },
+
+  contextInfo: null,
+
+  messageType: 'conversation',
+
+  messageTimestamp: 1755893109,
+
+  instanceId: 'e5b71c35-276b-417e-a1c3-267f904b2b98',
+
+  source: 'unknown'
+
+} 
+
+[Evolution API]    v2.3.1  163   -  Fri Aug 22 2025 17:05:10     LOG   [WebsocketController]  [object]   
+
+{
+
+  local: 'p.sendData-WebsocketGlobal',
+
+  event: 'send.message',
+
+  instance: 'deploy2',
+
+
+
+{
+
+    key: MessageKey {
+
+      remoteJid: '5514981856962@s.whatsapp.net',
+
+      fromMe: true,
+
+      id: '3EB03D3A33FB5962FF033DB4057212CE59D62898'
+
+    },
+
+    pushName: 'Você',
+
+    status: 'PENDING',
+
+    message: { conversation: 'Olá! Em que posso ajudar você hoje?' },
+
+    contextInfo: null,
+
+    messageType: 'conversation',
+
+    messageTimestamp: 1755893109,
+
+    instanceId: 'e5b71c35-276b-417e-a1c3-267f904b2b98',
+
+    source: 'unknown'
+
+  },
+
+  server_url: 'https://apizap.halarum.com.br',
+
+  date_time: '2025-08-22T17:05:10.057Z',
+
+  sender: '5514981856962@s.whatsapp.net',
+
+  apikey: '94eff8b9da7b6c86e50b5c43334f6f69'
+
+} 
+
+[Evolution API]  [deploy2]  v2.3.1  163   -  Fri Aug 22 2025 17:05:10     LOG   [ChannelStartupService]  [string]  Update messages [
+
+  {
+
+    "key": {
+
+      "remoteJid": "5514981856962@s.whatsapp.net",
+
+      "id": "3EB03D3A33FB5962FF033DB4057212CE59D62898",
+
+      "fromMe": true
+
+    },
+
+    "update": {
+
+      "status": 2
+
+    }
+
+  }
+
+] 
+
+[Evolution API]    v2.3.1  163   -  Fri Aug 22 2025 17:05:10     LOG   [WebsocketController]  [object]   
+
+{
+
+  local: 'p.sendData-WebsocketGlobal',
+
+  event: 'messages.update',
+
+  instance: 'deploy2',
+
+
+
+{
+
+    messageId: 'cmen9f6sn0c2jlh4jnt21ex4v',
+
+    keyId: '3EB03D3A33FB5962FF033DB4057212CE59D62898',
+
+    remoteJid: '5514981856962@s.whatsapp.net',
+
+    fromMe: true,
+
+    participant: '5514981856962@s.whatsapp.net',
+
+    status: 'SERVER_ACK',
+
+    pollUpdates: undefined,
+
+    instanceId: 'e5b71c35-276b-417e-a1c3-267f904b2b98'
+
+  },
+
+  server_url: 'https://apizap.halarum.com.br',
+
+  date_time: '2025-08-22T17:05:10.810Z',
+
+  sender: '5514981856962@s.whatsapp.net',
+
+  apikey: '94eff8b9da7b6c86e50b5c43334f6f69'
+
+} 
+

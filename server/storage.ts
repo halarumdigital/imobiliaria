@@ -779,7 +779,7 @@ export class MySQLStorage implements IStorage {
     const id = randomUUID();
     await this.connection.execute(
       'INSERT INTO conversations (id, whatsapp_instance_id, contact_name, contact_phone, last_message) VALUES (?, ?, ?, ?, ?)',
-      [id, conversation.whatsappInstanceId, conversation.contactName, conversation.contactPhone, conversation.lastMessage]
+      [id, conversation.whatsappInstanceId || null, conversation.contactName || null, conversation.contactPhone || null, conversation.lastMessage || null]
     );
     return this.getConversation(id) as Promise<Conversation>;
   }
