@@ -512,14 +512,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/whatsapp-instances/:id/qr", authenticate, requireClient, async (req: AuthRequest, res) => {
     try {
       const { id } = req.params;
+      console.log("QR Code request for instance ID:", id);
+      console.log("User company ID:", req.user?.companyId);
       
       if (!req.user?.companyId) {
+        console.log("No company ID found for user");
         return res.status(404).json({ error: "Empresa não encontrada" });
       }
 
       const instance = await storage.getWhatsappInstance(id);
+      console.log("Found instance:", instance ? {
+        id: instance.id,
+        companyId: instance.companyId,
+        name: instance.name
+      } : null);
       
-      if (!instance || instance.companyId !== req.user.companyId) {
+      if (!instance) {
+        console.log("Instance not found in database");
+        return res.status(404).json({ error: "Instância não encontrada" });
+      }
+      
+      if (instance.companyId !== req.user.companyId) {
+        console.log("Company mismatch - Instance:", instance.companyId, "User:", req.user.companyId);
         return res.status(404).json({ error: "Instância não encontrada" });
       }
 
