@@ -660,6 +660,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Buscar configurações da Evolution API
       const evolutionConfig = await storage.getEvolutionApiConfiguration();
+      console.log('Evolution config found:', evolutionConfig);
       if (!evolutionConfig || !evolutionConfig.evolutionURL || !evolutionConfig.evolutionToken) {
         return res.status(404).json({ error: "Configurações da Evolution API não encontradas" });
       }

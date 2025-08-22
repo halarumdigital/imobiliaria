@@ -33,6 +33,14 @@ export class EvolutionApiService {
   private async makeRequest(endpoint: string, method: string = 'GET', data?: any): Promise<any> {
     const url = `${this.config.baseURL}${endpoint}`;
     
+    console.log('Evolution API Request:', {
+      url,
+      method,
+      hasToken: !!this.config.token,
+      tokenLength: this.config.token?.length || 0,
+      data
+    });
+    
     const response = await fetch(url, {
       method,
       headers: {
@@ -42,14 +50,23 @@ export class EvolutionApiService {
       body: data ? JSON.stringify(data) : undefined,
     });
 
+    console.log('Evolution API Response:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok
+    });
+
     if (!response.ok) {
-      throw new Error(`Evolution API Error: ${response.status} ${response.statusText}`);
+      const errorBody = await response.text();
+      console.log('Evolution API Error Body:', errorBody);
+      throw new Error(`Evolution API Error: ${response.status} ${response.statusText} - ${errorBody}`);
     }
 
     return response.json();
   }
 
   async createInstance(request: CreateInstanceRequest): Promise<any> {
+    // Usar o endpoint correto
     return this.makeRequest('/instance/create', 'POST', request);
   }
 
