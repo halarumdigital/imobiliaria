@@ -1,4 +1,6 @@
 import OpenAI from "openai";
+import fs from 'fs';
+import path from 'path';
 import { getStorage } from "../storage";
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
@@ -363,8 +365,6 @@ export class AIService {
           console.log(`🎤 Audio buffer size: ${audioBuffer.length} bytes`);
           
           // Salvar temporariamente em arquivo para OpenAI Whisper
-          const fs = require('fs');
-          const path = require('path');
           const tmpDir = '/tmp';
           const tmpFile = path.join(tmpDir, `audio_${Date.now()}.ogg`);
           
