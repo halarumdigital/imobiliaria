@@ -1330,6 +1330,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🔍 [DEBUG] Totais: ${totalMessages} mensagens, ${assistantMessages} de assistant, ${messagesWithAgent} com agentId`);
       console.log(`🔍 [DEBUG] Stats processadas:`, Object.keys(totalStats).length, 'agentes');
       
+      // DEBUG: Buscar TODAS as conversas de TODAS as instâncias para encontrar mensagens com agentId
+      console.log(`🔍 [DEBUG EXTRA] Buscando TODAS as conversas de TODAS as instâncias...`);
+      const allCompanies = await storage.getAllCompanies();
+      for (const company of allCompanies) {
+        const companyInstances = await storage.getWhatsappInstancesByCompany(company.id);
+        for (const inst of companyInstances) {
+          const allConversations = await storage.getConversationsByInstance(inst.id);
+          for (const conv of allConversations) {
+            const allMessages = await storage.getMessagesByConversation(conv.id);
+            const messagesWithAgentId = allMessages.filter(m => m.sender === 'assistant' && m.agentId);
+            if (messagesWithAgentId.length > 0) {
+              console.log(`🔍 [FOUND] Conversa ${conv.id} (${conv.contactPhone}) tem ${messagesWithAgentId.length} mensagens com agentId`);
+              messagesWithAgentId.forEach(msg => {
+                console.log(`  - AgentId: ${msg.agentId}, Content: ${msg.content?.substring(0, 50)}...`);
+              });
+            }
+          }
+        }
+      }
+      
       // Converter Sets em contadores
       const stats = Object.values(totalStats).map((stat: any) => ({
         ...stat,
