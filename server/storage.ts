@@ -855,6 +855,13 @@ export class MySQLStorage implements IStorage {
     
     // Mapear manualmente campos snake_case para camelCase
     const rawResults = rows as any[];
+    console.log(`🔍 [STORAGE DEBUG] Raw message rows for conversation ${conversationId}:`, rawResults.map(r => ({ 
+      id: r.id, 
+      sender: r.sender, 
+      agent_id: r.agent_id,
+      content: r.content?.substring(0, 30) 
+    })));
+    
     const mappedRows = rawResults.map(row => ({
       id: row.id,
       conversationId: row.conversation_id,
@@ -865,6 +872,13 @@ export class MySQLStorage implements IStorage {
       evolutionMessageId: row.evolution_message_id,
       createdAt: row.created_at
     }));
+    
+    console.log(`🔍 [STORAGE DEBUG] Mapped rows:`, mappedRows.map(r => ({ 
+      id: r.id, 
+      sender: r.sender, 
+      agentId: r.agentId,
+      content: r.content?.substring(0, 30) 
+    })));
     
     return mappedRows as Message[];
   }
