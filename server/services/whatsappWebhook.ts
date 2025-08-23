@@ -41,6 +41,18 @@ export interface EvolutionWebhookData {
       extendedTextMessage?: {
         text: string;
       };
+      imageMessage?: {
+        url: string;
+        mimetype: string;
+        caption?: string;
+        fileLength?: string;
+        height?: number;
+        width?: number;
+        mediaKey?: string;
+        fileEncSha256?: string;
+        fileSha256?: string;
+        jpegThumbnail?: string;
+      };
     };
     pushName?: string;
     messageTimestamp: number;
@@ -57,6 +69,45 @@ export interface EvolutionWebhookData {
 
 export class WhatsAppWebhookService {
   
+  // Função para baixar imagem da Evolution API e converter para base64
+  private async downloadImageAsBase64(imageUrl: string, instanceId: string): Promise<string | null> {
+    try {
+      console.log(`🖼️ Downloading image from URL: ${imageUrl}`);
+      
+      // Obter configuração da Evolution API
+      const storage = getStorage();
+      const evolutionConfig = await storage.getEvolutionApiConfiguration();
+      
+      if (!evolutionConfig?.evolutionURL || !evolutionConfig?.evolutionToken) {
+        console.error("❌ Evolution API configuration not found");
+        return null;
+      }
+
+      // Fazer download da imagem via Evolution API
+      const response = await fetch(imageUrl, {
+        headers: {
+          'apikey': evolutionConfig.evolutionToken
+        }
+      });
+
+      if (!response.ok) {
+        console.error(`❌ Failed to download image: ${response.status} ${response.statusText}`);
+        return null;
+      }
+
+      // Converter para base64
+      const buffer = await response.arrayBuffer();
+      const base64 = Buffer.from(buffer).toString('base64');
+      
+      console.log(`✅ Image downloaded and converted to base64 (${base64.length} chars)`);
+      return base64;
+      
+    } catch (error) {
+      console.error("❌ Error downloading image:", error);
+      return null;
+    }
+  }
+
   async handleEvolutionMessage(evolutionData: EvolutionWebhookData): Promise<void> {
     try {
       console.log("📨 Processing Evolution API message:", JSON.stringify(evolutionData, null, 2));
@@ -69,10 +120,30 @@ export class WhatsAppWebhookService {
 
       const data = evolutionData.data;
       
-      // Extrair o conteúdo da mensagem
-      const messageText = data.message.conversation || data.message.extendedTextMessage?.text;
+      // Verificar se é uma mensagem de imagem
+      const imageMessage = data.message.imageMessage;
+      const isImageMessage = !!imageMessage;
+      
+      // Extrair o conteúdo da mensagem (texto ou legenda da imagem)
+      let messageText = data.message.conversation || data.message.extendedTextMessage?.text;
+      let caption: string | undefined;
+      let mediaUrl: string | undefined;
+      let mediaBase64: string | undefined;
+
+      if (isImageMessage) {
+        console.log("🖼️ Detected image message");
+        caption = imageMessage.caption;
+        mediaUrl = imageMessage.url;
+        messageText = caption || "Imagem enviada";
+        
+        // Baixar a imagem e converter para base64
+        if (mediaUrl) {
+          mediaBase64 = await this.downloadImageAsBase64(mediaUrl, data.instanceId);
+        }
+      }
+
       if (!messageText) {
-        console.log("❌ No text content found in Evolution message");
+        console.log("❌ No text content or image found in Evolution message");
         return;
       }
 
@@ -98,19 +169,24 @@ export class WhatsAppWebhookService {
 
       console.log(`📱 Processing Evolution message from ${senderPhone} to instance ${instanceName}: "${messageText}"`);
 
-      // Processar mensagem com IA
-      console.log(`🔄 About to call AIService.processMessage with:`, {
+      // Processar mensagem com IA (incluindo dados de imagem se presente)
+      const messageContext = {
         phone: senderPhone,
         message: messageText,
-        instanceId: data.instanceId // IMPORTANTE: Usar o instanceId real, não o nome
+        instanceId: data.instanceId, // IMPORTANTE: Usar o instanceId real, não o nome
+        mediaUrl,
+        mediaBase64,
+        caption,
+        messageType: isImageMessage ? 'image' : 'text'
+      };
+
+      console.log(`🔄 About to call AIService.processMessage with:`, {
+        ...messageContext,
+        mediaBase64: mediaBase64 ? `[${mediaBase64.length} chars]` : undefined // Não logar base64 completo
       });
       
       const aiService = new AIService();
-      const aiResponse = await aiService.processMessage({
-        phone: senderPhone,
-        message: messageText,
-        instanceId: data.instanceId // IMPORTANTE: Usar o instanceId real, não o nome
-      });
+      const aiResponse = await aiService.processMessage(messageContext);
 
       console.log(`🤖 Raw AI Response:`, aiResponse);
       if (!aiResponse) {
@@ -152,6 +228,14 @@ export class WhatsAppWebhookService {
       
       console.log(`💾 [DEBUG] Final agentId to save: ${agentIdToSave}`);
       
+      // Preparar dados de imagem para salvar
+      const messageData = isImageMessage ? {
+        messageType: 'image',
+        mediaUrl,
+        mediaBase64,
+        caption
+      } : undefined;
+
       // Se ainda não tem agentId, não salvar a mensagem com agente
       if (agentIdToSave) {
         await aiService.saveConversation(
@@ -159,7 +243,8 @@ export class WhatsAppWebhookService {
           senderPhone,
           messageText,
           aiResponse.response,
-          agentIdToSave
+          agentIdToSave,
+          messageData
         );
       } else {
         console.log(`⚠️ [DEBUG] No valid agentId found, skipping conversation save with agent tracking`);
@@ -169,7 +254,8 @@ export class WhatsAppWebhookService {
           senderPhone,
           messageText,
           aiResponse.response,
-          'unknown' // Usar placeholder para agente desconhecido
+          'unknown', // Usar placeholder para agente desconhecido
+          messageData
         );
       }
 
@@ -280,15 +366,24 @@ export class WhatsAppWebhookService {
       return false;
     }
     
-    // Verificar se tem conteúdo de texto
+    // Verificar se tem conteúdo de texto ou imagem
     const messageText = data.message.conversation || data.message.extendedTextMessage?.text;
-    if (!messageText || messageText.trim().length === 0) {
-      console.log("❌ Evolution message ignored - no text content");
+    const imageMessage = data.message.imageMessage;
+    
+    if (!messageText && !imageMessage) {
+      console.log("❌ Evolution message ignored - no text or image content");
       return false;
     }
 
-    // Verificar se o tipo de mensagem é de texto
-    if (data.messageType !== 'conversation' && data.messageType !== 'extendedTextMessage') {
+    // Se tem texto mas não tem imagem, verificar se está vazio
+    if (messageText && !imageMessage && messageText.trim().length === 0) {
+      console.log("❌ Evolution message ignored - empty text content");
+      return false;
+    }
+
+    // Verificar se o tipo de mensagem é suportado (texto ou imagem)
+    const supportedTypes = ['conversation', 'extendedTextMessage', 'imageMessage'];
+    if (!supportedTypes.includes(data.messageType)) {
       console.log(`❌ Evolution message ignored - unsupported type: ${data.messageType}`);
       return false;
     }

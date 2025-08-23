@@ -145,7 +145,21 @@ function AgentUsageHistory() {
                         })()}
                       </span>
                     </div>
-                    <p className="text-sm">{message.content}</p>
+                    <div className="space-y-2">
+                      {message.messageType === 'image' && message.mediaBase64 && (
+                        <div className="space-y-1">
+                          <img 
+                            src={`data:image/jpeg;base64,${message.mediaBase64}`}
+                            alt="Imagem enviada"
+                            className="max-w-xs max-h-48 rounded-lg border shadow-sm object-cover"
+                          />
+                          {message.caption && (
+                            <p className="text-xs text-muted-foreground italic">Legenda: {message.caption}</p>
+                          )}
+                        </div>
+                      )}
+                      <p className="text-sm">{message.content}</p>
+                    </div>
                   </div>
                 ))}
               </div>

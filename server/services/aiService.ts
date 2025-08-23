@@ -11,6 +11,10 @@ export interface MessageContext {
     role: 'user' | 'assistant';
     content: string;
   }>;
+  mediaUrl?: string;
+  mediaBase64?: string;
+  caption?: string;
+  messageType?: string;
 }
 
 export interface AgentResponse {
@@ -336,15 +340,36 @@ export class AIService {
         messages.push(...context.conversationHistory.slice(-10)); // Últimas 10 mensagens
       }
 
-      // Adicionar mensagem atual
-      messages.push({ role: "user", content: context.message });
+      // Adicionar mensagem atual (com suporte a imagem se presente)
+      if (context.messageType === 'image' && context.mediaBase64) {
+        console.log(`🖼️ Processando mensagem com imagem`);
+        
+        const userMessage: any = {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: context.caption ? `${context.message}\n\nDescrição da imagem: ${context.caption}` : context.message
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:image/jpeg;base64,${context.mediaBase64}`
+              }
+            }
+          ]
+        };
+        messages.push(userMessage);
+      } else {
+        messages.push({ role: "user", content: context.message });
+      }
 
       // Gerar resposta usando OpenAI
       console.log(`🔧 Pre-OpenAI call - temperatura: ${aiConfig.temperatura}, type: ${typeof aiConfig.temperatura}`);
       console.log(`🔧 Pre-OpenAI call - numeroTokens: ${aiConfig.numeroTokens}, type: ${typeof aiConfig.numeroTokens}`);
       
       const response = await openai.chat.completions.create({
-        model: "gpt-4o", // Hardcode para garantir
+        model: "gpt-4o", // Hardcode para garantir - gpt-4o suporta imagens
         messages: messages,
         max_tokens: 1000, // Hardcode para garantir
         temperature: 0.7, // Hardcode para garantir
@@ -358,7 +383,12 @@ export class AIService {
     }
   }
 
-  async saveConversation(evolutionInstanceId: string, phone: string, userMessage: string, aiResponse: string, agentId: string) {
+  async saveConversation(evolutionInstanceId: string, phone: string, userMessage: string, aiResponse: string, agentId: string, messageData?: {
+    messageType?: string;
+    mediaUrl?: string;
+    mediaBase64?: string;
+    caption?: string;
+  }) {
     try {
       const storage = getStorage();
       
@@ -386,13 +416,22 @@ export class AIService {
         console.log(`💾 Usando conversa existente: ${conversation.id}`);
       }
 
-      // Salvar mensagem do usuário
-      await storage.createMessage({
+      // Salvar mensagem do usuário (com dados de imagem se presente)
+      const userMessageData: any = {
         conversationId: conversation.id,
         content: userMessage,
         sender: 'user',
-        messageType: 'text'
-      });
+        messageType: messageData?.messageType || 'text'
+      };
+
+      // Adicionar dados de imagem se presente
+      if (messageData) {
+        if (messageData.mediaUrl) userMessageData.mediaUrl = messageData.mediaUrl;
+        if (messageData.mediaBase64) userMessageData.mediaBase64 = messageData.mediaBase64;
+        if (messageData.caption) userMessageData.caption = messageData.caption;
+      }
+
+      await storage.createMessage(userMessageData);
 
       // Salvar resposta do AI
       await storage.createMessage({

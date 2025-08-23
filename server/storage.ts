@@ -241,6 +241,28 @@ export class MySQLStorage implements IStorage {
       }
     }
 
+    // Add image support columns to messages table
+    const imageColumns = [
+      { name: 'media_url', type: 'TEXT' },
+      { name: 'media_base64', type: 'TEXT' },
+      { name: 'caption', type: 'TEXT' }
+    ];
+
+    for (const column of imageColumns) {
+      try {
+        await this.connection.execute(`
+          ALTER TABLE messages ADD COLUMN ${column.name} ${column.type}
+        `);
+        console.log(`✅ Added ${column.name} column to messages table`);
+      } catch (error: any) {
+        if (error.code === 'ER_DUP_FIELDNAME') {
+          console.log(`✅ ${column.name} column already exists in messages table`);
+        } else {
+          console.error(`❌ Error adding ${column.name} column:`, error);
+        }
+      }
+    }
+
     // Insert default configurations if they don't exist
     await this.insertDefaultConfigurations();
   }
@@ -863,6 +885,9 @@ export class MySQLStorage implements IStorage {
       agentId: row.agent_id, // ✅ Mapear agent_id para agentId
       messageType: row.message_type,
       evolutionMessageId: row.evolution_message_id,
+      mediaUrl: row.media_url,
+      mediaBase64: row.media_base64,
+      caption: row.caption,
       createdAt: row.created_at
     }));
     
@@ -874,7 +899,7 @@ export class MySQLStorage implements IStorage {
     
     const id = randomUUID();
     await this.connection.execute(
-      'INSERT INTO messages (id, conversation_id, content, sender, agent_id, message_type, evolution_message_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO messages (id, conversation_id, content, sender, agent_id, message_type, evolution_message_id, media_url, media_base64, caption) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
         id, 
         message.conversationId, 
@@ -882,7 +907,10 @@ export class MySQLStorage implements IStorage {
         message.sender, 
         message.agentId || null, // Incluir o agentId
         message.messageType || 'text', 
-        message.evolutionMessageId || null
+        message.evolutionMessageId || null,
+        message.mediaUrl || null,
+        message.mediaBase64 || null,
+        message.caption || null
       ]
     );
     
@@ -901,6 +929,9 @@ export class MySQLStorage implements IStorage {
       agentId: rawRow.agent_id,
       messageType: rawRow.message_type,
       evolutionMessageId: rawRow.evolution_message_id,
+      mediaUrl: rawRow.media_url,
+      mediaBase64: rawRow.media_base64,
+      caption: rawRow.caption,
       createdAt: rawRow.created_at
     } as Message;
   }
