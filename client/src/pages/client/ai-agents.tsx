@@ -15,20 +15,55 @@ import { queryClient } from "@/lib/queryClient";
 import { apiGet, apiPost, apiPut, apiDelete } from "@/lib/api";
 import { AiAgent, WhatsappInstance } from "@/types";
 import { ObjectUploader } from "@/components/ObjectUploader";
-import { Bot, Plus, Edit, Trash2, FileText, Upload, TestTube2, Send, BarChart3, MessageCircle, User } from "lucide-react";
+import { Bot, Plus, Edit, Trash2, FileText, Upload, TestTube2, Send, BarChart3, MessageCircle, User, RefreshCw } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 // Component for Agent Usage History
 function AgentUsageHistory() {
-  const { data: usageStats = [] } = useQuery({
+  const { toast } = useToast();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  const { data: usageStats = [], refetch } = useQuery({
     queryKey: ["/api/agents/usage-stats"],
     select: (data: any[]) => data.sort((a, b) => b.messageCount - a.messageCount)
   });
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await queryClient.invalidateQueries({ queryKey: ["/api/agents/usage-stats"] });
+      await refetch();
+      toast({
+        title: "Estatísticas atualizadas",
+        description: "Os dados foram recarregados com sucesso",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao atualizar",
+        description: "Não foi possível atualizar as estatísticas",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold mb-2">📊 Estatísticas de Uso dos Agentes</h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-lg font-semibold">📊 Estatísticas de Uso dos Agentes</h3>
+          <Button 
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            variant="outline" 
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {isRefreshing ? 'Atualizando...' : 'Atualizar'}
+          </Button>
+        </div>
         <p className="text-sm text-muted-foreground mb-4">
           Veja qual agente (principal ou secundário) foi usado em cada conversa
         </p>
