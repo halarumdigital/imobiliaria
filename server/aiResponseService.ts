@@ -271,42 +271,44 @@ ${request.conversationHistory && request.conversationHistory.length > 0
 Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
       }
 
-      // Search for properties (busca inicial sem fotos para performance)
+      // Search for properties seguindo documentação oficial VistaHost
       const searchParams = {
-        filter: {
-          ...filters,
-          "SiteSuder": "Sim"
-        },
         fields: [
           "Codigo", "Categoria", "BairroComercial", "Cidade", "Suites", "DescricaoWeb", 
           "Dormitorios", "Vagas", "Endereco", "Complemento", "AreaPrivativa", 
           "ValorVenda", "ValorLocacao", "FotoDestaque"
         ],
+        filter: {
+          ...filters,
+          "SiteSuder": "Sim"
+        },
         paginacao: { 
-          pagina: "1", 
-          quantidade: "10" 
+          pagina: 1, 
+          quantidade: 10 
         }
       };
 
       console.log(`🔍 [DEBUG] Search params being sent:`, JSON.stringify(searchParams, null, 2));
-
-      // Construir URL exatamente como no n8n
-      const baseUrl = `${apiSettings.apiUrl}/imoveis/listar`;
-      const queryParams = new URLSearchParams({
-        key: apiSettings.apiToken,
-        v2: "1",
-        pesquisa: JSON.stringify(searchParams),
-        showtotal: "1"
+      console.log(`🔍 [DEBUG] API Settings:`, { 
+        apiUrl: apiSettings.apiUrl, 
+        hasToken: !!apiSettings.apiToken,
+        tokenLength: apiSettings.apiToken?.length 
       });
+
+      // Construir URL seguindo documentação oficial
+      const baseUrl = `${apiSettings.apiUrl}/imoveis/listar`;
+      const pesquisaParam = encodeURIComponent(JSON.stringify(searchParams));
+      const apiUrl = `${baseUrl}?key=${apiSettings.apiToken}&pesquisa=${pesquisaParam}&showtotal=1`;
       
-      const apiUrl = `${baseUrl}?${queryParams.toString()}`;
       console.log(`🔍 [DEBUG] Final API URL:`, apiUrl);
 
       // Log API call start
       const apiCallStart = Date.now();
       console.log(`🚀 [DEBUG] Making API call to:`, apiUrl);
       
+      // Header obrigatório segundo documentação VistaHost
       const response = await fetch(apiUrl, {
+        method: 'GET',
         headers: {
           'Accept': 'application/json'
         }

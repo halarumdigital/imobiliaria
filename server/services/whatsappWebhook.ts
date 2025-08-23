@@ -376,9 +376,17 @@ export class WhatsAppWebhookService {
       
       console.log(`🚀🚀🚀 [WEBHOOK] CHAMANDO AIService.processMessage AGORA!`);
       const aiService = new AIService();
-      const aiResponse = await aiService.processMessage(messageContext);
-      console.log(`🏁🏁🏁 [WEBHOOK] AIService.processMessage RETORNOU:`, aiResponse);
-
+      
+      let aiResponse;
+      try {
+        aiResponse = await aiService.processMessage(messageContext);
+        console.log(`🏁🏁🏁 [WEBHOOK] AIService.processMessage RETORNOU COM SUCESSO:`, aiResponse);
+      } catch (error) {
+        console.error(`💥💥💥 [WEBHOOK] ERRO no AIService.processMessage:`, error);
+        console.error(`💥 [WEBHOOK] Error stack:`, error instanceof Error ? error.stack : 'No stack');
+        return; // Para prevenir erros downstream
+      }
+      
       console.log(`🤖 Raw AI Response:`, aiResponse);
       if (!aiResponse) {
         console.log("🤖 No AI response generated for Evolution message");
