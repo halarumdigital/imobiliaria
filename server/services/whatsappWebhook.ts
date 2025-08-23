@@ -343,10 +343,14 @@ export class WhatsAppWebhookService {
       try {
         const aiService = new AIService();
         const dbInstanceId = await aiService.findDatabaseInstanceId(data.instanceId);
+        console.log(`🏢 [WEBHOOK] InstanceId: ${data.instanceId}, dbInstanceId: ${dbInstanceId}`);
         if (dbInstanceId) {
           const storage = getStorage();
           const instance = await storage.getWhatsappInstance(dbInstanceId);
           companyId = instance?.companyId;
+          console.log(`🏢 [WEBHOOK] CompanyId encontrado: ${companyId}`);
+        } else {
+          console.log(`⚠️ [WEBHOOK] dbInstanceId não encontrado para instanceId: ${data.instanceId}`);
         }
       } catch (error) {
         console.log(`⚠️ Could not fetch companyId from instance: ${error}`);

@@ -103,8 +103,11 @@ export class AiResponseService {
    */
   private async generateDirectResponse(request: AiResponseRequest): Promise<string> {
     // Check for property search integration first
+    console.log(`🏢 [DIRECT-RESPONSE] CompanyId presente: ${!!request.companyId}, valor: ${request.companyId}`);
     if (request.companyId) {
+      console.log(`🏢 [DIRECT-RESPONSE] Chamando handlePropertySearch...`);
       const propertyResponse = await this.handlePropertySearch(request);
+      console.log(`🏢 [DIRECT-RESPONSE] PropertyResponse resultado: ${propertyResponse ? 'RESPONSE GERADA' : 'NULL'}`);
       if (propertyResponse) {
         return propertyResponse;
       }
@@ -180,7 +183,7 @@ ${request.conversationHistory && request.conversationHistory.length > 0
   private async handlePropertySearch(request: AiResponseRequest): Promise<string | null> {
     try {
       const message = request.message.toLowerCase();
-      console.log(`🏠 [PROPERTY SEARCH] Analisando mensagem: "${message}"`);
+      console.log(`🏠🏠🏠 [PROPERTY SEARCH] MÉTODO CHAMADO - Analisando mensagem: "${message}"`);
       
       // Check if user is asking for photos or details of a specific property
       const photoKeywords = ['foto', 'fotos', 'imagem', 'imagens', 'envie fotos', 'me envie', 'quero ver', 'mostrar fotos'];
@@ -206,8 +209,18 @@ ${request.conversationHistory && request.conversationHistory.length > 0
         'disponíveis', 'localização', 'bairro', 'cidade', 'região'
       ];
 
+      console.log(`🔍 [PROPERTY-KEYWORDS] Mensagem original: "${message}"`);
+      console.log(`🔍 [PROPERTY-KEYWORDS] Mensagem normalizada: "${message.toLowerCase()}"`);
+      
       // Check if message contains property-related keywords
-      const isPropertyQuery = propertyKeywords.some(keyword => message.includes(keyword));
+      const isPropertyQuery = propertyKeywords.some(keyword => {
+        const found = message.toLowerCase().includes(keyword.toLowerCase());
+        if (found) {
+          console.log(`🎯 [PROPERTY-KEYWORDS] Palavra-chave encontrada: "${keyword}"`);
+        }
+        return found;
+      });
+      
       console.log(`🏠 [PROPERTY SEARCH] Palavras-chave de imóveis encontradas: ${isPropertyQuery}`);
       
       if (!isPropertyQuery) {
