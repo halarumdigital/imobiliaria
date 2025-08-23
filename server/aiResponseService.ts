@@ -150,6 +150,14 @@ ${request.conversationHistory && request.conversationHistory.length > 0
     console.log(`💬 Mensagem do usuário: "${request.message}"`);
     console.log(`📚 Histórico de conversa: ${request.conversationHistory?.length || 0} mensagens`);
     
+    if (request.conversationHistory && request.conversationHistory.length > 0) {
+      console.log(`🔍 [HISTÓRIA] Últimas mensagens do histórico:`, 
+        request.conversationHistory.slice(-3).map(msg => `${msg.role}: ${msg.content.substring(0, 100)}...`)
+      );
+    } else {
+      console.log(`⚠️ [HISTÓRIA] Nenhum histórico encontrado - primeira conversa`);
+    }
+    
     const response = await this.openAiService.generateResponse(
       request.message,
       enhancedPrompt,
@@ -238,7 +246,8 @@ ${request.conversationHistory && request.conversationHistory.length > 0
         fields: [
           "Codigo", "Categoria", "BairroComercial", "Cidade", "Suites", "DescricaoWeb", 
           "Dormitorios", "Vagas", "Endereco", "Complemento", "AreaPrivativa", 
-          "ValorVenda", "ValorLocacao"
+          "ValorVenda", "ValorLocacao", "FotoDestaque",
+          { "fotos": ["TipoFoto", "Url", "Descricao"] }
         ],
         paginacao: { 
           pagina: "1", 
@@ -308,7 +317,7 @@ ${request.conversationHistory && request.conversationHistory.length > 0
       });
 
       // Format the response with found properties
-      return await this.formatPropertyResponse(data, request.message);
+      return await this.formatPropertyResponse(data, request.message, request);
 
     } catch (error) {
       console.error("❌ Erro na busca de imóveis:", error);
@@ -367,7 +376,7 @@ ${request.conversationHistory && request.conversationHistory.length > 0
   /**
    * Formats the property search results into a user-friendly response
    */
-  private async formatPropertyResponse(properties: any[], originalMessage: string): Promise<string> {
+  private async formatPropertyResponse(properties: any[], originalMessage: string, request?: AiResponseRequest): Promise<string> {
     try {
       if (!properties || properties.length === 0) {
         return "Não encontrei imóveis que correspondem aos critérios solicitados. Posso ajudar com uma busca mais ampla?";
@@ -391,20 +400,25 @@ ${request.conversationHistory && request.conversationHistory.length > 0
         - Quartos e vagas
         - Área (se disponível)
         - Descrição resumida
-        - Dados do corretor (nome e telefone)
         
-        Se houver fotos, mencione que o imóvel possui fotos disponíveis.
+        *** IMPORTANTE SOBRE FOTOS ***
+        - Se o imóvel tiver "FotoDestaque", mencione e inclua o link
+        - Se o imóvel tiver array "fotos" com URLs, liste as principais fotos
+        - Para cada foto, inclua o link completo da URL
+        - Organize as fotos de forma clara (ex: "📸 Fotos: foto1.jpg, foto2.jpg")
         
-        Seja conversacional e helpful. Ofereça para buscar mais detalhes se necessário.
+        Use emojis apropriados e seja conversacional e helpful. 
+        Ofereça para buscar mais detalhes se necessário.
         `;
 
       const response = await this.openAiService.generateResponse(
         responsePrompt,
-        "Você é um assistente especializado em imóveis. Apresente os resultados de forma clara e organizada.",
+        "Você é um assistente especializado em imóveis. Apresente os resultados de forma clara e organizada, incluindo sempre as fotos quando disponíveis.",
         {
           model: "gpt-4o",
           temperature: 0.7,
-          maxTokens: 1000
+          maxTokens: 1500,
+          conversationHistory: request?.conversationHistory
         }
       );
 

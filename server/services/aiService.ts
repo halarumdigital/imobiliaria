@@ -143,6 +143,9 @@ export class AIService {
         
         if (conversationHistory.length > 0) {
           console.log(`📚 [DEBUG] Últimas mensagens do histórico:`, conversationHistory.slice(-3));
+          console.log(`🎯 [CONTEXT] HISTÓRICO ENCONTRADO - Agente deve continuar conversa SEM se apresentar`);
+        } else {
+          console.log(`🎯 [CONTEXT] NENHUM HISTÓRICO - Primeira conversa, agente pode se apresentar`);
         }
       } catch (error) {
         console.error(`❌ [DEBUG] Erro ao carregar histórico:`, error);
