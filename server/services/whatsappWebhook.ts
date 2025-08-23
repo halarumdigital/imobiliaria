@@ -69,8 +69,40 @@ export interface EvolutionWebhookData {
 
 export class WhatsAppWebhookService {
   
+  // Função para detectar tipo de imagem pelos magic bytes
+  private detectImageType(buffer: ArrayBuffer): string {
+    const bytes = new Uint8Array(buffer);
+    
+    // PNG signature
+    if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) {
+      return 'png';
+    }
+    
+    // JPEG signature  
+    if (bytes.length >= 3 && bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) {
+      return 'jpeg';
+    }
+    
+    // GIF signature
+    if (bytes.length >= 6 && 
+        bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && 
+        bytes[3] === 0x38 && (bytes[4] === 0x37 || bytes[4] === 0x39) && bytes[5] === 0x61) {
+      return 'gif';
+    }
+    
+    // WebP signature
+    if (bytes.length >= 12 && 
+        bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+        bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) {
+      return 'webp';
+    }
+    
+    // Default para JPEG se não conseguir detectar
+    return 'jpeg';
+  }
+
   // Função para baixar imagem da Evolution API e converter para base64
-  private async downloadImageAsBase64(imageUrl: string, instanceId: string): Promise<string | null> {
+  private async downloadImageAsBase64(imageUrl: string, instanceId: string): Promise<{base64: string, mimeType: string} | null> {
     try {
       console.log(`🖼️ Downloading image from URL: ${imageUrl}`);
       
@@ -97,10 +129,14 @@ export class WhatsAppWebhookService {
 
       // Converter para base64
       const buffer = await response.arrayBuffer();
+      const imageType = this.detectImageType(buffer);
       const base64 = Buffer.from(buffer).toString('base64');
       
-      console.log(`✅ Image downloaded and converted to base64 (${base64.length} chars)`);
-      return base64;
+      console.log(`✅ Image downloaded: type=${imageType}, size=${base64.length} chars`);
+      return {
+        base64,
+        mimeType: `image/${imageType}`
+      };
       
     } catch (error) {
       console.error("❌ Error downloading image:", error);
@@ -129,6 +165,7 @@ export class WhatsAppWebhookService {
       let caption: string | undefined;
       let mediaUrl: string | undefined;
       let mediaBase64: string | undefined;
+      let mimeType: string | undefined;
 
       if (isImageMessage) {
         console.log("🖼️ Detected image message");
@@ -138,7 +175,11 @@ export class WhatsAppWebhookService {
         
         // Baixar a imagem e converter para base64
         if (mediaUrl) {
-          mediaBase64 = await this.downloadImageAsBase64(mediaUrl, data.instanceId);
+          const imageData = await this.downloadImageAsBase64(mediaUrl, data.instanceId);
+          if (imageData) {
+            mediaBase64 = imageData.base64;
+            mimeType = imageData.mimeType;
+          }
         }
       }
 
@@ -177,6 +218,7 @@ export class WhatsAppWebhookService {
         mediaUrl,
         mediaBase64,
         caption,
+        mimeType,
         messageType: isImageMessage ? 'image' : 'text'
       };
 
@@ -233,7 +275,8 @@ export class WhatsAppWebhookService {
         messageType: 'image',
         mediaUrl,
         mediaBase64,
-        caption
+        caption,
+        mimeType
       } : undefined;
 
       // Se ainda não tem agentId, não salvar a mensagem com agente

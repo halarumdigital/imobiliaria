@@ -14,6 +14,7 @@ export interface MessageContext {
   mediaUrl?: string;
   mediaBase64?: string;
   caption?: string;
+  mimeType?: string;
   messageType?: string;
 }
 
@@ -320,7 +321,7 @@ export class AIService {
       // Criar instância do OpenAI com a chave da configuração
       console.log(`🔧 [GENERATE] Creating OpenAI instance...`);
       const openai = new OpenAI({ apiKey: aiConfig.apiKey });
-      console.log(`✅ [GENERATE] OpenAI instance created successfully`);}
+      console.log(`✅ [GENERATE] OpenAI instance created successfully`);
 
       // Construir o prompt do sistema baseado no agente (usando lógica do AiResponseService)
       let systemPrompt = agent.prompt || `Você é ${agent.name}, um assistente de IA especializado.`;
@@ -351,6 +352,10 @@ export class AIService {
       // Adicionar mensagem atual (com suporte a imagem se presente)
       if (context.messageType === 'image' && context.mediaBase64) {
         console.log(`🖼️ Processando mensagem com imagem`);
+        console.log(`🖼️ Image details: type=${context.mimeType}, size=${context.mediaBase64.length} chars`);
+        
+        // Usar o mimeType correto detectado pela detecção de magic bytes
+        const mimeType = context.mimeType || 'image/jpeg';
         
         const userMessage: any = {
           role: "user",
@@ -362,7 +367,7 @@ export class AIService {
             {
               type: "image_url",
               image_url: {
-                url: `data:image/jpeg;base64,${context.mediaBase64}`
+                url: `data:${mimeType};base64,${context.mediaBase64}`
               }
             }
           ]
