@@ -350,7 +350,7 @@ export class AIService {
       }
 
       // Adicionar mensagem atual (com suporte a imagem se presente)
-      if (context.messageType === 'image' && context.mediaBase64) {
+      if ((context.messageType === 'image' || context.messageType === 'imageMessage') && context.mediaBase64) {
         console.log(`🖼️ Processando mensagem com imagem`);
         console.log(`🖼️ Image details: type=${context.mimeType}, size=${context.mediaBase64.length} chars`);
         
@@ -380,7 +380,7 @@ export class AIService {
       // Gerar resposta usando OpenAI
       console.log(`🔧 [OPENAI] Pre-OpenAI call - temperatura: ${aiConfig.temperatura}, type: ${typeof aiConfig.temperatura}`);
       console.log(`🔧 [OPENAI] Pre-OpenAI call - numeroTokens: ${aiConfig.numeroTokens}, type: ${typeof aiConfig.numeroTokens}`);
-      console.log(`🔧 [OPENAI] Messages count: ${messages.length}, has image: ${context.messageType === 'image'}`);
+      console.log(`🔧 [OPENAI] Messages count: ${messages.length}, has image: ${context.messageType === 'image' || context.messageType === 'imageMessage'}`);
       console.log(`🔧 [OPENAI] About to call OpenAI API...`);
       
       const response = await openai.chat.completions.create({
