@@ -294,6 +294,9 @@ ${request.conversationHistory && request.conversationHistory.length > 0
       console.log(`🏠 [PROPERTY SEARCH] Request tem message: "${request.message}"`);
       console.log(`🏠 [PROPERTY SEARCH] Request tem userMessage: "${request.userMessage}"`);
       
+      // Extrair contexto da conversa para verificar se temos todas as informações necessárias
+      const conversationContext = await this.extractConversationContext(request);
+      
       // Check if user is asking for photos or details of a specific property
       const photoKeywords = ['foto', 'fotos', 'imagem', 'imagens', 'envie fotos', 'me envie', 'quero ver', 'mostrar fotos'];
       const detailKeywords = ['detalhes', 'detalhe', 'mais informações', 'mais informacoes', 'informações completas', 'dados completos', 'características', 'caracteristicas'];
@@ -318,7 +321,7 @@ ${request.conversationHistory && request.conversationHistory.length > 0
         'disponíveis', 'localização', 'bairro', 'cidade', 'região', 'encontrou', 'achou', 'tem', 
         'possui', 'existe', 'há', 'mostrar', 'ver', 'listar', 'opções', 'alternativas',
         'vou procurar', 'vou buscar', 'vou verificar', 'vou pesquisar', 'procurar', 'buscar', 
-        'pesquisar', 'verificar', 'consultar'
+        'pesquisar', 'verificar', 'consultar', 'próxima', 'proxima', 'mais', 'outros', 'outras opções'
       ];
 
       console.log(`🔍 [PROPERTY-KEYWORDS] Mensagem original: "${message}"`);
@@ -341,21 +344,51 @@ ${request.conversationHistory && request.conversationHistory.length > 0
       }
 
       console.log(`🏠 Detectada consulta sobre imóveis: "${request.message}"`);
-
-      // Extract filters from the message using AI
-      let filters = await this.extractPropertyFilters(request.message);
-      console.log(`🔍 Filtros extraídos:`, filters);
       
-      // Se estiver buscando aluguel mas não há imóveis para alugar, ajustar busca
-      const isRentalSearch = message.includes('alug') || message.includes('locar');
-      if (isRentalSearch) {
-        console.log(`🏠 [PROPERTY SEARCH] Busca por aluguel detectada`);
-        // Não adicionar filtro de finalidade para permitir mostrar todos os imóveis
-        if (filters) {
-          delete filters.Finalidade;
-          delete filters.StatusImovel;
+      // Verificar se temos todas as informações necessárias
+      if (!conversationContext.telefone || !conversationContext.tipoImovel || 
+          !conversationContext.finalidade || !conversationContext.cidade) {
+        console.log(`📋 [CONTEXT] Informações faltando - deixar o AI coletar:`, {
+          telefone: !!conversationContext.telefone,
+          tipoImovel: !!conversationContext.tipoImovel,
+          finalidade: !!conversationContext.finalidade,
+          cidade: !!conversationContext.cidade
+        });
+        
+        // Retornar null para deixar o AI pedir as informações faltantes
+        return null;
+      }
+      
+      console.log(`✅ [CONTEXT] Todas as informações coletadas, fazendo busca`);
+
+      // Construir filtros baseados no contexto coletado
+      const filters: any = {};
+      
+      // Adicionar filtro de categoria baseado no tipo de imóvel
+      if (conversationContext.tipoImovel) {
+        const tipo = conversationContext.tipoImovel.toLowerCase();
+        if (tipo.includes('casa')) {
+          filters.Categoria = 'Casa';
+        } else if (tipo.includes('apartamento') || tipo.includes('apto')) {
+          filters.Categoria = 'Apartamento';
+        } else if (tipo.includes('terreno')) {
+          filters.Categoria = 'Terreno';
         }
       }
+      
+      // Adicionar filtro de cidade
+      if (conversationContext.cidade) {
+        filters.Cidade = conversationContext.cidade;
+      }
+      
+      // Adicionar filtro de finalidade (mas como a maioria é só venda, vamos ignorar por enquanto)
+      // if (conversationContext.finalidade === 'aluguel') {
+      //   filters.Finalidade = 'Locação';
+      // } else {
+      //   filters.Finalidade = 'Venda';
+      // }
+      
+      console.log(`🔍 Filtros construídos do contexto:`, filters);
 
       // Get API settings for the company
       const storage = getStorage();
@@ -406,8 +439,8 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
           "ValorVenda", "ValorLocacao", "FotoDestaque"
         ],
         paginacao: { 
-          pagina: 1, 
-          quantidade: 10 
+          pagina: conversationContext.pagina || 1,  // Usar a página do contexto
+          quantidade: 5  // Mostrar 5 imóveis por vez
         }
       };
 
@@ -574,11 +607,96 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
       });
 
       // Format the response with found properties
-      return await this.formatPropertyResponse(properties, request.message, request);
+      const formattedResponse = await this.formatPropertyResponse(properties, request.message, request);
+      
+      // Adicionar informação sobre paginação se houver mais imóveis
+      let paginationInfo = '';
+      if (data.paginacao && data.paginacao.total > (conversationContext.pagina * 5)) {
+        paginationInfo = `\n\n📄 Mostrando página ${conversationContext.pagina} de ${Math.ceil(data.paginacao.total / 5)}. Digite "próxima", "mais opções" ou "outros" para ver mais imóveis.`;
+      }
+      
+      return formattedResponse + paginationInfo;
 
     } catch (error) {
       console.error("❌ Erro na busca de imóveis:", error);
       return "Desculpe, ocorreu um erro ao buscar os imóveis. Tente novamente mais tarde.";
+    }
+  }
+
+  /**
+   * Extracts conversation context to check if we have all required information
+   */
+  private async extractConversationContext(request: AiResponseRequest): Promise<any> {
+    try {
+      const conversationHistory = request.conversationHistory || [];
+      const allMessages = conversationHistory.map(m => m.content).join(' ');
+      
+      // Adicionar mensagem atual
+      const fullContext = allMessages + ' ' + request.message;
+      
+      console.log(`📋 [CONTEXT] Analisando contexto da conversa para extrair informações`);
+      
+      // Usar AI para extrair informações estruturadas da conversa
+      const extractionPrompt = `
+        Analise o histórico de conversa e extraia as seguintes informações que o cliente forneceu:
+        
+        HISTÓRICO: ${fullContext}
+        
+        Extraia:
+        1. Telefone do cliente (se fornecido)
+        2. Tipo de imóvel desejado (casa, apartamento, terreno, etc)
+        3. Finalidade (compra ou aluguel)
+        4. Cidade de interesse
+        5. Página atual de busca (se o cliente pediu "próxima", "mais opções", conte quantas vezes)
+        
+        Retorne APENAS um JSON válido no formato:
+        {
+          "telefone": "número ou null",
+          "tipoImovel": "tipo ou null",
+          "finalidade": "compra/aluguel ou null",
+          "cidade": "cidade ou null",
+          "pagina": 1
+        }
+        
+        Se o cliente pediu "próxima página", "mais opções", "outros imóveis" incremente a página.
+      `;
+      
+      const contextResponse = await this.openAiService.generateContent(
+        extractionPrompt,
+        { 
+          temperature: 0.1,
+          maxTokens: 200
+        }
+      );
+      
+      try {
+        const cleanedResponse = contextResponse.content
+          .replace(/```json\n?/g, '')
+          .replace(/```\n?/g, '')
+          .trim();
+        
+        const context = JSON.parse(cleanedResponse);
+        console.log(`📋 [CONTEXT] Contexto extraído:`, context);
+        return context;
+      } catch (error) {
+        console.log(`⚠️ [CONTEXT] Erro ao parsear contexto, retornando vazio`);
+        return {
+          telefone: null,
+          tipoImovel: null,
+          finalidade: null,
+          cidade: null,
+          pagina: 1
+        };
+      }
+    } catch (error) {
+      console.error(`❌ [CONTEXT] Erro ao extrair contexto:`, error);
+      return {
+        telefone: null,
+        tipoImovel: null,
+        finalidade: null,
+        cidade: null,
+        pagina: 1
+      };
     }
   }
 
