@@ -1827,8 +1827,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Endpoints específicos para eventos da Evolution API
   app.post("/api/webhook/messages/messages-upsert", async (req, res) => {
     try {
-      console.log("📨 [MESSAGES-UPSERT] Processing incoming message");
-      console.log("🔥 [MESSAGES-UPSERT] Full request body:", JSON.stringify(req.body, null, 2));
+      console.log("🔥🔥🔥 [MESSAGES-UPSERT] ================================");
+      console.log("🔥🔥🔥 [MESSAGES-UPSERT] NEW MESSAGE IN UPSERT ENDPOINT!");
+      console.log("🔥🔥🔥 [MESSAGES-UPSERT] ================================");
+      console.log("🔍 [MESSAGES-UPSERT] Has data:", !!req.body.data);
+      console.log("🔍 [MESSAGES-UPSERT] Has message:", !!req.body.data?.message);
+      console.log("🔍 [MESSAGES-UPSERT] FromMe value:", req.body.data?.fromMe || req.body.data?.key?.fromMe);
+      console.log("🔍 [MESSAGES-UPSERT] Message type:", req.body.data?.messageType);
+      console.log("🔍 [MESSAGES-UPSERT] Available message fields:", Object.keys(req.body.data?.message || {}));
+      console.log("🔍 [MESSAGES-UPSERT] Has imageMessage:", !!req.body.data?.message?.imageMessage);
+      console.log("🔍 [MESSAGES-UPSERT] Has conversation:", !!req.body.data?.message?.conversation);
+      console.log("🔍 [MESSAGES-UPSERT] Has extendedTextMessage:", !!req.body.data?.message?.extendedTextMessage);
+      console.log("🔥🔥🔥 [MESSAGES-UPSERT] Full request body:", JSON.stringify(req.body, null, 2));
       
       // Redirecionar para o processamento principal
       await whatsappWebhookService.handleEvolutionMessage(req.body);
