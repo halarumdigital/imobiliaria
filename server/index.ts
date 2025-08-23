@@ -31,6 +31,16 @@ app.use((req, res, next) => {
         
         if (req.body.data.message.imageMessage) {
           console.log(`🎯🖼️ [ALL-REQUESTS] IMAGE FOUND IN REQUEST!`);
+          console.log(`🎯🖼️ [ALL-REQUESTS] Image message keys:`, Object.keys(req.body.data.message.imageMessage));
+          console.log(`🎯🖼️ [ALL-REQUESTS] Full imageMessage:`, JSON.stringify(req.body.data.message.imageMessage, null, 2));
+          
+          // Verificar se tem base64 diretamente
+          if (req.body.data.message.imageMessage.base64) {
+            console.log(`🎯📄 [ALL-REQUESTS] BASE64 FOUND! Length:`, req.body.data.message.imageMessage.base64.length);
+          }
+          if (req.body.data.message.imageMessage.jpegThumbnail) {
+            console.log(`🎯📄 [ALL-REQUESTS] JPEG THUMBNAIL FOUND! Length:`, req.body.data.message.imageMessage.jpegThumbnail.length);
+          }
         }
       }
     }
