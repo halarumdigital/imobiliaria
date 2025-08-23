@@ -349,10 +349,49 @@ export class AIService {
         messages.push(...context.conversationHistory.slice(-10)); // Últimas 10 mensagens
       }
 
-      // Adicionar mensagem atual (com suporte a imagem se presente)
-      console.log(`🔍 [IMAGE CHECK] messageType: ${context.messageType}, has mediaBase64: ${!!context.mediaBase64}`);
-      console.log(`🔍 [IMAGE CHECK] mediaBase64 length: ${context.mediaBase64?.length || 0}`);
-      console.log(`🔍 [IMAGE CHECK] mimeType: ${context.mimeType}`);
+      // Adicionar mensagem atual (com suporte a imagem e áudio)
+      console.log(`🔍 [MEDIA CHECK] messageType: ${context.messageType}, has mediaBase64: ${!!context.mediaBase64}`);
+      console.log(`🔍 [MEDIA CHECK] mediaBase64 length: ${context.mediaBase64?.length || 0}`);
+      console.log(`🔍 [MEDIA CHECK] mimeType: ${context.mimeType}`);
+      
+      // PROCESSAR ÁUDIO PRIMEIRO (transcrever para texto)
+      if (context.messageType === 'audio' && context.mediaBase64) {
+        console.log(`🎤 ✅ PROCESSANDO ÁUDIO COM WHISPER!`);
+        try {
+          // Converter base64 para buffer
+          const audioBuffer = Buffer.from(context.mediaBase64, 'base64');
+          console.log(`🎤 Audio buffer size: ${audioBuffer.length} bytes`);
+          
+          // Salvar temporariamente em arquivo para OpenAI Whisper
+          const fs = require('fs');
+          const path = require('path');
+          const tmpDir = '/tmp';
+          const tmpFile = path.join(tmpDir, `audio_${Date.now()}.ogg`);
+          
+          fs.writeFileSync(tmpFile, audioBuffer);
+          console.log(`🎤 Arquivo temporário criado: ${tmpFile}`);
+          
+          // Transcrever usando OpenAI Whisper
+          const transcription = await openai.audio.transcriptions.create({
+            file: fs.createReadStream(tmpFile),
+            model: "whisper-1",
+          });
+          
+          console.log(`🎤 ✅ TRANSCRIÇÃO CONCLUÍDA!`);
+          console.log(`🎤 Texto transcrito: "${transcription.text}"`);
+          
+          // Limpar arquivo temporário
+          fs.unlinkSync(tmpFile);
+          console.log(`🎤 Arquivo temporário removido`);
+          
+          // Usar o texto transcrito como mensagem
+          context.message = transcription.text || "Não foi possível transcrever o áudio";
+          
+        } catch (error) {
+          console.error("❌ Erro na transcrição de áudio:", error);
+          context.message = "Desculpe, não consegui processar o áudio enviado.";
+        }
+      }
       
       if ((context.messageType === 'image' || context.messageType === 'imageMessage') && context.mediaBase64) {
         console.log(`🖼️ ✅ ENTRANDO NO PROCESSAMENTO DE IMAGEM!`);

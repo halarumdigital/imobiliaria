@@ -195,12 +195,16 @@ export class WhatsAppWebhookService {
       console.log("🔍 [MESSAGE DEBUG] data.message keys:", Object.keys(data.message));
       console.log("🔍 [MESSAGE DEBUG] data.message:", JSON.stringify(data.message, null, 2));
       
-      // Verificar se é uma mensagem de imagem
+      // Verificar tipos de mensagem
       const imageMessage = data.message.imageMessage;
+      const audioMessage = data.message.audioMessage;
       const isImageMessage = !!imageMessage;
+      const isAudioMessage = !!audioMessage;
       
       console.log(`🔍 [MESSAGE DEBUG] imageMessage found: ${!!imageMessage}`);
+      console.log(`🔍 [MESSAGE DEBUG] audioMessage found: ${!!audioMessage}`);
       console.log(`🔍 [MESSAGE DEBUG] isImageMessage: ${isImageMessage}`);
+      console.log(`🔍 [MESSAGE DEBUG] isAudioMessage: ${isAudioMessage}`);
       
       // Extrair o conteúdo da mensagem (texto ou legenda da imagem)
       let messageText = data.message.conversation || data.message.extendedTextMessage?.text;
@@ -263,6 +267,39 @@ export class WhatsAppWebhookService {
         } else {
           console.log(`🖼️ No base64 or media URL found in image message`);
         }
+      } else if (isAudioMessage) {
+        console.log("🎤 Detected audio message");
+        console.log("🎤 Audio message data:", JSON.stringify(audioMessage, null, 2));
+        messageText = "Áudio enviado";
+        
+        // PROCURAR BASE64 DE ÁUDIO!
+        const evolutionMessage = evolutionData.data as any;
+        console.log(`🔍 [AUDIO BASE64 SEARCH] Searching for audio base64...`);
+        
+        let foundAudioBase64: string | undefined;
+        
+        if (evolutionMessage.message?.base64) {
+          foundAudioBase64 = evolutionMessage.message.base64;
+          console.log(`🎯 Found audio base64 at evolutionMessage.message.base64`);
+        } else if (evolutionMessage.base64) {
+          foundAudioBase64 = evolutionMessage.base64;
+          console.log(`🎯 Found audio base64 at evolutionMessage.base64`);
+        } else if ((audioMessage as any)?.base64) {
+          foundAudioBase64 = (audioMessage as any).base64;
+          console.log(`🎯 Found audio base64 at audioMessage.base64`);
+        } else {
+          console.log(`❌ No audio base64 found in any expected location`);
+        }
+        
+        if (foundAudioBase64) {
+          console.log(`🎯 USING EXISTING AUDIO BASE64 from Evolution API!`);
+          mediaBase64 = foundAudioBase64;
+          mimeType = 'audio/ogg'; // Default para WhatsApp
+          
+          console.log(`🎯 Evolution API audio base64 ready: base64 length=${foundAudioBase64.length}`);
+        } else {
+          console.log(`🎤 No audio base64 found`);
+        }
       }
 
       if (!messageText) {
@@ -301,7 +338,7 @@ export class WhatsAppWebhookService {
         mediaBase64,
         caption,
         mimeType,
-        messageType: isImageMessage ? 'image' : 'text'
+        messageType: isImageMessage ? 'image' : isAudioMessage ? 'audio' : 'text'
       };
 
       console.log(`🔄 About to call AIService.processMessage with:`, {
