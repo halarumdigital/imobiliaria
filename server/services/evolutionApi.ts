@@ -104,6 +104,27 @@ export class EvolutionApiService {
     });
   }
 
+  async sendMedia(instanceName: string, number: string, mediaUrl: string, caption?: string): Promise<any> {
+    console.log(`📸 EvolutionApiService.sendMedia called with instance: ${instanceName}, number: ${number}, mediaUrl: ${mediaUrl}`);
+    return this.makeRequest(`/message/sendMedia/${instanceName}`, 'POST', {
+      number,
+      mediatype: 'image',
+      media: mediaUrl,
+      caption: caption || ''
+    });
+  }
+
+  async sendPhotoFromUrl(instanceName: string, number: string, photoUrl: string, caption?: string): Promise<any> {
+    console.log(`📷 EvolutionApiService.sendPhotoFromUrl called with instance: ${instanceName}, number: ${number}`);
+    return this.makeRequest(`/message/sendMedia/${instanceName}`, 'POST', {
+      number,
+      mediatype: 'image',
+      media: photoUrl,
+      fileName: 'imovel_foto.jpg',
+      caption: caption || ''
+    });
+  }
+
   async getMessages(instanceName: string): Promise<any> {
     return this.makeRequest(`/chat/findMessages/${instanceName}`);
   }

@@ -1,4 +1,5 @@
 import { OpenAiService } from "./services/openai";
+import { EvolutionApiService } from "./services/evolutionApi";
 import { getStorage } from "./storage";
 import { AiAgent } from "@shared/schema";
 
@@ -527,6 +528,58 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
   }
 
   /**
+   * Sends property photos directly via WhatsApp
+   */
+  private async sendPropertyPhotos(propertyData: any, request: AiResponseRequest): Promise<string> {
+    try {
+      console.log(`📸 [PHOTOS] Processando fotos do imóvel ${propertyData.Codigo}`);
+      
+      const photos = [];
+      
+      // Add FotoDestaque if available
+      if (propertyData.FotoDestaque) {
+        photos.push(propertyData.FotoDestaque);
+      }
+      
+      // Add additional photos if available
+      if (propertyData.fotos && Array.isArray(propertyData.fotos)) {
+        propertyData.fotos.forEach((foto: any) => {
+          if (foto.Url) {
+            photos.push(foto.Url);
+          }
+        });
+      }
+      
+      console.log(`📸 [PHOTOS] Encontradas ${photos.length} fotos`);
+      
+      if (photos.length === 0) {
+        return "Desculpe, não encontrei fotos disponíveis para este imóvel no momento.";
+      }
+      
+      // Formatar resposta com informações do imóvel e fotos
+      let response = `🏠 **Imóvel ${propertyData.Codigo}**\n`;
+      response += `📍 ${propertyData.BairroComercial}, ${propertyData.Cidade}\n\n`;
+      
+      if (propertyData.DescricaoWeb) {
+        response += `📋 ${propertyData.DescricaoWeb.substring(0, 200)}...\n\n`;
+      }
+      
+      response += `📸 **Fotos do imóvel:**\n`;
+      photos.slice(0, 5).forEach((photoUrl, index) => {
+        response += `${index + 1}. ${photoUrl}\n`;
+      });
+      
+      response += `\n� *Clique nos links acima para ver as fotos do imóvel!*`;
+      
+      return response;
+
+    } catch (error) {
+      console.error("❌ Erro ao processar fotos:", error);
+      return "Desculpe, ocorreu um erro ao buscar as fotos. Tente novamente mais tarde.";
+    }
+  }
+
+  /**
    * Extracts property code from conversation context
    */
   private async extractPropertyCodeFromContext(request: AiResponseRequest): Promise<string | null> {
@@ -564,55 +617,6 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
     } catch (error) {
       console.error("Erro ao extrair código do imóvel:", error);
       return null;
-    }
-  }
-
-  /**
-   * Sends detailed property information with photos
-   */
-  private async sendPropertyPhotos(propertyData: any, request: AiResponseRequest): Promise<string> {
-    try {
-      if (!propertyData) {
-        return "Não consegui encontrar os detalhes deste imóvel.";
-      }
-
-      console.log(`📋 Preparando detalhes completos do imóvel ${propertyData.Codigo}...`);
-
-      // Format complete property details using AI
-      const detailsPrompt = `
-        Formate os seguintes dados de um imóvel de forma organizada e atrativa para WhatsApp.
-        Use emojis apropriados e organize as informações de forma clara e fácil de ler.
-        
-        Dados do imóvel: ${JSON.stringify(propertyData, null, 2)}
-        
-        Inclua:
-        - Cabeçalho com código e localização
-        - Valores (venda/locação se disponível)
-        - Características (quartos, banheiros, vagas, áreas)
-        - Lazer/Comodidades (piscina, churrasqueira, etc.)
-        - Endereço completo
-        - Dados do corretor
-        - Dados da agência
-        - Lista de fotos (se houver)
-        
-        Formato: WhatsApp friendly com quebras de linha \\n e emojis apropriados.
-        Seja detalhado mas organizado.
-      `;
-
-      const response = await this.openAiService.generateResponse(
-        detailsPrompt,
-        "Você é um especialista em apresentação de imóveis. Formate as informações de forma atrativa e organizada.",
-        {
-          model: "gpt-4o",
-          temperature: 0.3,
-          maxTokens: 1500
-        }
-      );
-
-      return response.content;
-    } catch (error) {
-      console.error("❌ Erro ao formatar detalhes do imóvel:", error);
-      return "Encontrei o imóvel, mas ocorreu um erro ao formatar os detalhes. Tente novamente.";
     }
   }
 

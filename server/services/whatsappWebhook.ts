@@ -709,9 +709,50 @@ export class WhatsAppWebhookService {
         token: evolutionConfig.evolutionToken
       });
 
-      // Enviar mensagem
-      console.log(`📡 Calling evolutionService.sendMessage with instance: ${instanceId}, phone: ${phone}`);
-      await evolutionService.sendMessage(instanceId, phone, response);
+      // Detectar URLs de imagens na resposta
+      const imageUrlRegex = /https?:\/\/[^\s]+\.(?:jpg|jpeg|png|gif|webp)(?:\?[^\s]*)?/gi;
+      const imageUrls = response.match(imageUrlRegex);
+      
+      if (imageUrls && imageUrls.length > 0) {
+        console.log(`📸 [PHOTOS] Encontradas ${imageUrls.length} URLs de imagens na resposta`);
+        
+        // Enviar texto primeiro (sem as URLs)
+        let cleanResponse = response;
+        imageUrls.forEach((url, index) => {
+          cleanResponse = cleanResponse.replace(url, `[Foto ${index + 1}]`);
+        });
+        
+        console.log(`📡 Enviando resposta de texto...`);
+        await evolutionService.sendMessage(instanceId, phone, cleanResponse);
+        
+        // Enviar cada imagem separadamente
+        for (let i = 0; i < Math.min(imageUrls.length, 5); i++) {
+          const imageUrl = imageUrls[i];
+          console.log(`📸 [PHOTOS] Enviando imagem ${i + 1}: ${imageUrl}`);
+          
+          try {
+            await evolutionService.sendPhotoFromUrl(instanceId, phone, imageUrl, `📸 Foto ${i + 1} do imóvel`);
+            console.log(`✅ [PHOTOS] Imagem ${i + 1} enviada com sucesso`);
+            
+            // Pequena pausa entre envios
+            if (i < imageUrls.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, 1500));
+            }
+          } catch (photoError) {
+            console.error(`❌ [PHOTOS] Erro ao enviar imagem ${i + 1}:`, photoError);
+            // Continue com as próximas imagens mesmo se uma falhar
+          }
+        }
+        
+        if (imageUrls.length > 5) {
+          await evolutionService.sendMessage(instanceId, phone, `💡 Foram encontradas ${imageUrls.length} fotos, mas enviei apenas as primeiras 5 para melhor experiência.`);
+        }
+        
+      } else {
+        // Enviar mensagem normal se não há imagens
+        console.log(`📡 Calling evolutionService.sendMessage with instance: ${instanceId}, phone: ${phone}`);
+        await evolutionService.sendMessage(instanceId, phone, response);
+      }
       
       console.log(`📤 Response sent to ${phone}`);
     } catch (error) {
