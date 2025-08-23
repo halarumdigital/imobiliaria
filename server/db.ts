@@ -1,15 +1,39 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from "ws";
+import mysql from 'mysql2/promise';
+import { drizzle } from 'drizzle-orm/mysql2';
 import * as schema from "@shared/schema";
 
-neonConfig.webSocketConstructor = ws;
-
-if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
-  );
+// Parse MySQL connection string or use individual env vars
+function getConnectionConfig() {
+  if (process.env.DATABASE_URL) {
+    return process.env.DATABASE_URL;
+  }
+  
+  return {
+    host: process.env.MYSQL_HOST || 'localhost',
+    user: process.env.MYSQL_USER || 'root',
+    password: process.env.MYSQL_PASSWORD || '',
+    database: process.env.MYSQL_DATABASE || 'imobiliaria',
+    port: parseInt(process.env.MYSQL_PORT || '3306'),
+  };
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-export const db = drizzle({ client: pool, schema });
+let connection: mysql.Connection;
+let db: ReturnType<typeof drizzle>;
+
+async function initDatabase() {
+  const config = getConnectionConfig();
+  
+  if (typeof config === 'string') {
+    connection = await mysql.createConnection(config);
+  } else {
+    connection = await mysql.createConnection(config);
+  }
+  
+  db = drizzle(connection, { schema, mode: 'default' });
+  return { connection, db };
+}
+
+// Initialize database connection
+const dbPromise = initDatabase();
+
+export { connection, db, dbPromise };
