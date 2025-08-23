@@ -374,8 +374,10 @@ export class WhatsAppWebhookService {
         mediaBase64: mediaBase64 ? `[${mediaBase64.length} chars]` : undefined // Não logar base64 completo
       });
       
+      console.log(`🚀🚀🚀 [WEBHOOK] CHAMANDO AIService.processMessage AGORA!`);
       const aiService = new AIService();
       const aiResponse = await aiService.processMessage(messageContext);
+      console.log(`🏁🏁🏁 [WEBHOOK] AIService.processMessage RETORNOU:`, aiResponse);
 
       console.log(`🤖 Raw AI Response:`, aiResponse);
       if (!aiResponse) {
