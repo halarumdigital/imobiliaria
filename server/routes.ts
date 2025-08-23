@@ -1836,8 +1836,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("🔍 [MESSAGES-UPSERT] Message type:", req.body.data?.messageType);
       console.log("🔍 [MESSAGES-UPSERT] Available message fields:", Object.keys(req.body.data?.message || {}));
       console.log("🔍 [MESSAGES-UPSERT] Has imageMessage:", !!req.body.data?.message?.imageMessage);
+      console.log("🔍 [MESSAGES-UPSERT] Has audioMessage:", !!req.body.data?.message?.audioMessage);
       console.log("🔍 [MESSAGES-UPSERT] Has conversation:", !!req.body.data?.message?.conversation);
       console.log("🔍 [MESSAGES-UPSERT] Has extendedTextMessage:", !!req.body.data?.message?.extendedTextMessage);
+      
+      // DEBUG ESPECIAL PARA ÁUDIO
+      if (req.body.data?.message?.audioMessage) {
+        console.log("🎤🎤🎤 [UPSERT] ÁUDIO DETECTADO NO ENDPOINT!");
+        console.log("🎤 [UPSERT] AudioMessage:", JSON.stringify(req.body.data.message.audioMessage, null, 2));
+      }
       console.log("🔥🔥🔥 [MESSAGES-UPSERT] Full request body:", JSON.stringify(req.body, null, 2));
       
       // Redirecionar para o processamento principal
