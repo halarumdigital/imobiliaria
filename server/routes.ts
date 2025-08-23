@@ -2190,6 +2190,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test route for property search with photos
+  app.post("/api/test-property-search", async (req, res) => {
+    try {
+      console.log("🧪 [TEST] Testing property search with photos");
+      
+      const storage = getStorage();
+      const apiSettings = await storage.getApiSettings("a9a2f3e1-6e37-43d4-b411-d7fb999f93e2");
+      
+      if (!apiSettings?.apiUrl || !apiSettings?.apiToken) {
+        return res.status(400).json({ error: "API settings not configured" });
+      }
+
+      const searchParams = {
+        campos: [
+          "Codigo", "TipoOperacao", "Valor", "Quartos", "Suites", "Vagas", 
+          "Area", "Cidade", "Bairro", "Descricao", "FotoDestaque",
+          { "fotos": ["TipoFoto", "Url", "Descricao"] }
+        ],
+        paginacao: { 
+          pagina: "1", 
+          quantidade: "5" 
+        }
+      };
+
+      const baseUrl = `${apiSettings.apiUrl}/imoveis/listar`;
+      const queryParams = new URLSearchParams({
+        key: apiSettings.apiToken,
+        v2: "1",
+        pesquisa: JSON.stringify(searchParams),
+        showtotal: "1"
+      });
+      
+      const apiUrl = `${baseUrl}?${queryParams.toString()}`;
+      console.log(`🧪 [TEST] API URL:`, apiUrl);
+
+      const response = await fetch(apiUrl, {
+        headers: { 'Accept': 'application/json' }
+      });
+
+      if (!response.ok) {
+        return res.status(response.status).json({ error: response.statusText });
+      }
+
+      const data = await response.json();
+      console.log(`🧪 [TEST] Properties found: ${data.length || 0}`);
+      
+      // Log photo data specifically
+      data.forEach((property: any, index: number) => {
+        console.log(`🧪 [TEST] Property ${index + 1}:`);
+        console.log(`  - Codigo: ${property.Codigo}`);
+        console.log(`  - FotoDestaque: ${property.FotoDestaque || 'N/A'}`);
+        console.log(`  - fotos: ${JSON.stringify(property.fotos || 'N/A')}`);
+      });
+
+      res.json({
+        success: true,
+        count: data.length || 0,
+        properties: data
+      });
+    } catch (error) {
+      console.error("🧪 [TEST] Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
