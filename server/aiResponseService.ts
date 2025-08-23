@@ -320,14 +320,16 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
       }
 
       const data = await response.json();
-      console.log(`✅ ${data.length || 0} imóveis encontrados`);
+      console.log(`✅ [PROPERTY-SEARCH] ${data.length || 0} imóveis encontrados`);
 
-      // Enriquecer com fotos adicionais se necessário
-      let enrichedData = data;
-      if (data.length > 0 && data.length <= 5) {
-        console.log(`🔍 [PHOTOS] Buscando fotos adicionais para ${data.length} imóveis...`);
-        enrichedData = await this.enrichPropertiesWithPhotos(data, apiSettings);
+      // Verificar se temos dados válidos
+      if (!data || !Array.isArray(data) || data.length === 0) {
+        console.log(`❌ [PROPERTY-SEARCH] Nenhum imóvel encontrado ou dados inválidos`);
+        return "Não encontrei imóveis que correspondem aos critérios solicitados. Posso ajudar com uma busca mais ampla?";
       }
+
+      // Para produção, vamos usar apenas os dados básicos primeiro (sem enriquecimento extra)
+      console.log(`📋 [PROPERTY-SEARCH] Processando ${data.length} imóveis com dados básicos`);
 
       // Log successful API call
       await this.logApiCall({
@@ -337,13 +339,13 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
         endpoint: apiUrl,
         requestData: { searchParams, filters },
         responseStatus: 'success',
-        responseData: { count: enrichedData.length || 0 },
+        responseData: { count: data.length || 0 },
         executionTime,
         userPhone: null
       });
 
       // Format the response with found properties
-      return await this.formatPropertyResponse(enrichedData, request.message, request);
+      return await this.formatPropertyResponse(data, request.message, request);
 
     } catch (error) {
       console.error("❌ Erro na busca de imóveis:", error);
@@ -427,19 +429,22 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
         - Área (se disponível)
         - Descrição resumida
         
-        *** IMPORTANTE SOBRE FOTOS ***
-        - Se o imóvel tiver "FotoDestaque", mencione e inclua o link
-        - Se o imóvel tiver array "fotos" com URLs, liste as principais fotos
-        - Para cada foto, inclua o link completo da URL
-        - Organize as fotos de forma clara (ex: "📸 Fotos: foto1.jpg, foto2.jpg")
+        *** INSTRUÇÕES PARA APRESENTAÇÃO ***
+        - Para cada imóvel, inclua: código, localização, preço, quartos, descrição resumida
+        - Se o imóvel tiver "FotoDestaque" (URL da foto principal), sempre mencione: "📸 Foto disponível: [LINK]"
+        - Use formato amigável e inclua emojis apropriados (🏠 🏢 💰 🛏️ 🚗)
+        - Seja conversacional e ofereça ajuda adicional
+        - SEMPRE inclua a foto de destaque quando disponível no campo "FotoDestaque"
         
-        Use emojis apropriados e seja conversacional e helpful. 
+        Use português brasileiro e seja helpful. 
         Ofereça para buscar mais detalhes se necessário.
         `;
 
+      console.log(`🤖 [AI-FORMAT] Formatando resposta para ${properties.length} imóveis`);
+
       const response = await this.openAiService.generateResponse(
         responsePrompt,
-        "Você é um assistente especializado em imóveis. Apresente os resultados de forma clara e organizada, incluindo sempre as fotos quando disponíveis.",
+        "Você é um assistente especializado em imóveis. SEMPRE inclua as fotos de destaque quando disponíveis no campo FotoDestaque. Apresente os resultados de forma clara e organizada.",
         {
           model: "gpt-4o",
           temperature: 0.7,
