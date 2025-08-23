@@ -15,11 +15,17 @@ app.use((req, res, next) => {
   if (req.method === 'POST') {
     console.log(`🔍🔍🔍 [ALL-REQUESTS] POST to: ${req.path}`);
     console.log(`🔍 [ALL-REQUESTS] Content-Type: ${req.headers['content-type']}`);
-    console.log(`🔍 [ALL-REQUESTS] User-Agent: ${req.headers['user-agent']}`);
     
     if (req.body && typeof req.body === 'object') {
       console.log(`🔍 [ALL-REQUESTS] Has body data`);
       console.log(`🔍 [ALL-REQUESTS] Body keys:`, Object.keys(req.body));
+      
+      // Buscar por QUALQUER coisa relacionada a imagem
+      const bodyStr = JSON.stringify(req.body).toLowerCase();
+      if (bodyStr.includes('image') || bodyStr.includes('base64') || bodyStr.includes('jpeg') || bodyStr.includes('png')) {
+        console.log(`🎯🖼️🖼️🖼️ [ALL-REQUESTS] IMAGE-RELATED DATA DETECTED!`);
+        console.log(`🎯🖼️ [ALL-REQUESTS] Full body:`, JSON.stringify(req.body, null, 2));
+      }
       
       // Verificar se é mensagem da Evolution API
       if (req.body.data && req.body.data.message) {
@@ -29,8 +35,13 @@ app.use((req, res, next) => {
         console.log(`🎯 [ALL-REQUESTS] Available message fields:`, Object.keys(req.body.data.message));
         console.log(`🎯 [ALL-REQUESTS] Has imageMessage:`, !!req.body.data.message.imageMessage);
         
+        // Log da mensagem completa se não for fromMe (mensagem do usuário)
+        if (req.body.data.key?.fromMe !== true) {
+          console.log(`🎯📨 [ALL-REQUESTS] USER MESSAGE (not fromMe):`, JSON.stringify(req.body.data.message, null, 2));
+        }
+        
         if (req.body.data.message.imageMessage) {
-          console.log(`🎯🖼️ [ALL-REQUESTS] IMAGE FOUND IN REQUEST!`);
+          console.log(`🎯🖼️ [ALL-REQUESTS] IMAGE MESSAGE FOUND!`);
           console.log(`🎯🖼️ [ALL-REQUESTS] Image message keys:`, Object.keys(req.body.data.message.imageMessage));
           console.log(`🎯🖼️ [ALL-REQUESTS] Full imageMessage:`, JSON.stringify(req.body.data.message.imageMessage, null, 2));
           
