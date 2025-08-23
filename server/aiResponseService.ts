@@ -222,22 +222,42 @@ ${request.conversationHistory && request.conversationHistory.length > 0
 
       // Get API settings for the company
       const storage = getStorage();
+      console.log(`🔍 [DEBUG] Buscando configurações da API para empresa: ${request.companyId!}`);
+      
       const apiSettings = await storage.getApiSettings(request.companyId!);
       
+      console.log(`🔍 [DEBUG] API settings raw result:`, apiSettings);
       console.log(`🔍 [DEBUG] API settings encontradas:`, {
         exists: !!apiSettings,
         hasUrl: !!apiSettings?.apiUrl,
         hasToken: !!apiSettings?.apiToken,
-        url: apiSettings?.apiUrl ? 'Configurada' : 'Não configurada',
-        token: apiSettings?.apiToken ? 'Configurado' : 'Não configurado'
+        url: apiSettings?.apiUrl ? `Configurada: ${apiSettings.apiUrl}` : 'Não configurada',
+        token: apiSettings?.apiToken ? `Configurado (${apiSettings.apiToken.length} chars)` : 'Não configurado'
       });
       
       if (!apiSettings?.apiUrl || !apiSettings?.apiToken) {
-        console.log(`❌ [DEBUG] Configurações da API faltando - retornando mensagem de erro`);
-        return "Desculpe, as configurações da API de imóveis não foram encontradas. Por favor, configure a API primeiro na seção de configurações.";
+        console.log(`❌ [DEBUG] Configurações da API faltando - apiSettings:`, apiSettings);
+        
+        // Provide more helpful guidance
+        const missingConfig = [];
+        if (!apiSettings?.apiUrl) missingConfig.push("URL da API");
+        if (!apiSettings?.apiToken) missingConfig.push("Token de acesso");
+        
+        return `🔧 **Configuração necessária para busca de imóveis:**
+
+📋 **Faltando:** ${missingConfig.join(", ")}
+
+**Para configurar:**
+1. Acesse o sistema web em: https://imobiliaria.gilliard.dev.br
+2. Vá em "Configurações" → "API de Imóveis" 
+3. Configure:
+   - **URL da API VistaHost:** https://...
+   - **Token de acesso:** seu_token_aqui
+
+Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
       }
 
-      // Search for properties (seguindo exatamente o modelo n8n)
+      // Search for properties (busca inicial sem fotos para performance)
       const searchParams = {
         filter: {
           ...filters,
@@ -246,12 +266,11 @@ ${request.conversationHistory && request.conversationHistory.length > 0
         fields: [
           "Codigo", "Categoria", "BairroComercial", "Cidade", "Suites", "DescricaoWeb", 
           "Dormitorios", "Vagas", "Endereco", "Complemento", "AreaPrivativa", 
-          "ValorVenda", "ValorLocacao", "FotoDestaque",
-          { "fotos": ["TipoFoto", "Url", "Descricao"] }
+          "ValorVenda", "ValorLocacao", "FotoDestaque"
         ],
         paginacao: { 
           pagina: "1", 
-          quantidade: "50" 
+          quantidade: "10" 
         }
       };
 
@@ -303,6 +322,13 @@ ${request.conversationHistory && request.conversationHistory.length > 0
       const data = await response.json();
       console.log(`✅ ${data.length || 0} imóveis encontrados`);
 
+      // Enriquecer com fotos adicionais se necessário
+      let enrichedData = data;
+      if (data.length > 0 && data.length <= 5) {
+        console.log(`🔍 [PHOTOS] Buscando fotos adicionais para ${data.length} imóveis...`);
+        enrichedData = await this.enrichPropertiesWithPhotos(data, apiSettings);
+      }
+
       // Log successful API call
       await this.logApiCall({
         companyId: request.companyId!,
@@ -311,13 +337,13 @@ ${request.conversationHistory && request.conversationHistory.length > 0
         endpoint: apiUrl,
         requestData: { searchParams, filters },
         responseStatus: 'success',
-        responseData: { count: data.length || 0 },
+        responseData: { count: enrichedData.length || 0 },
         executionTime,
         userPhone: null
       });
 
       // Format the response with found properties
-      return await this.formatPropertyResponse(data, request.message, request);
+      return await this.formatPropertyResponse(enrichedData, request.message, request);
 
     } catch (error) {
       console.error("❌ Erro na busca de imóveis:", error);
@@ -583,6 +609,64 @@ ${request.conversationHistory && request.conversationHistory.length > 0
       console.error("❌ Erro ao formatar detalhes do imóvel:", error);
       return "Encontrei o imóvel, mas ocorreu um erro ao formatar os detalhes. Tente novamente.";
     }
+  }
+
+  /**
+   * Enriquece propriedades com fotos adicionais usando endpoint /detalhes
+   */
+  private async enrichPropertiesWithPhotos(properties: any[], apiSettings: any): Promise<any[]> {
+    const enrichedProperties = [];
+    
+    for (const property of properties) {
+      try {
+        // Buscar detalhes com fotos para cada imóvel
+        const detailsParams = {
+          fields: [
+            "Codigo", "Categoria", "BairroComercial", "Cidade", "Suites", "DescricaoWeb", 
+            "Dormitorios", "Vagas", "Endereco", "Complemento", "AreaPrivativa", 
+            "ValorVenda", "ValorLocacao", "FotoDestaque"
+          ]
+        };
+
+        const baseUrl = `${apiSettings.apiUrl}/imoveis/detalhes`;
+        const queryParams = new URLSearchParams({
+          key: apiSettings.apiToken,
+          pesquisa: JSON.stringify(detailsParams),
+          imovel: property.Codigo
+        });
+        
+        const detailsUrl = `${baseUrl}?${queryParams.toString()}`;
+        console.log(`📸 [PHOTOS] Buscando fotos para imóvel ${property.Codigo}...`);
+        
+        const detailsResponse = await fetch(detailsUrl, {
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+
+        if (detailsResponse.ok) {
+          const detailsData = await detailsResponse.json();
+          console.log(`📸 [PHOTOS] Fotos encontradas para imóvel ${property.Codigo}:`, {
+            hasDestaque: !!detailsData.FotoDestaque,
+            fotoDestaque: detailsData.FotoDestaque
+          });
+          
+          // Mesclar dados originais com detalhes enriquecidos
+          enrichedProperties.push({
+            ...property,
+            ...detailsData
+          });
+        } else {
+          console.log(`⚠️ [PHOTOS] Não foi possível buscar fotos para imóvel ${property.Codigo}`);
+          enrichedProperties.push(property);
+        }
+      } catch (error) {
+        console.error(`❌ [PHOTOS] Erro ao buscar fotos para imóvel ${property.Codigo}:`, error);
+        enrichedProperties.push(property);
+      }
+    }
+    
+    return enrichedProperties;
   }
 
   /**

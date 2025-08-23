@@ -30,6 +30,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const storage = getStorage();
   await storage.init();
 
+  // Add global request logger to catch ALL incoming requests
+  app.use((req, res, next) => {
+    if (req.path.includes('/api/webhook') || req.path.includes('/webhook')) {
+      console.log(`🌐 [GLOBAL] ${req.method} ${req.path} - Headers:`, Object.keys(req.headers));
+      console.log(`🌐 [GLOBAL] Body present:`, !!req.body, 'Content-Type:', req.headers['content-type']);
+    }
+    next();
+  });
+
+  // TEST: Add a simple test webhook endpoint
+  app.all("/api/webhook/test", (req, res) => {
+    console.log("🧪 [TEST WEBHOOK] Method:", req.method);
+    console.log("🧪 [TEST WEBHOOK] Headers:", req.headers);
+    console.log("🧪 [TEST WEBHOOK] Body:", req.body);
+    res.json({ success: true, message: "Test webhook received", timestamp: new Date().toISOString() });
+  });
+
+  app.all("/webhook/test", (req, res) => {
+    console.log("🧪 [TEST WEBHOOK 2] Method:", req.method);
+    console.log("🧪 [TEST WEBHOOK 2] Headers:", req.headers);
+    console.log("🧪 [TEST WEBHOOK 2] Body:", req.body);
+    res.json({ success: true, message: "Test webhook 2 received", timestamp: new Date().toISOString() });
+  });
+
+  // TEST: Quick API settings setup for VistaHost
+  app.post("/api/quick-setup-vistahost/:companyId", async (req, res) => {
+    try {
+      const { companyId } = req.params;
+      const { apiUrl, apiToken } = req.body;
+      
+      if (!apiUrl || !apiToken) {
+        return res.status(400).json({ error: "apiUrl and apiToken are required" });
+      }
+      
+      console.log(`🔧 [QUICK SETUP] Setting up VistaHost API for company: ${companyId}`);
+      console.log(`🔧 [QUICK SETUP] API URL: ${apiUrl}`);
+      console.log(`🔧 [QUICK SETUP] Token length: ${apiToken.length}`);
+      
+      const storage = getStorage();
+      const result = await storage.saveApiSettings(companyId, apiUrl, apiToken);
+      
+      console.log(`✅ [QUICK SETUP] API settings saved successfully`);
+      
+      res.json({ 
+        success: true, 
+        message: "VistaHost API settings configured successfully",
+        data: {
+          id: result.id,
+          companyId: result.companyId,
+          apiUrl: result.apiUrl,
+          tokenLength: result.apiToken.length
+        }
+      });
+    } catch (error) {
+      console.error("❌ [QUICK SETUP] Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Configure multer for file uploads
   const storage_config = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -2187,6 +2246,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Get client stats error:", error);
       res.status(500).json({ error: "Erro ao buscar estatísticas" });
+    }
+  });
+
+  // Test route for checking API settings
+  app.get("/api/test-api-settings/:companyId", async (req, res) => {
+    try {
+      console.log("🧪 [TEST] Testing API settings");
+      const { companyId } = req.params;
+      
+      const storage = getStorage();
+      const apiSettings = await storage.getApiSettings(companyId);
+      
+      res.json({
+        companyId,
+        hasApiSettings: !!apiSettings,
+        hasUrl: !!apiSettings?.apiUrl,
+        hasToken: !!apiSettings?.apiToken,
+        apiUrl: apiSettings?.apiUrl || 'Not configured',
+        tokenLength: apiSettings?.apiToken?.length || 0
+      });
+    } catch (error) {
+      console.error("🧪 [TEST] Error:", error);
+      res.status(500).json({ error: error.message });
     }
   });
 
