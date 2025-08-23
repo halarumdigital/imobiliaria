@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +15,7 @@ import { queryClient } from "@/lib/queryClient";
 import { apiGet, apiPost, apiPut, apiDelete } from "@/lib/api";
 import { AiAgent, WhatsappInstance } from "@/types";
 import { ObjectUploader } from "@/components/ObjectUploader";
-import { Bot, Plus, Edit, Trash2, FileText, Upload, TestTube2, Send, BarChart3 } from "lucide-react";
+import { Bot, Plus, Edit, Trash2, FileText, Upload, TestTube2, Send, BarChart3, MessageCircle, User } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 // Component for Agent Usage History
