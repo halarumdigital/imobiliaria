@@ -481,12 +481,41 @@ export class WhatsAppWebhookService {
 
       console.log(`📱 Processing message from ${senderPhone}: "${messageText}"`);
 
+      // Buscar companyId da instância
+      const storage = getStorage();
+      let companyId = null;
+      
+      try {
+        // Buscar em todas as empresas para encontrar a instância
+        const companies = await storage.getAllCompanies();
+        for (const company of companies) {
+          const instances = await storage.getWhatsappInstancesByCompany(company.id);
+          const found = instances.find(i => 
+            i.evolutionInstanceId === instanceId || 
+            (instanceId === "e5b71c35-276b-417e-a1c3-267f904b2b98" && i.name === "deploy2")
+          );
+          
+          if (found) {
+            companyId = company.id;
+            console.log(`🏢 [WEBHOOK] CompanyId encontrado: ${companyId} para instância: ${instanceId}`);
+            break;
+          }
+        }
+        
+        if (!companyId) {
+          console.log(`⚠️ [WEBHOOK] CompanyId não encontrado para instância: ${instanceId}`);
+        }
+      } catch (error) {
+        console.error(`❌ [WEBHOOK] Erro ao buscar companyId:`, error);
+      }
+
       // Processar mensagem com IA
       const aiService = new AIService();
       const aiResponse = await aiService.processMessage({
         phone: senderPhone,
         message: messageText,
-        instanceId: instanceId
+        instanceId: instanceId,
+        companyId: companyId || undefined
       });
 
       if (!aiResponse) {
