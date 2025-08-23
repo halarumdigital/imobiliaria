@@ -119,7 +119,7 @@ export class WhatsAppWebhookService {
       }
 
       console.log(`🤖 AI Response for Evolution message: "${aiResponse.response}"`);
-      console.log(`🔍 [DEBUG] activeAgentId from AI response: ${aiResponse.activeAgentId}`);
+      console.log(`🔍 [DEBUG] Full AI Response object:`, JSON.stringify(aiResponse, null, 2));
 
       // Enviar resposta via Evolution API
       console.log(`🚀 About to call sendResponse with instance: ${instanceName}, phone: ${senderPhone}`);
