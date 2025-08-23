@@ -1330,24 +1330,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🔍 [DEBUG] Totais: ${totalMessages} mensagens, ${assistantMessages} de assistant, ${messagesWithAgent} com agentId`);
       console.log(`🔍 [DEBUG] Stats processadas:`, Object.keys(totalStats).length, 'agentes');
       
-      // DEBUG: Buscar TODAS as conversas de TODAS as instâncias para encontrar mensagens com agentId
-      console.log(`🔍 [DEBUG EXTRA] Buscando TODAS as conversas de TODAS as instâncias...`);
-      const allCompanies = await storage.getAllCompanies();
-      for (const company of allCompanies) {
-        const companyInstances = await storage.getWhatsappInstancesByCompany(company.id);
-        for (const inst of companyInstances) {
-          const allConversations = await storage.getConversationsByInstance(inst.id);
-          for (const conv of allConversations) {
-            const allMessages = await storage.getMessagesByConversation(conv.id);
-            const messagesWithAgentId = allMessages.filter(m => m.sender === 'assistant' && m.agentId);
-            if (messagesWithAgentId.length > 0) {
-              console.log(`🔍 [FOUND] Conversa ${conv.id} (${conv.contactPhone}) tem ${messagesWithAgentId.length} mensagens com agentId`);
-              messagesWithAgentId.forEach(msg => {
-                console.log(`  - AgentId: ${msg.agentId}, Content: ${msg.content?.substring(0, 50)}...`);
-              });
-            }
+      // DEBUG: Contar diretamente via MySQL todas as mensagens com agentId
+      try {
+        console.log(`🔍 [DEBUG EXTRA] Contando mensagens com agentId diretamente no MySQL...`);
+        const storageInstance = storage as any; // Cast para acessar connection
+        if (storageInstance.connection) {
+          const [countRows] = await storageInstance.connection.execute(
+            'SELECT COUNT(*) as total FROM messages WHERE sender = ? AND agent_id IS NOT NULL',
+            ['assistant']
+          );
+          const totalWithAgentId = (countRows as any[])[0].total;
+          console.log(`🔍 [DEBUG EXTRA] Total de mensagens assistant com agentId no MySQL: ${totalWithAgentId}`);
+          
+          if (totalWithAgentId > 0) {
+            const [sampleRows] = await storageInstance.connection.execute(
+              'SELECT agent_id, content, conversation_id FROM messages WHERE sender = ? AND agent_id IS NOT NULL LIMIT 5',
+              ['assistant']
+            );
+            console.log(`🔍 [DEBUG EXTRA] Exemplos de mensagens com agentId:`, sampleRows);
           }
         }
+      } catch (error) {
+        console.error(`🔍 [DEBUG EXTRA] Erro ao contar mensagens:`, error);
       }
       
       // Converter Sets em contadores
