@@ -202,6 +202,8 @@ ${request.conversationHistory && request.conversationHistory.length > 0
       
       const message = (request.userMessage || request.message || '').toLowerCase();
       console.log(`🏠🏠🏠 [PROPERTY SEARCH] MÉTODO CHAMADO - Analisando mensagem: "${message}"`);
+      console.log(`🏠 [PROPERTY SEARCH] Request tem message: "${request.message}"`);
+      console.log(`🏠 [PROPERTY SEARCH] Request tem userMessage: "${request.userMessage}"`);
       
       // Check if user is asking for photos or details of a specific property
       const photoKeywords = ['foto', 'fotos', 'imagem', 'imagens', 'envie fotos', 'me envie', 'quero ver', 'mostrar fotos'];
@@ -222,7 +224,7 @@ ${request.conversationHistory && request.conversationHistory.length > 0
       const propertyKeywords = [
         'imóvel', 'imovel', 'imóveis', 'imoveis', 'casa', 'casas', 'apartamento', 'apartamentos',
         'propriedade', 'propriedades', 'terreno', 'terrenos', 'venda', 'vender', 'comprar',
-        'aluguel', 'alugar', 'quarto', 'quartos', 'dormitório', 'dormitórios', 'garagem',
+        'aluguel', 'alugar', 'aluga', 'locação', 'locar', 'quarto', 'quartos', 'dormitório', 'dormitórios', 'garagem',
         'banheiro', 'banheiros', 'metro', 'metros', 'm²', 'preço', 'valor', 'disponível',
         'disponíveis', 'localização', 'bairro', 'cidade', 'região'
       ];
@@ -249,8 +251,19 @@ ${request.conversationHistory && request.conversationHistory.length > 0
       console.log(`🏠 Detectada consulta sobre imóveis: "${request.message}"`);
 
       // Extract filters from the message using AI
-      const filters = await this.extractPropertyFilters(request.message);
+      let filters = await this.extractPropertyFilters(request.message);
       console.log(`🔍 Filtros extraídos:`, filters);
+      
+      // Se estiver buscando aluguel mas não há imóveis para alugar, ajustar busca
+      const isRentalSearch = message.includes('alug') || message.includes('locar');
+      if (isRentalSearch) {
+        console.log(`🏠 [PROPERTY SEARCH] Busca por aluguel detectada`);
+        // Não adicionar filtro de finalidade para permitir mostrar todos os imóveis
+        if (filters) {
+          delete filters.Finalidade;
+          delete filters.StatusImovel;
+        }
+      }
 
       // Get API settings for the company
       const storage = getStorage();
@@ -531,6 +544,13 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
   private async formatPropertyResponse(properties: any[], originalMessage: string, request?: AiResponseRequest): Promise<string> {
     try {
       if (!properties || properties.length === 0) {
+        // Verificar se o usuário estava buscando aluguel
+        const isRentalSearch = originalMessage.toLowerCase().includes('alug');
+        
+        if (isRentalSearch) {
+          return "No momento não temos imóveis disponíveis para locação, mas temos excelentes opções para venda! Gostaria de ver nossos imóveis à venda?";
+        }
+        
         return "Não encontrei imóveis que correspondem aos critérios solicitados. Posso ajudar com uma busca mais ampla?";
       }
 
