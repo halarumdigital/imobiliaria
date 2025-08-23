@@ -219,9 +219,38 @@ export class WhatsAppWebhookService {
         console.log(`🖼️ Extracted media URL: ${mediaUrl}`);
         console.log(`🖼️ Caption: ${caption}`);
         
-        // Baixar a imagem e converter para base64
-        if (mediaUrl) {
-          console.log(`🖼️ About to download image from: ${mediaUrl}`);
+        // PROCURAR BASE64 EM TODOS OS LOCAIS POSSÍVEIS!
+        const evolutionMessage = evolutionData.data as any;
+        console.log(`🔍 [BASE64 SEARCH] Full evolutionData structure:`, JSON.stringify(evolutionData, null, 2));
+        
+        // Tentar diferentes locais onde o base64 pode estar
+        let foundBase64: string | undefined;
+        
+        if (evolutionMessage.message?.base64) {
+          foundBase64 = evolutionMessage.message.base64;
+          console.log(`🎯 Found base64 at evolutionMessage.message.base64`);
+        } else if (evolutionMessage.base64) {
+          foundBase64 = evolutionMessage.base64;
+          console.log(`🎯 Found base64 at evolutionMessage.base64`);
+        } else if (imageMessage.base64) {
+          foundBase64 = imageMessage.base64;
+          console.log(`🎯 Found base64 at imageMessage.base64`);
+        } else {
+          console.log(`❌ No base64 found in any expected location`);
+        }
+        
+        if (foundBase64) {
+          console.log(`🎯 USING EXISTING BASE64 from Evolution API!`);
+          mediaBase64 = foundBase64;
+          
+          // Detectar tipo de imagem pelo base64
+          const buffer = Buffer.from(mediaBase64, 'base64');
+          const imageType = this.detectImageType(buffer.buffer);
+          mimeType = `image/${imageType}`;
+          
+          console.log(`🎯 Evolution API base64 ready: type=${imageType}, base64 length=${mediaBase64.length}`);
+        } else if (mediaUrl) {
+          console.log(`🖼️ No base64 in message, trying to download from: ${mediaUrl}`);
           const imageData = await this.downloadImageAsBase64(mediaUrl, data.instanceId);
           console.log(`🖼️ Download result:`, imageData ? 'SUCCESS' : 'FAILED');
           if (imageData) {
@@ -232,7 +261,7 @@ export class WhatsAppWebhookService {
             console.log(`🖼️ Failed to download/process image`);
           }
         } else {
-          console.log(`🖼️ No media URL found in image message`);
+          console.log(`🖼️ No base64 or media URL found in image message`);
         }
       }
 

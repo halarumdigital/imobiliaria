@@ -1,0 +1,194 @@
+},
+
+  server_url: 'https://apizap.halarum.com.br',
+
+  date_time: '2025-08-22T22:29:25.546Z',
+
+  sender: '5514981856962@s.whatsapp.net',
+
+  apikey: '94eff8b9da7b6c86e50b5c43334f6f69'
+
+} 
+
+[Evolution API]    v2.3.1  163   -  Fri Aug 22 2025 22:29:25     LOG   [WebhookController]  [object]   
+
+{
+
+  local: 'p.sendData-Webhook',
+
+  url: 'https://79e4e196-eb12-4414-8f84-45ae132f9718-00-ojvhl9qdrt4k.worf.replit.dev/api/webhook/messages/messages-upsert',
+
+  event: 'messages.upsert',
+
+  instance: 'deploy2',
+
+
+
+{
+
+    key: {
+
+      remoteJid: '554999214230@s.whatsapp.net',
+
+      fromMe: false,
+
+      id: '3FE8EF05E05B81665DA7',
+
+      senderLid: '67065981456567@lid',
+
+      senderPn: undefined,
+
+      participant: undefined,
+
+      participantPn: undefined,
+
+      participantLid: undefined
+
+    },
+
+    pushName: 'Gilliard Damaceno',
+
+    status: 'DELIVERY_ACK',
+
+    message: {
+
+      imageMessage: [ImageMessage],
+
+      messageContextInfo: [MessageContextInfo],
+
+      base64: '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'... 108948 more characters
+
+    },
+
+    contextInfo: ContextInfo {
+
+      mentionedJid: [],
+
+      groupMentions: [],
+
+      expiration: 0,
+
+      ephemeralSettingTimestamp: [Long],
+
+      disappearingMode: [DisappearingMode]
+
+    },
+
+    messageType: 'imageMessage',
+
+    messageTimestamp: 1755912564,
+
+    instanceId: 'e5b71c35-276b-417e-a1c3-267f904b2b98',
+
+    source: 'desktop'
+
+  },
+
+  destination: 'https://79e4e196-eb12-4414-8f84-45ae132f9718-00-ojvhl9qdrt4k.worf.replit.dev/api/webhook/messages',
+
+  date_time: '2025-08-22T22:29:25.546Z',
+
+  sender: '5514981856962@s.whatsapp.net',
+
+  server_url: 'https://apizap.halarum.com.br',
+
+  apikey: '94eff8b9da7b6c86e50b5c43334f6f69'
+
+} 
+
+[Evolution API]    v2.3.1  163   -  Fri Aug 22 2025 22:29:25     LOG   [WebsocketController]  [object]   
+
+{
+
+  local: 'p.sendData-WebsocketGlobal',
+
+  event: 'contacts.update',
+
+  instance: 'deploy2',
+
+
+
+{
+
+    remoteJid: '554999214230@s.whatsapp.net',
+
+    pushName: 'Gilliard Damaceno',
+
+    profilePicUrl: 'https://pps.whatsapp.net/v/t61.24694-24/513624020_1300912378371849_7018201394958780872_n.jpg?ccb=11-4&oh=01_Q5Aa2QGAI49CKbD2W1syIPiVkQ93Ao3lQeKTzEH-kwff230k_A&oe=68B64541&_nc_sid=5e03e0&_nc_cat=108',
+
+    instanceId: 'e5b71c35-276b-417e-a1c3-267f904b2b98'
+
+  },
+
+  server_url: 'https://apizap.halarum.com.br',
+
+  date_time: '2025-08-22T22:29:25.789Z',
+
+  sender: '5514981856962@s.whatsapp.net',
+
+  apikey: '94eff8b9da7b6c86e50b5c43334f6f69'
+
+} 
+
+[Evolution API]    v2.3.1  163   -  Fri Aug 22 2025 22:30:07     ERROR   [WebhookController]  [object]   
+
+{
+
+  local: 'p.sendData-Webhook',
+
+  message: 'Tentativa 2/10 falhou: Timeout da requisição',
+
+  hostName: undefined,
+
+  syscall: undefined,
+
+  code: 'ECONNABORTED',
+
+  isTimeout: true,
+
+  statusCode: undefined,
+
+  error: undefined,
+
+  stack: 'AxiosError: timeout of 60000ms exceeded\n' +
+
+    '    at RedirectableRequest.handleRequestTimeout (/evolution/node_modules/axios/dist/node/axios.cjs:3228:16)\n' +
+
+    '    at RedirectableRequest.emit (node:events:524:28)\n' +
+
+    '    at Timeout.<anonymous> (/evolution/node_modules/follow-redirects/index.js:221:12)\n' +
+
+    '    at listOnTimeout (node:internal/timers:581:17)\n' +
+
+    '    at process.processTimers (node:internal/timers:519:7)\n' +
+
+    '    at Axios.request (/evolution/node_modules/axios/dist/node/axios.cjs:4280:41)\n' +
+
+    '    at async co.retryWebhookRequest (/evolution/dist/main.js:275:56866)\n' +
+
+    '    at async co.emit (/evolution/dist/main.js:275:55677)\n' +
+
+    '    at async lo.emit (/evolution/dist/main.js:275:61286)\n' +
+
+    '    at async $s.sendDataWebhook (/evolution/dist/main.js:156:16881)',
+
+  name: 'AxiosError',
+
+  url: 'https://79e4e196-eb12-4414-8f84-45ae132f9718-00-ojvhl9qdrt4k.worf.replit.dev/api/webhook/messages/messages-upsert',
+
+  server_url: 'https://apizap.halarum.com.br'
+
+} 
+
+[Evolution API]    v2.3.1  163   -  Fri Aug 22 2025 22:30:07     LOG   [WebhookController]  [object]   
+
+{
+
+  local: 'p.sendData-Webhook',
+
+  message: 'Aguardando 9.1 segundos antes da próxima tentativa',
+
+  url: 'https://79e4e196-eb12-4414-8f84-45ae132f9718-00-ojvhl9qdrt4k.worf.replit.dev/api/webhook/messages/messages-upsert'
+
+} 
+
