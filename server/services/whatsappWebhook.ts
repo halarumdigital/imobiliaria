@@ -206,6 +206,15 @@ export class WhatsAppWebhookService {
       console.log(`🔍 [MESSAGE DEBUG] isImageMessage: ${isImageMessage}`);
       console.log(`🔍 [MESSAGE DEBUG] isAudioMessage: ${isAudioMessage}`);
       
+      // DEBUG EXTRA para áudio
+      if (isAudioMessage) {
+        console.log(`🎤🎤🎤 [AUDIO DEBUG] DETECTADO ÁUDIO!!!`);
+        console.log(`🎤 [AUDIO DEBUG] audioMessage:`, JSON.stringify(audioMessage, null, 2));
+      } else {
+        console.log(`❌ [AUDIO DEBUG] Não é áudio - messageType: ${data.messageType}`);
+        console.log(`❌ [AUDIO DEBUG] data.message keys:`, Object.keys(data.message));
+      }
+      
       // Extrair o conteúdo da mensagem (texto ou legenda da imagem)
       let messageText = data.message.conversation || data.message.extendedTextMessage?.text;
       let caption: string | undefined;
