@@ -29,7 +29,9 @@ export class AiResponseService {
    */
   async generateResponse(request: AiResponseRequest): Promise<string> {
     try {
-      console.log(`🤖 Gerando resposta para agente ID: ${request.agentId} (Tipo: ${request.agentType || 'main'})`);
+      console.log(`🤖 [AI-RESPONSE] Gerando resposta para agente ID: ${request.agentId} (Tipo: ${request.agentType || 'main'})`);
+      console.log(`🔍 [AI-RESPONSE] CompanyId recebido: ${request.companyId}`);
+      console.log(`🔍 [AI-RESPONSE] Mensagem: "${request.message}"`);
       
       // If this is a main agent, check if we need to delegate to secondary agents
       if (request.agentType === 'main' && request.companyId) {
@@ -41,6 +43,7 @@ export class AiResponseService {
       }
 
       // Generate response from the current agent
+      console.log(`🔍 [AI-RESPONSE] Chamando generateDirectResponse...`);
       return await this.generateDirectResponse(request);
     } catch (error: any) {
       console.error('❌ Erro ao gerar resposta do agente:', error);

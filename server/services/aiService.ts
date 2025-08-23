@@ -351,6 +351,12 @@ export class AIService {
       };
 
       console.log(`🏢 [RESPONSE] ResponseRequest companyId: ${responseRequest.companyId}`);
+      console.log(`🔍 [WHATSAPP-FLOW] Chamando AiResponseService.generateResponse com:`, {
+        message: context.message,
+        hasCompanyId: !!responseRequest.companyId,
+        companyId: responseRequest.companyId
+      });
+      
       const response = await aiResponseService.generateResponse(responseRequest);
       console.log(`✅ [RESPONSE] Response generated successfully - length: ${response.length}`);
       
