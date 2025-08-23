@@ -321,16 +321,35 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
       }
 
       const data = await response.json();
-      console.log(`✅ [PROPERTY-SEARCH] ${data.length || 0} imóveis encontrados`);
+      console.log(`✅ [PROPERTY-SEARCH] Resposta da API recebida:`, {
+        type: typeof data,
+        isArray: Array.isArray(data),
+        hasResult: !!data.result,
+        keys: Object.keys(data || {})
+      });
+
+      // A API VistaHost pode retornar diferentes estruturas
+      let properties = [];
+      
+      if (Array.isArray(data)) {
+        properties = data;
+      } else if (data.result && Array.isArray(data.result)) {
+        properties = data.result;
+      } else if (data.imoveis && Array.isArray(data.imoveis)) {
+        properties = data.imoveis;
+      }
+      
+      console.log(`✅ [PROPERTY-SEARCH] ${properties.length || 0} imóveis encontrados`);
 
       // Verificar se temos dados válidos
-      if (!data || !Array.isArray(data) || data.length === 0) {
-        console.log(`❌ [PROPERTY-SEARCH] Nenhum imóvel encontrado ou dados inválidos`);
+      if (!properties || properties.length === 0) {
+        console.log(`❌ [PROPERTY-SEARCH] Nenhum imóvel encontrado`);
+        console.log(`🔍 [DEBUG] Estrutura da resposta completa:`, JSON.stringify(data, null, 2));
         return "Não encontrei imóveis que correspondem aos critérios solicitados. Posso ajudar com uma busca mais ampla?";
       }
 
       // Para produção, vamos usar apenas os dados básicos primeiro (sem enriquecimento extra)
-      console.log(`📋 [PROPERTY-SEARCH] Processando ${data.length} imóveis com dados básicos`);
+      console.log(`📋 [PROPERTY-SEARCH] Processando ${properties.length} imóveis com dados básicos`);
 
       // Log successful API call
       await this.logApiCall({
@@ -340,13 +359,13 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
         endpoint: apiUrl,
         requestData: { searchParams, filters },
         responseStatus: 'success',
-        responseData: { count: data.length || 0 },
+        responseData: { count: properties.length || 0 },
         executionTime,
         userPhone: null
       });
 
       // Format the response with found properties
-      return await this.formatPropertyResponse(data, request.message, request);
+      return await this.formatPropertyResponse(properties, request.message, request);
 
     } catch (error) {
       console.error("❌ Erro na busca de imóveis:", error);

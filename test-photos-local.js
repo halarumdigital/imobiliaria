@@ -1,19 +1,36 @@
 import fetch from 'node-fetch';
 
 async function testPropertySearchWithPhotos() {
-  console.log('🔍 Testando busca de imóveis com fotos via servidor local...');
+  console.log('🔍 Testando busca de imóveis via webhook local...');
   
   try {
-    // Faz uma chamada direta para o endpoint de teste do servidor
-    const testUrl = 'http://localhost:5000/api/test-property-search/a9a2f3e1-6e37-43d4-b411-d7fb999f93e2';
+    // Testa o webhook como se fosse uma mensagem do WhatsApp
+    const webhookUrl = 'http://localhost:3000/api/webhook/messages';
     
-    console.log('🚀 Fazendo chamada para:', testUrl);
-    
-    const response = await fetch(testUrl, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json'
+    const testMessage = {
+      data: {
+        key: {
+          remoteJid: "5511999999999@s.whatsapp.net",
+          fromMe: false,
+          id: "test_search_123"
+        },
+        message: {
+          conversation: "apartamentos para alugar"
+        },
+        messageTimestamp: 1640995200,
+        pushName: "Test User"
       }
+    };
+    
+    console.log('🚀 Enviando mensagem de teste:', JSON.stringify(testMessage, null, 2));
+    
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(testMessage)
     });
 
     console.log('📡 Status da resposta:', response.status, response.statusText);
