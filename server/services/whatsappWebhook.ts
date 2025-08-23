@@ -73,13 +73,18 @@ export class WhatsAppWebhookService {
   private detectImageType(buffer: ArrayBuffer): string {
     const bytes = new Uint8Array(buffer);
     
+    console.log(`🔍 [DETECT] Buffer size: ${bytes.length} bytes`);
+    console.log(`🔍 [DETECT] First 16 bytes: [${Array.from(bytes.slice(0, 16)).map(b => b.toString(16).padStart(2, '0')).join(', ')}]`);
+    
     // PNG signature
     if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) {
+      console.log(`✅ [DETECT] Detected PNG format`);
       return 'png';
     }
     
     // JPEG signature  
     if (bytes.length >= 3 && bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) {
+      console.log(`✅ [DETECT] Detected JPEG format`);
       return 'jpeg';
     }
     
@@ -87,6 +92,7 @@ export class WhatsAppWebhookService {
     if (bytes.length >= 6 && 
         bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && 
         bytes[3] === 0x38 && (bytes[4] === 0x37 || bytes[4] === 0x39) && bytes[5] === 0x61) {
+      console.log(`✅ [DETECT] Detected GIF format`);
       return 'gif';
     }
     
@@ -94,26 +100,31 @@ export class WhatsAppWebhookService {
     if (bytes.length >= 12 && 
         bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
         bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) {
+      console.log(`✅ [DETECT] Detected WebP format`);
       return 'webp';
     }
     
     // Default para JPEG se não conseguir detectar
+    console.log(`⚠️ [DETECT] Unknown format, defaulting to JPEG`);
     return 'jpeg';
   }
 
   // Função para baixar imagem da Evolution API e converter para base64
   private async downloadImageAsBase64(imageUrl: string, instanceId: string): Promise<{base64: string, mimeType: string} | null> {
     try {
-      console.log(`🖼️ Downloading image from URL: ${imageUrl}`);
+      console.log(`🖼️ [DOWNLOAD] Starting download from URL: ${imageUrl}`);
       
       // Obter configuração da Evolution API
       const storage = getStorage();
       const evolutionConfig = await storage.getEvolutionApiConfiguration();
       
       if (!evolutionConfig?.evolutionURL || !evolutionConfig?.evolutionToken) {
-        console.error("❌ Evolution API configuration not found");
+        console.error("❌ [DOWNLOAD] Evolution API configuration not found");
         return null;
       }
+
+      console.log(`🔑 [DOWNLOAD] Using Evolution API: ${evolutionConfig.evolutionURL}`);
+      console.log(`🔑 [DOWNLOAD] API Key: ${evolutionConfig.evolutionToken.substring(0, 10)}...`);
 
       // Fazer download da imagem via Evolution API
       const response = await fetch(imageUrl, {
@@ -122,24 +133,42 @@ export class WhatsAppWebhookService {
         }
       });
 
+      console.log(`📡 [DOWNLOAD] Response status: ${response.status} ${response.statusText}`);
+      console.log(`📡 [DOWNLOAD] Response headers:`, Object.fromEntries(response.headers.entries()));
+
       if (!response.ok) {
-        console.error(`❌ Failed to download image: ${response.status} ${response.statusText}`);
+        console.error(`❌ [DOWNLOAD] Failed to download image: ${response.status} ${response.statusText}`);
+        const errorText = await response.text();
+        console.error(`❌ [DOWNLOAD] Error response:`, errorText);
         return null;
       }
 
       // Converter para base64
       const buffer = await response.arrayBuffer();
-      const imageType = this.detectImageType(buffer);
-      const base64 = Buffer.from(buffer).toString('base64');
+      console.log(`📊 [DOWNLOAD] Buffer size: ${buffer.byteLength} bytes`);
       
-      console.log(`✅ Image downloaded: type=${imageType}, size=${base64.length} chars`);
+      const imageType = this.detectImageType(buffer);
+      console.log(`🔍 [DOWNLOAD] Detected image type: ${imageType}`);
+      
+      const base64 = Buffer.from(buffer).toString('base64');
+      const mimeType = `image/${imageType}`;
+      
+      console.log(`✅ [DOWNLOAD] Image processed successfully:`);
+      console.log(`   - Type: ${imageType}`);
+      console.log(`   - MIME: ${mimeType}`);
+      console.log(`   - Base64 length: ${base64.length} chars`);
+      console.log(`   - Buffer size: ${buffer.byteLength} bytes`);
+      
+      // Verificar primeiros bytes do base64 para debug
+      console.log(`🔍 [DOWNLOAD] First 100 chars of base64: ${base64.substring(0, 100)}`);
+      
       return {
         base64,
-        mimeType: `image/${imageType}`
+        mimeType
       };
       
     } catch (error) {
-      console.error("❌ Error downloading image:", error);
+      console.error("❌ [DOWNLOAD] Error downloading image:", error);
       return null;
     }
   }
@@ -169,17 +198,28 @@ export class WhatsAppWebhookService {
 
       if (isImageMessage) {
         console.log("🖼️ Detected image message");
+        console.log("🖼️ Image message data:", JSON.stringify(imageMessage, null, 2));
         caption = imageMessage.caption;
         mediaUrl = imageMessage.url;
         messageText = caption || "Imagem enviada";
         
+        console.log(`🖼️ Extracted media URL: ${mediaUrl}`);
+        console.log(`🖼️ Caption: ${caption}`);
+        
         // Baixar a imagem e converter para base64
         if (mediaUrl) {
+          console.log(`🖼️ About to download image from: ${mediaUrl}`);
           const imageData = await this.downloadImageAsBase64(mediaUrl, data.instanceId);
+          console.log(`🖼️ Download result:`, imageData ? 'SUCCESS' : 'FAILED');
           if (imageData) {
             mediaBase64 = imageData.base64;
             mimeType = imageData.mimeType;
+            console.log(`🖼️ Final image data: type=${mimeType}, base64 length=${mediaBase64.length}`);
+          } else {
+            console.log(`🖼️ Failed to download/process image`);
           }
+        } else {
+          console.log(`🖼️ No media URL found in image message`);
         }
       }
 
