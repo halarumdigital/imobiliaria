@@ -112,7 +112,7 @@ export const messages = mysqlTable("messages", {
   messageType: varchar("message_type", { length: 20 }).default("text"), // 'text' | 'image' | 'document'
   evolutionMessageId: varchar("evolution_message_id", { length: 255 }),
   mediaUrl: text("media_url"), // URL to download the image from Evolution API
-  mediaBase64: text("media_base64"), // Base64 encoded image data
+  mediaBase64: text("media_base64", { mode: "longtext" }), // Base64 encoded image data
   caption: text("caption"), // Image caption/description from user
   createdAt: timestamp("created_at").defaultNow(),
 });

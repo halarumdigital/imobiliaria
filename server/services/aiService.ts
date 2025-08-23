@@ -378,7 +378,19 @@ export class AIService {
       return response.choices[0].message.content || "Desculpe, não consegui gerar uma resposta.";
 
     } catch (error) {
-      console.error("Error generating AI response:", error);
+      console.error("❌ Error generating AI response - DETAILED:", {
+        error: error,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack trace',
+        name: error instanceof Error ? error.name : 'Unknown error type'
+      });
+      
+      // Log específico se for erro da OpenAI
+      if (error instanceof Error && error.message.includes('API')) {
+        console.error("🔑 OpenAI API Error detected - checking configuration...");
+        console.error("🔑 Error details:", error.message);
+      }
+      
       return "Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente em alguns instantes.";
     }
   }

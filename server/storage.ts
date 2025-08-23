@@ -244,7 +244,7 @@ export class MySQLStorage implements IStorage {
     // Add image support columns to messages table
     const imageColumns = [
       { name: 'media_url', type: 'TEXT' },
-      { name: 'media_base64', type: 'TEXT' },
+      { name: 'media_base64', type: 'LONGTEXT' },
       { name: 'caption', type: 'TEXT' }
     ];
 
