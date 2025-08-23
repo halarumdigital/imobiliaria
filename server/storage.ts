@@ -890,7 +890,19 @@ export class MySQLStorage implements IStorage {
       'SELECT * FROM messages WHERE id = ?',
       [id]
     );
-    return (rows as Message[])[0];
+    
+    // Mapear campos snake_case para camelCase também no createMessage
+    const rawRow = (rows as any[])[0];
+    return {
+      id: rawRow.id,
+      conversationId: rawRow.conversation_id,
+      content: rawRow.content,
+      sender: rawRow.sender,
+      agentId: rawRow.agent_id,
+      messageType: rawRow.message_type,
+      evolutionMessageId: rawRow.evolution_message_id,
+      createdAt: rawRow.created_at
+    } as Message;
   }
 }
 
