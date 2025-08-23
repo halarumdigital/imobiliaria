@@ -350,8 +350,12 @@ export class AIService {
       }
 
       // Adicionar mensagem atual (com suporte a imagem se presente)
+      console.log(`🔍 [IMAGE CHECK] messageType: ${context.messageType}, has mediaBase64: ${!!context.mediaBase64}`);
+      console.log(`🔍 [IMAGE CHECK] mediaBase64 length: ${context.mediaBase64?.length || 0}`);
+      console.log(`🔍 [IMAGE CHECK] mimeType: ${context.mimeType}`);
+      
       if ((context.messageType === 'image' || context.messageType === 'imageMessage') && context.mediaBase64) {
-        console.log(`🖼️ Processando mensagem com imagem`);
+        console.log(`🖼️ ✅ ENTRANDO NO PROCESSAMENTO DE IMAGEM!`);
         console.log(`🖼️ Image details: type=${context.mimeType}, size=${context.mediaBase64.length} chars`);
         
         // Usar o mimeType correto detectado pela detecção de magic bytes

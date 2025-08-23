@@ -232,8 +232,8 @@ export class WhatsAppWebhookService {
         } else if (evolutionMessage.base64) {
           foundBase64 = evolutionMessage.base64;
           console.log(`🎯 Found base64 at evolutionMessage.base64`);
-        } else if (imageMessage.base64) {
-          foundBase64 = imageMessage.base64;
+        } else if ((imageMessage as any)?.base64) {
+          foundBase64 = (imageMessage as any).base64;
           console.log(`🎯 Found base64 at imageMessage.base64`);
         } else {
           console.log(`❌ No base64 found in any expected location`);
@@ -244,11 +244,11 @@ export class WhatsAppWebhookService {
           mediaBase64 = foundBase64;
           
           // Detectar tipo de imagem pelo base64
-          const buffer = Buffer.from(mediaBase64, 'base64');
+          const buffer = Buffer.from(foundBase64, 'base64');
           const imageType = this.detectImageType(buffer.buffer);
           mimeType = `image/${imageType}`;
           
-          console.log(`🎯 Evolution API base64 ready: type=${imageType}, base64 length=${mediaBase64.length}`);
+          console.log(`🎯 Evolution API base64 ready: type=${imageType}, base64 length=${foundBase64.length}`);
         } else if (mediaUrl) {
           console.log(`🖼️ No base64 in message, trying to download from: ${mediaUrl}`);
           const imageData = await this.downloadImageAsBase64(mediaUrl, data.instanceId);
