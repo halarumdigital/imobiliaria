@@ -185,9 +185,17 @@ export class WhatsAppWebhookService {
 
       const data = evolutionData.data;
       
+      // DEBUG: Ver todas as propriedades da mensagem
+      console.log("🔍 [MESSAGE DEBUG] Full message structure:");
+      console.log("🔍 [MESSAGE DEBUG] data.message keys:", Object.keys(data.message));
+      console.log("🔍 [MESSAGE DEBUG] data.message:", JSON.stringify(data.message, null, 2));
+      
       // Verificar se é uma mensagem de imagem
       const imageMessage = data.message.imageMessage;
       const isImageMessage = !!imageMessage;
+      
+      console.log(`🔍 [MESSAGE DEBUG] imageMessage found: ${!!imageMessage}`);
+      console.log(`🔍 [MESSAGE DEBUG] isImageMessage: ${isImageMessage}`);
       
       // Extrair o conteúdo da mensagem (texto ou legenda da imagem)
       let messageText = data.message.conversation || data.message.extendedTextMessage?.text;
