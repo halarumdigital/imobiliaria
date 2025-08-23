@@ -2084,6 +2084,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Endpoints específicos para eventos da Evolution API
   app.post("/api/webhook/messages/messages-upsert", async (req, res) => {
     try {
+      console.log("🚨🚨🚨 [URGENT-DEBUG] ENDPOINT /api/webhook/messages/messages-upsert CHAMADO!");
       console.log("🔥🔥🔥 [MESSAGES-UPSERT] ================================");
       console.log("🔥🔥🔥 [MESSAGES-UPSERT] NEW MESSAGE IN UPSERT ENDPOINT!");
       console.log("🔥🔥🔥 [MESSAGES-UPSERT] ================================");
