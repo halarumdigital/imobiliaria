@@ -271,17 +271,14 @@ ${request.conversationHistory && request.conversationHistory.length > 0
 Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
       }
 
-      // Search for properties seguindo documentação oficial VistaHost
+      // Search for properties seguindo documentação oficial VistaSoft
       const searchParams = {
         fields: [
           "Codigo", "Categoria", "BairroComercial", "Cidade", "Suites", "DescricaoWeb", 
           "Dormitorios", "Vagas", "Endereco", "Complemento", "AreaPrivativa", 
           "ValorVenda", "ValorLocacao", "FotoDestaque"
         ],
-        filter: {
-          ...filters,
-          "SiteSuder": "Sim"
-        },
+        filter: filters && Object.keys(filters).length > 0 ? filters : {},
         paginacao: { 
           pagina: 1, 
           quantidade: 10 
@@ -347,7 +344,7 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
         sampleData: data
       });
 
-      // A API VistaHost pode retornar diferentes estruturas
+      // A API VistaSoft retorna dados como objeto com chaves numéricas para cada imóvel
       let properties = [];
       
       console.log(`🔍 [DEBUG] Estrutura completa da resposta:`, JSON.stringify(data, null, 2));
@@ -358,24 +355,31 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
       } else if (data.registros && Array.isArray(data.registros)) {
         properties = data.registros;
         console.log(`🔍 [DEBUG] Dados em data.registros com ${data.registros.length} itens`);
-      } else if (data.result && Array.isArray(data.result)) {
-        properties = data.result;
-        console.log(`🔍 [DEBUG] Dados em data.result com ${data.result.length} itens`);
-      } else if (data.imoveis && Array.isArray(data.imoveis)) {
-        properties = data.imoveis;
-        console.log(`🔍 [DEBUG] Dados em data.imoveis com ${data.imoveis.length} itens`);
-      } else if (data.data && Array.isArray(data.data)) {
-        properties = data.data;
-        console.log(`🔍 [DEBUG] Dados em data.data com ${data.data.length} itens`);
-      } else if (data.properties && Array.isArray(data.properties)) {
-        properties = data.properties;
-        console.log(`🔍 [DEBUG] Dados em data.properties com ${data.properties.length} itens`);
-      } else if (data.items && Array.isArray(data.items)) {
-        properties = data.items;
-        console.log(`🔍 [DEBUG] Dados em data.items com ${data.items.length} itens`);
-      } else if (data.resultados && Array.isArray(data.resultados)) {
-        properties = data.resultados;
-        console.log(`🔍 [DEBUG] Dados em data.resultados com ${data.resultados.length} itens`);
+      } else if (data && typeof data === 'object') {
+        // VistaSoft retorna objeto com chaves numéricas para imóveis e metadados
+        const propertyKeys = Object.keys(data).filter(key => 
+          !['total', 'paginas', 'pagina', 'quantidade'].includes(key) && 
+          data[key] && 
+          typeof data[key] === 'object' && 
+          (data[key].Codigo || data[key].codigo)
+        );
+        
+        if (propertyKeys.length > 0) {
+          properties = propertyKeys.map(key => ({
+            ...data[key],
+            // Garantir que tenha um ID único
+            _id: key,
+            _originalKey: key
+          }));
+          console.log(`🎯 [DEBUG] VistaSoft: Encontrados ${properties.length} imóveis em formato objeto (chaves: ${propertyKeys.join(', ')})`);
+          
+          // Log dos metadados se existirem
+          if (data.total) {
+            console.log(`📊 [DEBUG] VistaSoft metadados: Total=${data.total}, Páginas=${data.paginas}, Página=${data.pagina}, Quantidade=${data.quantidade}`);
+          }
+        } else {
+          console.log(`🔍 [DEBUG] Estrutura de objeto não contém imóveis reconhecíveis`);
+        }
       } else {
         console.log(`🔍 [DEBUG] Estrutura não reconhecida, verificando todas as propriedades:`);
         Object.keys(data || {}).forEach(key => {

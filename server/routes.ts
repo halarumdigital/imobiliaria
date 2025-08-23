@@ -221,6 +221,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // DEBUG ENDPOINT - Test VistaSoft API directly
+  app.post("/api/debug-vistasoft-direct", async (req, res) => {
+    try {
+      console.log("🔍 [DEBUG] Testing VistaSoft API directly");
+      
+      const storage = getStorage();
+      const apiSettings = await storage.getApiSettings("a9a2f3e1-6e37-43d4-b411-d7fb999f93e2");
+      
+      if (!apiSettings?.apiUrl || !apiSettings?.apiToken) {
+        return res.json({ 
+          error: "API settings not configured",
+          apiSettings: {
+            hasUrl: !!apiSettings?.apiUrl,
+            hasToken: !!apiSettings?.apiToken
+          }
+        });
+      }
+
+      console.log("🔍 [DEBUG] API Settings found:", {
+        url: apiSettings.apiUrl,
+        tokenLength: apiSettings.apiToken.length
+      });
+
+      // Test basic search following VistaSoft documentation
+      const searchParams = {
+        fields: [
+          "Codigo", "Categoria", "BairroComercial", "Cidade", "Suites", 
+          "Dormitorios", "Vagas", "AreaPrivativa", "ValorVenda", "ValorLocacao"
+        ],
+        paginacao: { 
+          pagina: 1, 
+          quantidade: 5 
+        }
+      };
+
+      console.log("🔍 [DEBUG] Search params:", JSON.stringify(searchParams, null, 2));
+
+      const baseUrl = `${apiSettings.apiUrl}/imoveis/listar`;
+      const pesquisaParam = encodeURIComponent(JSON.stringify(searchParams));
+      const apiUrl = `${baseUrl}?key=${apiSettings.apiToken}&pesquisa=${pesquisaParam}&showtotal=1`;
+      
+      console.log("🔍 [DEBUG] Making API call...");
+
+      const response = await fetch(apiUrl, {
+        headers: { 'Accept': 'application/json' }
+      });
+
+      console.log("🔍 [DEBUG] Response status:", response.status, response.statusText);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.log("🔍 [DEBUG] Error response:", errorText);
+        return res.json({ 
+          error: "API Error", 
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText,
+          searchParams
+        });
+      }
+
+      const data = await response.json();
+      console.log("🔍 [DEBUG] Response structure:", {
+        type: typeof data,
+        isArray: Array.isArray(data),
+        length: Array.isArray(data) ? data.length : 'N/A',
+        keys: typeof data === 'object' ? Object.keys(data || {}) : 'N/A'
+      });
+
+      if (Array.isArray(data) && data.length > 0) {
+        console.log("🔍 [DEBUG] Sample property:", {
+          Codigo: data[0].Codigo,
+          Categoria: data[0].Categoria,
+          Cidade: data[0].Cidade,
+          ValorVenda: data[0].ValorVenda,
+          ValorLocacao: data[0].ValorLocacao
+        });
+      }
+
+      return res.json({
+        success: true,
+        apiSettings: {
+          url: apiSettings.apiUrl,
+          hasToken: true
+        },
+        searchParams,
+        response: {
+          status: response.status,
+          statusText: response.statusText,
+          dataType: typeof data,
+          isArray: Array.isArray(data),
+          count: Array.isArray(data) ? data.length : 0,
+          sampleData: Array.isArray(data) && data.length > 0 ? data[0] : data,
+          fullData: Array.isArray(data) ? data.slice(0, 2) : data // Only first 2 items for debugging
+        }
+      });
+    } catch (error) {
+      console.error("🔍 [DEBUG] Error:", error);
+      return res.status(500).json({ error: error.message });
+    }
+  });
+
   // Global configurations - Public view for branding
   app.get("/api/global-config/public", async (req, res) => {
     try {
@@ -2249,30 +2351,387 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Test route for checking API settings
+  // Test route for checking API settings and testing VistaSoft integration
   app.get("/api/test-api-settings/:companyId", async (req, res) => {
     try {
-      console.log("🧪 [TEST] Testing API settings");
+      console.log("🧪 [TEST] Testing API settings and VistaSoft integration");
       const { companyId } = req.params;
       
       const storage = getStorage();
       const apiSettings = await storage.getApiSettings(companyId);
       
-      res.json({
+      const result: any = {
         companyId,
         hasApiSettings: !!apiSettings,
         hasUrl: !!apiSettings?.apiUrl,
         hasToken: !!apiSettings?.apiToken,
         apiUrl: apiSettings?.apiUrl || 'Not configured',
         tokenLength: apiSettings?.apiToken?.length || 0
-      });
+      };
+
+      // If API is configured, test the VistaSoft integration
+      if (apiSettings?.apiUrl && apiSettings?.apiToken) {
+        console.log("🔍 [VISTASOFT-TEST] Testing VistaSoft API integration");
+        
+        try {
+          const searchParams = {
+            fields: [
+              "Codigo", "Categoria", "BairroComercial", "Cidade", "Suites", 
+              "Dormitorios", "Vagas", "AreaPrivativa", "ValorVenda", "ValorLocacao"
+            ],
+            paginacao: { 
+              pagina: 1, 
+              quantidade: 5 
+            }
+          };
+
+          const baseUrl = `${apiSettings.apiUrl}/imoveis/listar`;
+          const pesquisaParam = encodeURIComponent(JSON.stringify(searchParams));
+          const apiUrl = `${baseUrl}?key=${apiSettings.apiToken}&pesquisa=${pesquisaParam}&showtotal=1`;
+          
+          console.log("🔍 [VISTASOFT-TEST] Making API call...");
+
+          const response = await fetch(apiUrl, {
+            headers: { 'Accept': 'application/json' }
+          });
+
+          console.log("🔍 [VISTASOFT-TEST] Response status:", response.status, response.statusText);
+
+          if (response.ok) {
+            const data = await response.json();
+            console.log("🔍 [VISTASOFT-TEST] Response structure:", {
+              type: typeof data,
+              isArray: Array.isArray(data),
+              length: Array.isArray(data) ? data.length : 'N/A',
+              keys: typeof data === 'object' ? Object.keys(data || {}) : 'N/A'
+            });
+
+            result.vistaSoftTest = {
+              success: true,
+              responseStatus: response.status,
+              dataType: typeof data,
+              isArray: Array.isArray(data),
+              count: Array.isArray(data) ? data.length : 0,
+              sampleData: Array.isArray(data) && data.length > 0 ? {
+                Codigo: data[0].Codigo,
+                Categoria: data[0].Categoria,
+                Cidade: data[0].Cidade,
+                ValorVenda: data[0].ValorVenda,
+                ValorLocacao: data[0].ValorLocacao
+              } : data,
+              message: Array.isArray(data) ? `Found ${data.length} properties` : 'No properties found'
+            };
+
+            if (Array.isArray(data) && data.length > 0) {
+              console.log("✅ [VISTASOFT-TEST] Found properties:", data.length);
+            } else {
+              console.log("⚠️ [VISTASOFT-TEST] No properties found");
+            }
+          } else {
+            const errorText = await response.text();
+            console.log("❌ [VISTASOFT-TEST] API Error:", response.status, errorText);
+            result.vistaSoftTest = {
+              success: false,
+              responseStatus: response.status,
+              error: errorText,
+              message: `API Error: ${response.status} - ${response.statusText}`
+            };
+          }
+        } catch (error) {
+          console.error("❌ [VISTASOFT-TEST] Error:", error);
+          result.vistaSoftTest = {
+            success: false,
+            error: error.message,
+            message: `Integration test failed: ${error.message}`
+          };
+        }
+      } else {
+        result.vistaSoftTest = {
+          success: false,
+          message: "API settings not configured - cannot test integration"
+        };
+      }
+      
+      res.json(result);
     } catch (error) {
       console.error("🧪 [TEST] Error:", error);
       res.status(500).json({ error: error.message });
     }
   });
 
-  // Test route for property search with photos
+  // Test route for debugging VistaSoft API integration
+  app.post("/api/debug-vistasoft", authenticate, async (req, res) => {
+    try {
+      console.log("🔍 [DEBUG-VISTASOFT] Starting comprehensive debug");
+      
+      const storage = getStorage();
+      const user = req.user as any;
+      const companyId = user.companyId;
+      
+      console.log(`🔍 [DEBUG-VISTASOFT] Company ID: ${companyId}`);
+      
+      const apiSettings = await storage.getApiSettings(companyId);
+      console.log(`🔍 [DEBUG-VISTASOFT] API Settings:`, {
+        exists: !!apiSettings,
+        hasUrl: !!apiSettings?.apiUrl,
+        hasToken: !!apiSettings?.apiToken,
+        url: apiSettings?.apiUrl,
+        tokenLength: apiSettings?.apiToken?.length
+      });
+      
+      if (!apiSettings?.apiUrl || !apiSettings?.apiToken) {
+        return res.json({
+          success: false,
+          error: "API settings not configured",
+          solution: "Configure API in Admin -> Settings -> Property API",
+          apiSettings: {
+            configured: false,
+            url: !!apiSettings?.apiUrl,
+            token: !!apiSettings?.apiToken
+          }
+        });
+      }
+
+      const results = {};
+
+      // Test 1: Basic search without restrictive filters
+      console.log("🧪 [DEBUG-VISTASOFT] Test 1: Basic search");
+      try {
+        const searchParams1 = {
+          fields: [
+            "Codigo", "Categoria", "BairroComercial", "Cidade", "Suites", 
+            "Dormitorios", "Vagas", "AreaPrivativa", "ValorVenda", "ValorLocacao"
+          ],
+          paginacao: { 
+            pagina: 1, 
+            quantidade: 5 
+          }
+        };
+
+        const result1 = await testVistaSoftAPI(apiSettings, searchParams1, "Basic Search");
+        results["basicSearch"] = result1;
+      } catch (error) {
+        results["basicSearch"] = { error: error.message };
+      }
+
+      // Test 2: Search with SiteSuder filter (current implementation)
+      console.log("🧪 [DEBUG-VISTASOFT] Test 2: Search with SiteSuder filter");
+      try {
+        const searchParams2 = {
+          fields: [
+            "Codigo", "Categoria", "BairroComercial", "Cidade", 
+            "Dormitorios", "ValorVenda", "ValorLocacao"
+          ],
+          filter: {
+            "SiteSuder": "Sim"
+          },
+          paginacao: { 
+            pagina: 1, 
+            quantidade: 5 
+          }
+        };
+
+        const result2 = await testVistaSoftAPI(apiSettings, searchParams2, "With SiteSuder Filter");
+        results["siteSuderSearch"] = result2;
+      } catch (error) {
+        results["siteSuderSearch"] = { error: error.message };
+      }
+
+      // Test 3: Search for rental properties
+      console.log("🧪 [DEBUG-VISTASOFT] Test 3: Rental properties search");
+      try {
+        const searchParams3 = {
+          fields: [
+            "Codigo", "Categoria", "BairroComercial", "Cidade", 
+            "Dormitorios", "ValorLocacao", "DescricaoWeb"
+          ],
+          filter: {
+            "ValorLocacao": [">", 0]
+          },
+          paginacao: { 
+            pagina: 1, 
+            quantidade: 5 
+          }
+        };
+
+        const result3 = await testVistaSoftAPI(apiSettings, searchParams3, "Rental Properties");
+        results["rentalSearch"] = result3;
+      } catch (error) {
+        results["rentalSearch"] = { error: error.message };
+      }
+
+      res.json({
+        success: true,
+        companyId,
+        apiSettings: {
+          configured: true,
+          url: apiSettings.apiUrl,
+          hasToken: !!apiSettings.apiToken
+        },
+        testResults: results
+      });
+      
+    } catch (error) {
+      console.error("🔍 [DEBUG-VISTASOFT] Error:", error);
+      res.status(500).json({ 
+        success: false, 
+        error: error.message 
+      });
+    }
+  });
+
+  // Helper function for testing VistaSoft API
+  async function testVistaSoftAPI(apiSettings: any, searchParams: any, testName: string) {
+    const baseUrl = `${apiSettings.apiUrl}/imoveis/listar`;
+    const pesquisaParam = encodeURIComponent(JSON.stringify(searchParams));
+    const apiUrl = `${baseUrl}?key=${apiSettings.apiToken}&pesquisa=${pesquisaParam}&showtotal=1`;
+    
+    console.log(`📡 [${testName}] Making API call`);
+    console.log(`📋 [${testName}] Search params:`, JSON.stringify(searchParams, null, 2));
+    
+    const response = await fetch(apiUrl, {
+      headers: { 'Accept': 'application/json' }
+    });
+
+    console.log(`📊 [${testName}] Response status: ${response.status} ${response.statusText}`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.log(`❌ [${testName}] Error response:`, errorText);
+      throw new Error(`API Error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log(`📈 [${testName}] Response structure:`, {
+      type: typeof data,
+      isArray: Array.isArray(data),
+      length: Array.isArray(data) ? data.length : 'N/A',
+      keys: typeof data === 'object' ? Object.keys(data || {}) : 'N/A'
+    });
+
+    if (Array.isArray(data) && data.length > 0) {
+      console.log(`✅ [${testName}] Found ${data.length} properties`);
+      console.log(`🏠 [${testName}] Sample property:`, {
+        Codigo: data[0].Codigo,
+        Categoria: data[0].Categoria,
+        Cidade: data[0].Cidade,
+        ValorVenda: data[0].ValorVenda,
+        ValorLocacao: data[0].ValorLocacao
+      });
+    }
+
+    return {
+      status: response.status,
+      success: true,
+      dataType: typeof data,
+      isArray: Array.isArray(data),
+      count: Array.isArray(data) ? data.length : 0,
+      sampleData: Array.isArray(data) && data.length > 0 ? data[0] : data,
+      allKeys: typeof data === 'object' ? Object.keys(data || {}) : []
+    };
+  }
+
+  // Temporary debug route without authentication
+  app.post("/api/debug-property-search", async (req, res) => {
+    try {
+      console.log("🔍 [DEBUG] Testing property search without auth");
+      
+      const storage = getStorage();
+      const apiSettings = await storage.getApiSettings("a9a2f3e1-6e37-43d4-b411-d7fb999f93e2");
+      
+      if (!apiSettings?.apiUrl || !apiSettings?.apiToken) {
+        return res.json({ 
+          error: "API settings not configured",
+          apiSettings: {
+            hasUrl: !!apiSettings?.apiUrl,
+            hasToken: !!apiSettings?.apiToken
+          }
+        });
+      }
+
+      console.log("🔍 [DEBUG] API Settings found:", {
+        url: apiSettings.apiUrl,
+        tokenLength: apiSettings.apiToken.length
+      });
+
+      // Test 1: Basic search following VistaSoft documentation exactly
+      const searchParams = {
+        fields: [
+          "Codigo", "Categoria", "BairroComercial", "Cidade", "Suites", 
+          "Dormitorios", "Vagas", "AreaPrivativa", "ValorVenda", "ValorLocacao"
+        ],
+        paginacao: { 
+          pagina: 1, 
+          quantidade: 5 
+        }
+      };
+
+      console.log("🔍 [DEBUG] Search params:", JSON.stringify(searchParams, null, 2));
+
+      const baseUrl = `${apiSettings.apiUrl}/imoveis/listar`;
+      const pesquisaParam = encodeURIComponent(JSON.stringify(searchParams));
+      const apiUrl = `${baseUrl}?key=${apiSettings.apiToken}&pesquisa=${pesquisaParam}&showtotal=1`;
+      
+      console.log("🔍 [DEBUG] Final URL (without token):", apiUrl.replace(apiSettings.apiToken, 'HIDDEN'));
+
+      const response = await fetch(apiUrl, {
+        headers: { 'Accept': 'application/json' }
+      });
+
+      console.log("🔍 [DEBUG] Response status:", response.status, response.statusText);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.log("🔍 [DEBUG] Error response:", errorText);
+        return res.json({ 
+          error: "API Error", 
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText
+        });
+      }
+
+      const data = await response.json();
+      console.log("🔍 [DEBUG] Response structure:", {
+        type: typeof data,
+        isArray: Array.isArray(data),
+        length: Array.isArray(data) ? data.length : 'N/A',
+        keys: typeof data === 'object' ? Object.keys(data || {}) : 'N/A'
+      });
+
+      if (Array.isArray(data) && data.length > 0) {
+        console.log("🔍 [DEBUG] Sample property:", {
+          Codigo: data[0].Codigo,
+          Categoria: data[0].Categoria,
+          Cidade: data[0].Cidade,
+          ValorVenda: data[0].ValorVenda,
+          ValorLocacao: data[0].ValorLocacao
+        });
+      }
+
+      res.json({
+        success: true,
+        apiSettings: {
+          url: apiSettings.apiUrl,
+          hasToken: true
+        },
+        searchParams,
+        response: {
+          status: response.status,
+          statusText: response.statusText,
+          dataType: typeof data,
+          isArray: Array.isArray(data),
+          count: Array.isArray(data) ? data.length : 0,
+          sampleData: Array.isArray(data) && data.length > 0 ? data[0] : data
+        }
+      });
+    } catch (error) {
+      console.error("🔍 [DEBUG] Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Test route for property search with photos (keep existing for compatibility)
   app.post("/api/test-property-search", async (req, res) => {
     try {
       console.log("🧪 [TEST] Testing property search with photos");
@@ -2284,27 +2743,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "API settings not configured" });
       }
 
+      // FIXED: Using 'fields' instead of 'campos' as per VistaSoft documentation
       const searchParams = {
-        campos: [
+        fields: [
           "Codigo", "TipoOperacao", "Valor", "Quartos", "Suites", "Vagas", 
           "Area", "Cidade", "Bairro", "Descricao", "FotoDestaque",
           { "fotos": ["TipoFoto", "Url", "Descricao"] }
         ],
         paginacao: { 
-          pagina: "1", 
-          quantidade: "5" 
+          pagina: 1, 
+          quantidade: 5 
         }
       };
 
       const baseUrl = `${apiSettings.apiUrl}/imoveis/listar`;
-      const queryParams = new URLSearchParams({
-        key: apiSettings.apiToken,
-        v2: "1",
-        pesquisa: JSON.stringify(searchParams),
-        showtotal: "1"
-      });
+      const pesquisaParam = encodeURIComponent(JSON.stringify(searchParams));
+      const apiUrl = `${baseUrl}?key=${apiSettings.apiToken}&pesquisa=${pesquisaParam}&showtotal=1`;
       
-      const apiUrl = `${baseUrl}?${queryParams.toString()}`;
       console.log(`🧪 [TEST] API URL:`, apiUrl);
 
       const response = await fetch(apiUrl, {
@@ -2319,16 +2774,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🧪 [TEST] Properties found: ${data.length || 0}`);
       
       // Log photo data specifically
-      data.forEach((property: any, index: number) => {
-        console.log(`🧪 [TEST] Property ${index + 1}:`);
-        console.log(`  - Codigo: ${property.Codigo}`);
-        console.log(`  - FotoDestaque: ${property.FotoDestaque || 'N/A'}`);
-        console.log(`  - fotos: ${JSON.stringify(property.fotos || 'N/A')}`);
-      });
+      if (Array.isArray(data)) {
+        data.forEach((property: any, index: number) => {
+          console.log(`🧪 [TEST] Property ${index + 1}:`);
+          console.log(`  - Codigo: ${property.Codigo}`);
+          console.log(`  - FotoDestaque: ${property.FotoDestaque || 'N/A'}`);
+          console.log(`  - fotos: ${JSON.stringify(property.fotos || 'N/A')}`);
+        });
+      }
 
       res.json({
         success: true,
-        count: data.length || 0,
+        count: Array.isArray(data) ? data.length : 0,
         properties: data
       });
     } catch (error) {
