@@ -106,7 +106,9 @@ export class AiResponseService {
    */
   private async generateDirectResponse(request: AiResponseRequest): Promise<string> {
     // Check for property search integration first
+    console.log(`🚨🚨🚨 [CRITICAL-DEBUG] GENERATE-DIRECT-RESPONSE CHAMADO!`);
     console.log(`🏢 [DIRECT-RESPONSE] CompanyId presente: ${!!request.companyId}, valor: ${request.companyId}`);
+    console.log(`🏢 [DIRECT-RESPONSE] User message: "${request.userMessage}"`);
     if (request.companyId) {
       console.log(`🏢 [DIRECT-RESPONSE] Chamando handlePropertySearch...`);
       const propertyResponse = await this.handlePropertySearch(request);
