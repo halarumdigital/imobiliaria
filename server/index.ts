@@ -51,6 +51,29 @@ app.use((req, res, next) => {
   next();
 });
 
+// Middleware global para capturar mensagens de imagem
+app.use('/api/webhook', (req, res, next) => {
+  console.log(`🌐🌐🌐 [GLOBAL-WEBHOOK] Request to: ${req.method} ${req.path}`);
+  console.log(`🌐 [GLOBAL-WEBHOOK] Content-Type: ${req.headers['content-type']}`);
+  
+  if (req.body && req.body.data && req.body.data.message) {
+    console.log(`🌐🌐🌐 [GLOBAL-WEBHOOK] HAS MESSAGE DATA!`);
+    console.log(`🌐 [GLOBAL-WEBHOOK] Available message fields:`, Object.keys(req.body.data.message));
+    console.log(`🌐 [GLOBAL-WEBHOOK] Has imageMessage:`, !!req.body.data.message.imageMessage);
+    console.log(`🌐 [GLOBAL-WEBHOOK] MessageType:`, req.body.data.messageType);
+    console.log(`🌐 [GLOBAL-WEBHOOK] FromMe:`, req.body.data.key?.fromMe);
+    
+    if (req.body.data.message.imageMessage) {
+      console.log(`🌐🖼️ [GLOBAL-WEBHOOK] IMAGE MESSAGE DETECTED!`);
+      console.log(`🌐🖼️ [GLOBAL-WEBHOOK] Image URL:`, req.body.data.message.imageMessage.url);
+      console.log(`🌐🖼️ [GLOBAL-WEBHOOK] Image mimetype:`, req.body.data.message.imageMessage.mimetype);
+      console.log(`🌐🖼️ [GLOBAL-WEBHOOK] Image caption:`, req.body.data.message.imageMessage.caption);
+    }
+  }
+  
+  next();
+});
+
 (async () => {
   const server = await registerRoutes(app);
 
