@@ -350,6 +350,8 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
       // A API VistaHost pode retornar diferentes estruturas
       let properties = [];
       
+      console.log(`🔍 [DEBUG] Estrutura completa da resposta:`, JSON.stringify(data, null, 2));
+      
       if (Array.isArray(data)) {
         properties = data;
         console.log(`🔍 [DEBUG] Dados são array direto com ${data.length} itens`);
@@ -362,8 +364,21 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
       } else if (data.data && Array.isArray(data.data)) {
         properties = data.data;
         console.log(`🔍 [DEBUG] Dados em data.data com ${data.data.length} itens`);
+      } else if (data.properties && Array.isArray(data.properties)) {
+        properties = data.properties;
+        console.log(`🔍 [DEBUG] Dados em data.properties com ${data.properties.length} itens`);
+      } else if (data.items && Array.isArray(data.items)) {
+        properties = data.items;
+        console.log(`🔍 [DEBUG] Dados em data.items com ${data.items.length} itens`);
+      } else if (data.resultados && Array.isArray(data.resultados)) {
+        properties = data.resultados;
+        console.log(`🔍 [DEBUG] Dados em data.resultados com ${data.resultados.length} itens`);
       } else {
-        console.log(`🔍 [DEBUG] Estrutura não reconhecida:`, JSON.stringify(data, null, 2));
+        console.log(`🔍 [DEBUG] Estrutura não reconhecida, verificando todas as propriedades:`);
+        Object.keys(data || {}).forEach(key => {
+          const value = data[key];
+          console.log(`🔍 [DEBUG] Chave "${key}": tipo=${typeof value}, isArray=${Array.isArray(value)}, length=${Array.isArray(value) ? value.length : 'N/A'}`);
+        });
       }
       
       console.log(`✅ [PROPERTY-SEARCH] ${properties.length || 0} imóveis encontrados`);
