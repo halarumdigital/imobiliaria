@@ -325,7 +325,11 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
         type: typeof data,
         isArray: Array.isArray(data),
         hasResult: !!data.result,
-        keys: Object.keys(data || {})
+        hasImoveis: !!data.imoveis,
+        hasData: !!data.data,
+        keys: Object.keys(data || {}),
+        dataKeys: data ? Object.keys(data) : [],
+        sampleData: data
       });
 
       // A API VistaHost pode retornar diferentes estruturas
@@ -333,10 +337,18 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
       
       if (Array.isArray(data)) {
         properties = data;
+        console.log(`🔍 [DEBUG] Dados são array direto com ${data.length} itens`);
       } else if (data.result && Array.isArray(data.result)) {
         properties = data.result;
+        console.log(`🔍 [DEBUG] Dados em data.result com ${data.result.length} itens`);
       } else if (data.imoveis && Array.isArray(data.imoveis)) {
         properties = data.imoveis;
+        console.log(`🔍 [DEBUG] Dados em data.imoveis com ${data.imoveis.length} itens`);
+      } else if (data.data && Array.isArray(data.data)) {
+        properties = data.data;
+        console.log(`🔍 [DEBUG] Dados em data.data com ${data.data.length} itens`);
+      } else {
+        console.log(`🔍 [DEBUG] Estrutura não reconhecida:`, JSON.stringify(data, null, 2));
       }
       
       console.log(`✅ [PROPERTY-SEARCH] ${properties.length || 0} imóveis encontrados`);
