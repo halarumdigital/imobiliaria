@@ -257,6 +257,18 @@ export class MySQLStorage implements IStorage {
       } catch (error: any) {
         if (error.code === 'ER_DUP_FIELDNAME') {
           console.log(`✅ ${column.name} column already exists in messages table`);
+          
+          // Se a coluna media_base64 já existe, vamos garantir que seja LONGTEXT
+          if (column.name === 'media_base64' && column.type === 'LONGTEXT') {
+            try {
+              await this.connection.execute(`
+                ALTER TABLE messages MODIFY COLUMN media_base64 LONGTEXT
+              `);
+              console.log(`✅ media_base64 column updated to LONGTEXT`);
+            } catch (modifyError: any) {
+              console.error(`❌ Error modifying media_base64 column:`, modifyError);
+            }
+          }
         } else {
           console.error(`❌ Error adding ${column.name} column:`, error);
         }
