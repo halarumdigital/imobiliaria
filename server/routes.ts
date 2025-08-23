@@ -1894,7 +1894,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Verificar se tem conteúdo de mensagem (para evitar processar status updates)
-      if (!req.body.data.message || (!req.body.data.message.conversation && !req.body.data.message.extendedTextMessage)) {
+      if (!req.body.data.message || 
+          (!req.body.data.message.conversation && 
+           !req.body.data.message.extendedTextMessage && 
+           !req.body.data.message.imageMessage)) {
         console.log("📊 Non-message event received, ignoring");
         return res.status(200).json({ 
           success: true, 
