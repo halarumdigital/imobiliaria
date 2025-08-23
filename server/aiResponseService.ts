@@ -355,6 +355,9 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
       if (Array.isArray(data)) {
         properties = data;
         console.log(`🔍 [DEBUG] Dados são array direto com ${data.length} itens`);
+      } else if (data.registros && Array.isArray(data.registros)) {
+        properties = data.registros;
+        console.log(`🔍 [DEBUG] Dados em data.registros com ${data.registros.length} itens`);
       } else if (data.result && Array.isArray(data.result)) {
         properties = data.result;
         console.log(`🔍 [DEBUG] Dados em data.result com ${data.result.length} itens`);
@@ -378,6 +381,20 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
         Object.keys(data || {}).forEach(key => {
           const value = data[key];
           console.log(`🔍 [DEBUG] Chave "${key}": tipo=${typeof value}, isArray=${Array.isArray(value)}, length=${Array.isArray(value) ? value.length : 'N/A'}`);
+          
+          // Se encontrarmos um array com objetos que parecem imóveis, vamos usá-lo
+          if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'object') {
+            const firstItem = value[0];
+            const hasPropertyFields = firstItem.Codigo || firstItem.codigo || firstItem.id || 
+                                    firstItem.Categoria || firstItem.categoria || 
+                                    firstItem.Endereco || firstItem.endereco ||
+                                    firstItem.ValorVenda || firstItem.valorVenda ||
+                                    firstItem.ValorLocacao || firstItem.valorLocacao;
+            if (hasPropertyFields) {
+              console.log(`🎯 [DEBUG] Encontrado array de imóveis na chave "${key}" com ${value.length} itens`);
+              properties = value;
+            }
+          }
         });
       }
       
