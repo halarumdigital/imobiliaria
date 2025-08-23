@@ -403,11 +403,30 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
       }
       
       console.log(`✅ [PROPERTY-SEARCH] ${properties.length || 0} imóveis encontrados`);
+      
+      // 🔧 DEBUGGING: Log especial para verificar se a correção está funcionando
+      console.log(`🔧 [WHATSAPP-DEBUG] RESULTADO FINAL:`, {
+        propertiesCount: properties.length,
+        dataType: typeof data,
+        dataKeys: data ? Object.keys(data).slice(0, 10) : [],
+        hasNumericKeys: data ? Object.keys(data).some(k => !isNaN(Number(k))) : false,
+        sample: properties.length > 0 ? properties[0] : null
+      });
 
       // Verificar se temos dados válidos
       if (!properties || properties.length === 0) {
         console.log(`❌ [PROPERTY-SEARCH] Nenhum imóvel encontrado`);
         console.log(`🔍 [DEBUG] Estrutura da resposta completa:`, JSON.stringify(data, null, 2));
+        
+        // 🚨 ALERTA: Se chegou aqui, a correção VistaSoft não funcionou
+        console.log(`🚨 [WHATSAPP-DEBUG] CORREÇÃO VISTASOFT FALHOU! Dados recebidos:`, {
+          type: typeof data,
+          isArray: Array.isArray(data),
+          keys: data ? Object.keys(data) : [],
+          hasTotal: data && data.total,
+          rawData: data
+        });
+        
         return "Não encontrei imóveis que correspondem aos critérios solicitados. Posso ajudar com uma busca mais ampla?";
       }
 
