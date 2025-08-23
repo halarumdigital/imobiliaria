@@ -216,22 +216,61 @@ ${request.conversationHistory && request.conversationHistory.length > 0
           message: 'apartamento casa imóvel'
         };
         
-        // Executar busca de imóveis
-        const propertyResults = await this.searchProperties(searchRequest, {});
+        // Executar busca direta de imóveis na API sem filtros específicos
+        const storage = getStorage();
+        const apiSettings = await storage.getPropertyApiSettings(request.companyId!);
         
-        if (propertyResults && propertyResults.length > 0) {
-          console.log(`🏠 [AUTO-SEARCH] Encontrados ${propertyResults.length} imóveis`);
-          
-          // Formatar os resultados
-          const formattedResults = await this.formatPropertyResponse(propertyResults, request.message, request);
-          
-          // Adicionar os resultados à resposta do AI
-          const enhancedResponse = response.content + '\n\n' + formattedResults;
-          
-          return enhancedResponse;
-        } else {
-          console.log(`🏠 [AUTO-SEARCH] Nenhum imóvel encontrado para adicionar à resposta`);
+        if (!apiSettings || !apiSettings.apiUrl || !apiSettings.apiToken) {
+          console.log(`🏠 [AUTO-SEARCH] API não configurada para esta empresa`);
+          return response.content;
         }
+        
+        // Buscar imóveis sem filtros específicos (trazer uma amostra geral)
+        const searchParams = {
+          filter: { 
+            SiteSuder: "Sim"
+          },
+          fields: [
+            "Codigo", "Categoria", "BairroComercial", "Cidade", "Suites", "DescricaoWeb", 
+            "Dormitorios", "Vagas", "Endereco", "Complemento", "AreaPrivativa", 
+            "ValorVenda", "ValorLocacao", "FotoDestaque"
+          ],
+          paginacao: { 
+            pagina: 1, 
+            quantidade: 5 // Trazer apenas 5 imóveis para não sobrecarregar
+          }
+        };
+        
+        const baseUrl = `${apiSettings.apiUrl}/imoveis/listar`;
+        const pesquisaParam = encodeURIComponent(JSON.stringify(searchParams));
+        const apiUrl = `${baseUrl}?key=${apiSettings.apiToken}&v2=1&pesquisa=${pesquisaParam}&showtotal=1`;
+        
+        console.log(`🏠 [AUTO-SEARCH] Fazendo busca automática na API`);
+        
+        const apiResponse = await fetch(apiUrl, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+        
+        if (apiResponse.ok) {
+          const data = await apiResponse.json();
+          
+          if (data.result && data.result.length > 0) {
+            console.log(`🏠 [AUTO-SEARCH] Encontrados ${data.result.length} imóveis`);
+            
+            // Formatar os resultados
+            const formattedResults = await this.formatPropertyResponse(data.result, request.message, request);
+            
+            // Adicionar os resultados à resposta do AI
+            const enhancedResponse = response.content + '\n\n' + formattedResults;
+            
+            return enhancedResponse;
+          }
+        }
+        
+        console.log(`🏠 [AUTO-SEARCH] Nenhum imóvel encontrado para adicionar à resposta`);
       } catch (error) {
         console.error(`❌ [AUTO-SEARCH] Erro na busca automática:`, error);
         // Em caso de erro, retornar apenas a resposta original
