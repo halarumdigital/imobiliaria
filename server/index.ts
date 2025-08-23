@@ -9,6 +9,35 @@ const app = express();
 app.use(express.json({ limit: '50mb' })); // Aumentar limite para imagens
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 
+// Capturar TODAS as requisições para encontrar mensagens de entrada
+app.use((req, res, next) => {
+  // Log detalhado para qualquer POST que possa conter mensagens
+  if (req.method === 'POST') {
+    console.log(`🔍🔍🔍 [ALL-REQUESTS] POST to: ${req.path}`);
+    console.log(`🔍 [ALL-REQUESTS] Content-Type: ${req.headers['content-type']}`);
+    console.log(`🔍 [ALL-REQUESTS] User-Agent: ${req.headers['user-agent']}`);
+    
+    if (req.body && typeof req.body === 'object') {
+      console.log(`🔍 [ALL-REQUESTS] Has body data`);
+      console.log(`🔍 [ALL-REQUESTS] Body keys:`, Object.keys(req.body));
+      
+      // Verificar se é mensagem da Evolution API
+      if (req.body.data && req.body.data.message) {
+        console.log(`🎯🎯🎯 [ALL-REQUESTS] FOUND MESSAGE DATA!`);
+        console.log(`🎯 [ALL-REQUESTS] FromMe:`, req.body.data.key?.fromMe);
+        console.log(`🎯 [ALL-REQUESTS] MessageType:`, req.body.data.messageType);
+        console.log(`🎯 [ALL-REQUESTS] Available message fields:`, Object.keys(req.body.data.message));
+        console.log(`🎯 [ALL-REQUESTS] Has imageMessage:`, !!req.body.data.message.imageMessage);
+        
+        if (req.body.data.message.imageMessage) {
+          console.log(`🎯🖼️ [ALL-REQUESTS] IMAGE FOUND IN REQUEST!`);
+        }
+      }
+    }
+  }
+  next();
+});
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
