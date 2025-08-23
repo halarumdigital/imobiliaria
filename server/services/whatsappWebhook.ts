@@ -175,6 +175,7 @@ export class WhatsAppWebhookService {
 
   async handleEvolutionMessage(evolutionData: EvolutionWebhookData): Promise<void> {
     try {
+      console.log("🚨🚨🚨 [URGENT-DEBUG] WEBHOOK CHAMADO - Mensagem do WhatsApp recebida!");
       console.log("📨 [WEBHOOK] RAW Evolution API message received!");
       console.log("📨 [WEBHOOK] Event type:", evolutionData.data?.messageType || 'unknown');
       console.log("📨 [WEBHOOK] FromMe:", evolutionData.data?.key?.fromMe);

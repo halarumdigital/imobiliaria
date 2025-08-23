@@ -2142,6 +2142,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Endpoint adicional para Evolution API (formato padrão)
   app.post("/api/webhook/messages", async (req, res) => {
     try {
+      console.log("🚨🚨🚨 [URGENT-DEBUG] ENDPOINT /api/webhook/messages CHAMADO!");
       console.log("🔥 [WEBHOOK] ================================");
       console.log("🔥 [WEBHOOK] NEW MESSAGE RECEIVED!");
       console.log("🔥 [WEBHOOK] ================================");
