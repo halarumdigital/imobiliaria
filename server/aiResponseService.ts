@@ -188,6 +188,56 @@ ${request.conversationHistory && request.conversationHistory.length > 0
     );
 
     console.log(`✅ Resposta gerada com sucesso - Tamanho: ${response.content.length} caracteres`);
+    
+    // Verificar se a resposta do AI contém frases de intenção de busca
+    const aiResponseLower = response.content.toLowerCase();
+    const searchIntentPhrases = [
+      'vou procurar', 'vou buscar', 'vou verificar', 'vou pesquisar',
+      'deixa eu procurar', 'deixa eu buscar', 'deixa eu verificar',
+      'irei procurar', 'irei buscar', 'irei verificar',
+      'vou fazer uma busca', 'vou consultar', 'vou checar'
+    ];
+    
+    const hasSearchIntentInResponse = searchIntentPhrases.some(phrase => 
+      aiResponseLower.includes(phrase)
+    );
+    
+    console.log(`🔍 [AI-RESPONSE-CHECK] Resposta do AI contém intenção de busca?: ${hasSearchIntentInResponse}`);
+    
+    // Se o AI disse que vai procurar, executar a busca automaticamente
+    if (hasSearchIntentInResponse && request.companyId) {
+      console.log(`🏠 [AUTO-SEARCH] AI disse que vai procurar - executando busca automática de imóveis`);
+      
+      try {
+        // Criar um request de busca genérico (sem filtros específicos)
+        const searchRequest = {
+          ...request,
+          userMessage: 'apartamento casa imóvel', // Busca genérica para trazer vários resultados
+          message: 'apartamento casa imóvel'
+        };
+        
+        // Executar busca de imóveis
+        const propertyResults = await this.searchProperties(searchRequest, {});
+        
+        if (propertyResults && propertyResults.length > 0) {
+          console.log(`🏠 [AUTO-SEARCH] Encontrados ${propertyResults.length} imóveis`);
+          
+          // Formatar os resultados
+          const formattedResults = await this.formatPropertyResponse(propertyResults, request.message, request);
+          
+          // Adicionar os resultados à resposta do AI
+          const enhancedResponse = response.content + '\n\n' + formattedResults;
+          
+          return enhancedResponse;
+        } else {
+          console.log(`🏠 [AUTO-SEARCH] Nenhum imóvel encontrado para adicionar à resposta`);
+        }
+      } catch (error) {
+        console.error(`❌ [AUTO-SEARCH] Erro na busca automática:`, error);
+        // Em caso de erro, retornar apenas a resposta original
+      }
+    }
+    
     return response.content;
   }
 
