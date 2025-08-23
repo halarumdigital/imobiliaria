@@ -108,7 +108,14 @@ export class AiResponseService {
     // Check for property search integration first
     console.log(`🚨🚨🚨 [CRITICAL-DEBUG] GENERATE-DIRECT-RESPONSE CHAMADO!`);
     console.log(`🏢 [DIRECT-RESPONSE] CompanyId presente: ${!!request.companyId}, valor: ${request.companyId}`);
-    console.log(`🏢 [DIRECT-RESPONSE] User message: "${request.userMessage}"`);
+    console.log(`🏢 [DIRECT-RESPONSE] request.message: "${request.message}"`);
+    console.log(`🏢 [DIRECT-RESPONSE] request.userMessage: "${request.userMessage}"`);
+    
+    // Ensure userMessage is set (for backward compatibility)
+    if (!request.userMessage && request.message) {
+      request.userMessage = request.message;
+    }
+    
     if (request.companyId) {
       console.log(`🏢 [DIRECT-RESPONSE] Chamando handlePropertySearch...`);
       const propertyResponse = await this.handlePropertySearch(request);
@@ -187,7 +194,11 @@ ${request.conversationHistory && request.conversationHistory.length > 0
    */
   private async handlePropertySearch(request: AiResponseRequest): Promise<string | null> {
     try {
-      const message = request.message.toLowerCase();
+      console.log(`🚨🚨🚨 [CRITICAL] handlePropertySearch CHAMADO!`);
+      console.log(`🚨 [CRITICAL] request.message: "${request.message}"`);
+      console.log(`🚨 [CRITICAL] request.userMessage: "${request.userMessage}"`);
+      
+      const message = (request.userMessage || request.message || '').toLowerCase();
       console.log(`🏠🏠🏠 [PROPERTY SEARCH] MÉTODO CHAMADO - Analisando mensagem: "${message}"`);
       
       // Check if user is asking for photos or details of a specific property
