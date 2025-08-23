@@ -852,7 +852,21 @@ export class MySQLStorage implements IStorage {
       'SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC',
       [conversationId]
     );
-    return rows as Message[];
+    
+    // Mapear manualmente campos snake_case para camelCase
+    const rawResults = rows as any[];
+    const mappedRows = rawResults.map(row => ({
+      id: row.id,
+      conversationId: row.conversation_id,
+      content: row.content,
+      sender: row.sender,
+      agentId: row.agent_id, // ✅ Mapear agent_id para agentId
+      messageType: row.message_type,
+      evolutionMessageId: row.evolution_message_id,
+      createdAt: row.created_at
+    }));
+    
+    return mappedRows as Message[];
   }
 
   async createMessage(message: InsertMessage): Promise<Message> {
