@@ -24,6 +24,7 @@ import WhatsApp from "@/pages/client/whatsapp";
 import AiAgents from "@/pages/client/ai-agents";
 import TestAI from "@/pages/client/test-ai";
 import Conversations from "@/pages/client/conversations";
+import Leads from "@/pages/client/leads";
 
 interface ProtectedRouteProps {
   component: React.ComponentType;
@@ -167,6 +168,14 @@ function Router() {
           requiredRole="client"
           title="Conversas"
           subtitle="Histórico de conversas"
+        />
+      </Route>
+      <Route path="/client/leads">
+        <ProtectedRoute 
+          component={Leads}
+          requiredRole="client"
+          title="Leads"
+          subtitle="Gerencie seus leads e potenciais clientes"
         />
       </Route>
 

@@ -122,3 +122,16 @@ export interface ClientStats {
   aiAgents: number;
   todayConversations: number;
 }
+
+export interface Lead {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  status: string;
+  source: string;
+  notes?: string;
+  companyId: string;
+  createdAt: string;
+  updatedAt: string;
+}

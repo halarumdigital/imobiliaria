@@ -253,11 +253,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Buscar dados completos do usuário no banco
       const fullUser = await storage.getUser(req.user!.id);
       
-      if (fullUser && fullUser.company_id && !req.user!.companyId) {
+      if (fullUser && fullUser.companyId && !req.user!.companyId) {
         // Se o usuário tem companyId no banco mas não no token, gerar novo token
         const userWithMappedFields = {
           ...fullUser,
-          companyId: fullUser.company_id
+          companyId: fullUser.companyId
         };
         const newToken = generateToken(userWithMappedFields);
         res.header('X-New-Token', newToken);
@@ -2868,6 +2868,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("🧪 [TEST] Error:", error);
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Leads endpoints
+  app.post("/api/leads", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+
+      const leadData = {
+        ...req.body,
+        companyId: req.user.companyId
+      };
+
+      const lead = await storage.createLead(leadData);
+      res.status(201).json(lead);
+    } catch (error) {
+      console.error("Create lead error:", error);
+      res.status(500).json({ error: "Erro ao criar lead" });
+    }
+  });
+
+  app.get("/api/leads", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+
+      const leads = await storage.getLeadsByCompany(req.user.companyId);
+      res.json(leads);
+    } catch (error) {
+      console.error("Get leads error:", error);
+      res.status(500).json({ error: "Erro ao buscar leads" });
+    }
+  });
+
+  app.put("/api/leads/:id", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+
+      const lead = await storage.updateLead(id, updates);
+      res.json(lead);
+    } catch (error) {
+      console.error("Update lead error:", error);
+      res.status(500).json({ error: "Erro ao atualizar lead" });
+    }
+  });
+
+  app.delete("/api/leads/:id", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteLead(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete lead error:", error);
+      res.status(500).json({ error: "Erro ao deletar lead" });
+    }
+  });
+
+  app.get("/api/leads/export/excel", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+
+      const leads = await storage.getLeadsByCompany(req.user.companyId);
+      
+      // Create Excel content
+      const headers = ['Nome', 'Telefone', 'Email', 'Status', 'Origem', 'Observações', 'Data de Criação'];
+      const rows = leads.map(lead => [
+        lead.name,
+        lead.phone,
+        lead.email || '',
+        lead.status,
+        lead.source,
+        lead.notes || '',
+        new Date(lead.createdAt).toLocaleDateString('pt-BR')
+      ]);
+
+      // Create CSV content
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+      ].join('\n');
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="leads.csv"');
+      res.send(csvContent);
+    } catch (error) {
+      console.error("Export leads error:", error);
+      res.status(500).json({ error: "Erro ao exportar leads" });
     }
   });
 

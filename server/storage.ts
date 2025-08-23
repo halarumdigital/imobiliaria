@@ -3,7 +3,8 @@ import {
   User, InsertUser, Company, InsertCompany, GlobalConfiguration, 
   InsertGlobalConfiguration, EvolutionApiConfiguration, InsertEvolutionApiConfiguration,
   AiConfiguration, InsertAiConfiguration, WhatsappInstance, InsertWhatsappInstance,
-  AiAgent, InsertAiAgent, Conversation, InsertConversation, Message, InsertMessage
+  AiAgent, InsertAiAgent, Conversation, InsertConversation, Message, InsertMessage,
+  Lead, InsertLead
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -90,6 +91,12 @@ export interface IStorage {
     userPhone: string | null;
     createdAt: Date;
   }[]>;
+
+  // Leads
+  createLead(lead: InsertLead): Promise<Lead>;
+  getLeadsByCompany(companyId: string): Promise<Lead[]>;
+  updateLead(id: string, updates: Partial<Lead>): Promise<Lead>;
+  deleteLead(id: string): Promise<void>;
 }
 
 export class MySQLStorage implements IStorage {
@@ -273,6 +280,19 @@ export class MySQLStorage implements IStorage {
         execution_time INT NOT NULL,
         user_phone VARCHAR(20),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )`,
+      
+      `CREATE TABLE IF NOT EXISTS leads (
+        id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+        company_id VARCHAR(36) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        phone VARCHAR(20) NOT NULL,
+        email VARCHAR(255),
+        status VARCHAR(20) DEFAULT 'new',
+        source VARCHAR(50) DEFAULT 'manual',
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )`
     ];
 
@@ -1124,10 +1144,117 @@ export class MySQLStorage implements IStorage {
       requestData: JSON.parse(row.request_data || '{}'),
       responseStatus: row.response_status,
       responseData: JSON.parse(row.response_data || '{}'),
-      executionTime: row.execution_time,
+      executionTime: row.executionTime,
       userPhone: row.user_phone,
       createdAt: row.created_at
     }));
+  }
+
+  // Leads methods
+  async createLead(lead: InsertLead): Promise<Lead> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const id = randomUUID();
+    await this.connection.execute(
+      'INSERT INTO leads (id, company_id, name, phone, email, status, source, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        id, 
+        lead.companyId, 
+        lead.name, 
+        lead.phone, 
+        lead.email || null, 
+        lead.status || 'new',
+        lead.source || 'manual',
+        lead.notes || null
+      ]
+    );
+    
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM leads WHERE id = ?',
+      [id]
+    );
+    
+    const row = (rows as any[])[0];
+    return {
+      id: row.id,
+      companyId: row.company_id,
+      name: row.name,
+      phone: row.phone,
+      email: row.email,
+      status: row.status,
+      source: row.source,
+      notes: row.notes,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    } as Lead;
+  }
+
+  async getLeadsByCompany(companyId: string): Promise<Lead[]> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM leads WHERE company_id = ? ORDER BY created_at DESC',
+      [companyId]
+    );
+    
+    return (rows as any[]).map(row => ({
+      id: row.id,
+      companyId: row.company_id,
+      name: row.name,
+      phone: row.phone,
+      email: row.email,
+      status: row.status,
+      source: row.source,
+      notes: row.notes,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    })) as Lead[];
+  }
+
+  async updateLead(id: string, updates: Partial<Lead>): Promise<Lead> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const fieldMapping: Record<string, string> = {
+      companyId: 'company_id',
+      createdAt: 'created_at',
+      updatedAt: 'updated_at'
+    };
+    
+    const fields = Object.keys(updates).filter(key => updates[key as keyof Lead] !== undefined);
+    const values = fields.map(key => updates[key as keyof Lead]);
+    
+    if (fields.length > 0) {
+      const setClause = fields.map(field => `${fieldMapping[field] || field} = ?`).join(', ');
+      await this.connection.execute(
+        `UPDATE leads SET ${setClause} WHERE id = ?`,
+        [...values, id]
+      );
+    }
+    
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM leads WHERE id = ?',
+      [id]
+    );
+    
+    const row = (rows as any[])[0];
+    return {
+      id: row.id,
+      companyId: row.company_id,
+      name: row.name,
+      phone: row.phone,
+      email: row.email,
+      status: row.status,
+      source: row.source,
+      notes: row.notes,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    } as Lead;
+  }
+
+  async deleteLead(id: string): Promise<void> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    await this.connection.execute('DELETE FROM leads WHERE id = ?', [id]);
   }
 }
 

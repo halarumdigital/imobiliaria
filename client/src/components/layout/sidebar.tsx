@@ -33,6 +33,7 @@ const clientNavItems: NavItem[] = [
   { href: "/client/ai-agents", label: "Agentes IA", icon: <Bot className="w-5 h-5" /> },
   { href: "/client/test-ai", label: "Teste de IA", icon: <Bot className="w-5 h-5" /> },
   { href: "/client/conversations", label: "Conversas", icon: <MessageCircle className="w-5 h-5" /> },
+  { href: "/client/leads", label: "Leads", icon: <Users className="w-5 h-5" /> },
 ];
 
 export function Sidebar() {

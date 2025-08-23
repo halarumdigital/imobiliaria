@@ -140,6 +140,19 @@ export const apiCallLogs = mysqlTable("api_call_logs", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const leads = mysqlTable("leads", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  companyId: varchar("company_id", { length: 36 }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  phone: varchar("phone", { length: 20 }).notNull(),
+  email: varchar("email", { length: 255 }),
+  status: varchar("status", { length: 20 }).notNull().default("novo"), // 'novo' | 'contato' | 'qualificado' | 'proposta' | 'fechado'
+  source: varchar("source", { length: 50 }).notNull().default("manual"), // 'manual' | 'whatsapp' | 'site' | 'indicacao' | 'rede-social'
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
@@ -244,6 +257,16 @@ export const insertApiCallLogSchema = createInsertSchema(apiCallLogs).pick({
   userPhone: true,
 });
 
+export const insertLeadSchema = createInsertSchema(leads).pick({
+  companyId: true,
+  name: true,
+  phone: true,
+  email: true,
+  status: true,
+  source: true,
+  notes: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -267,3 +290,5 @@ export type ApiSetting = typeof apiSettings.$inferSelect;
 export type InsertApiSetting = z.infer<typeof insertApiSettingsSchema>;
 export type ApiCallLog = typeof apiCallLogs.$inferSelect;
 export type InsertApiCallLog = z.infer<typeof insertApiCallLogSchema>;
+export type Lead = typeof leads.$inferSelect;
+export type InsertLead = z.infer<typeof insertLeadSchema>;
