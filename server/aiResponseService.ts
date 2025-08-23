@@ -13,6 +13,7 @@ export interface AiResponseRequest {
   agentType?: 'main' | 'secondary';
   delegationKeywords?: string[];
   companyId?: string;
+  conversationHistory?: Array<{role: 'user' | 'assistant', content: string}>;
 }
 
 export class AiResponseService {
@@ -121,11 +122,33 @@ export class AiResponseService {
       enhancedPrompt += `\n\nVocê é um agente especializado. Responda com base em sua especialização e conhecimento específico.`;
     }
 
-    // Add specific instructions
+    // Add specific instructions to avoid repetition
     enhancedPrompt += `\n\nResponda sempre em português brasileiro de forma natural e helpful. Se a pergunta não puder ser respondida com o conhecimento fornecido, seja honesto sobre isso.`;
+    
+    // Add context awareness instructions
+    enhancedPrompt += `\n\n*** IMPORTANTE SOBRE CONTEXTO ***
+- Se você já se apresentou nesta conversa, NÃO se apresente novamente
+- Se o usuário já forneceu o nome dele, use-o sem pedir novamente
+- Mantenha continuidade da conversa e evite repetir perguntas já feitas
+- Analise o histórico da conversa antes de responder
+- Se não há histórico, você pode fazer uma apresentação inicial
+- Se há histórico, continue naturalmente a partir do último contexto
+
+*** ANÁLISE DO HISTÓRICO ***
+${request.conversationHistory && request.conversationHistory.length > 0 
+  ? `HISTÓRICO EXISTE (${request.conversationHistory.length} mensagens) - Continue a conversa naturalmente SEM se apresentar novamente`
+  : 'PRIMEIRA CONVERSA - Pode se apresentar brevemente'
+}
+
+*** INSTRUÇÕES ESPECÍFICAS ***
+- NUNCA repita a mesma pergunta se já foi feita
+- NUNCA se apresente se já o fez antes
+- Use o nome do usuário se ele já se identificou
+- Seja direto e útil nas respostas`;
 
     console.log(`📝 Prompt construído - Tamanho: ${enhancedPrompt.length} caracteres`);
     console.log(`💬 Mensagem do usuário: "${request.message}"`);
+    console.log(`📚 Histórico de conversa: ${request.conversationHistory?.length || 0} mensagens`);
     
     const response = await this.openAiService.generateResponse(
       request.message,
@@ -134,6 +157,7 @@ export class AiResponseService {
         model: request.modelo || "gpt-4o",
         temperature: request.temperatura || 0.7,
         maxTokens: request.numeroTokens || 1000,
+        conversationHistory: request.conversationHistory
       }
     );
 

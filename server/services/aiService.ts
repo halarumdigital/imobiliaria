@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import fs from 'fs';
 import path from 'path';
 import { getStorage } from "../storage";
+import { AiResponseService, AiResponseRequest } from "../aiResponseService";
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 
@@ -9,6 +10,7 @@ export interface MessageContext {
   phone: string;
   message: string;
   instanceId: string;
+  companyId?: string;
   conversationHistory?: Array<{
     role: 'user' | 'assistant';
     content: string;
@@ -325,117 +327,27 @@ export class AIService {
       const openai = new OpenAI({ apiKey: aiConfig.apiKey });
       console.log(`✅ [GENERATE] OpenAI instance created successfully`);
 
-      // Construir o prompt do sistema baseado no agente (usando lógica do AiResponseService)
-      let systemPrompt = agent.prompt || `Você é ${agent.name}, um assistente de IA especializado.`;
+      // Gerar resposta usando AiResponseService
+      console.log(`🤖 [RESPONSE] Using AiResponseService to generate response...`);
+      const aiResponseService = new AiResponseService(aiConfig.apiKey);
       
-      // Adicionar conhecimento base se disponível
-      if (agent.trainingContent && agent.trainingContent.trim()) {
-        systemPrompt += `\n\n=== CONHECIMENTO BASE ===\n${agent.trainingContent}\n=== FIM CONHECIMENTO BASE ===\n\n`;
-        systemPrompt += `Use as informações do CONHECIMENTO BASE acima para responder às perguntas do usuário de forma precisa e detalhada.`;
-      }
+      const responseRequest: AiResponseRequest = {
+        message: context.message,
+        agentId: agent.id,
+        agentPrompt: agent.prompt,
+        agentTrainingContent: agent.trainingContent || undefined,
+        temperatura: Number(aiConfig.temperatura) || 0.7,
+        modelo: aiConfig.modelo || "gpt-4o",
+        numeroTokens: Number(aiConfig.numeroTokens) || 1000,
+        agentType: agent.agentType as 'main' | 'secondary',
+        companyId: context.companyId,
+        conversationHistory: context.conversationHistory
+      };
+
+      const response = await aiResponseService.generateResponse(responseRequest);
+      console.log(`✅ [RESPONSE] Response generated successfully - length: ${response.length}`);
       
-      // Adicionar contexto de delegação se for agente secundário
-      if (agent.agentType === 'secondary') {
-        systemPrompt += `\n\nVocê é um agente especializado. Responda com base em sua especialização e conhecimento específico.`;
-      }
-
-      systemPrompt += `\n\nResponda sempre em português brasileiro de forma natural e helpful. Se a pergunta não puder ser respondida com o conhecimento fornecido, seja honesto sobre isso.`;
-
-      // Construir histórico da conversa
-      const messages: any[] = [
-        { role: "system", content: systemPrompt }
-      ];
-
-      // Adicionar histórico se disponível
-      if (context.conversationHistory && context.conversationHistory.length > 0) {
-        messages.push(...context.conversationHistory.slice(-10)); // Últimas 10 mensagens
-      }
-
-      // Adicionar mensagem atual (com suporte a imagem e áudio)
-      console.log(`🔍 [MEDIA CHECK] messageType: ${context.messageType}, has mediaBase64: ${!!context.mediaBase64}`);
-      console.log(`🔍 [MEDIA CHECK] mediaBase64 length: ${context.mediaBase64?.length || 0}`);
-      console.log(`🔍 [MEDIA CHECK] mimeType: ${context.mimeType}`);
-      
-      // PROCESSAR ÁUDIO PRIMEIRO (transcrever para texto)
-      if (context.messageType === 'audio' && context.mediaBase64) {
-        console.log(`🎤 ✅ PROCESSANDO ÁUDIO COM WHISPER!`);
-        try {
-          // Converter base64 para buffer
-          const audioBuffer = Buffer.from(context.mediaBase64, 'base64');
-          console.log(`🎤 Audio buffer size: ${audioBuffer.length} bytes`);
-          
-          // Salvar temporariamente em arquivo para OpenAI Whisper
-          const tmpDir = '/tmp';
-          const tmpFile = path.join(tmpDir, `audio_${Date.now()}.ogg`);
-          
-          fs.writeFileSync(tmpFile, audioBuffer);
-          console.log(`🎤 Arquivo temporário criado: ${tmpFile}`);
-          
-          // Transcrever usando OpenAI Whisper
-          const transcription = await openai.audio.transcriptions.create({
-            file: fs.createReadStream(tmpFile),
-            model: "whisper-1",
-          });
-          
-          console.log(`🎤 ✅ TRANSCRIÇÃO CONCLUÍDA!`);
-          console.log(`🎤 Texto transcrito: "${transcription.text}"`);
-          
-          // Limpar arquivo temporário
-          fs.unlinkSync(tmpFile);
-          console.log(`🎤 Arquivo temporário removido`);
-          
-          // Usar o texto transcrito como mensagem
-          context.message = transcription.text || "Não foi possível transcrever o áudio";
-          
-        } catch (error) {
-          console.error("❌ Erro na transcrição de áudio:", error);
-          context.message = "Desculpe, não consegui processar o áudio enviado.";
-        }
-      }
-      
-      if ((context.messageType === 'image' || context.messageType === 'imageMessage') && context.mediaBase64) {
-        console.log(`🖼️ ✅ ENTRANDO NO PROCESSAMENTO DE IMAGEM!`);
-        console.log(`🖼️ Image details: type=${context.mimeType}, size=${context.mediaBase64.length} chars`);
-        
-        // Usar o mimeType correto detectado pela detecção de magic bytes
-        const mimeType = context.mimeType || 'image/jpeg';
-        
-        const userMessage: any = {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: context.caption ? `${context.message}\n\nDescrição da imagem: ${context.caption}` : context.message
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:${mimeType};base64,${context.mediaBase64}`
-              }
-            }
-          ]
-        };
-        messages.push(userMessage);
-      } else {
-        messages.push({ role: "user", content: context.message });
-      }
-
-      // Gerar resposta usando OpenAI
-      console.log(`🔧 [OPENAI] Pre-OpenAI call - temperatura: ${aiConfig.temperatura}, type: ${typeof aiConfig.temperatura}`);
-      console.log(`🔧 [OPENAI] Pre-OpenAI call - numeroTokens: ${aiConfig.numeroTokens}, type: ${typeof aiConfig.numeroTokens}`);
-      console.log(`🔧 [OPENAI] Messages count: ${messages.length}, has image: ${context.messageType === 'image' || context.messageType === 'imageMessage'}`);
-      console.log(`🔧 [OPENAI] About to call OpenAI API...`);
-      
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o", // Hardcode para garantir - gpt-4o suporta imagens
-        messages: messages,
-        max_tokens: 1000, // Hardcode para garantir
-        temperature: 0.7, // Hardcode para garantir
-      });
-      
-      console.log(`✅ [OPENAI] OpenAI call successful, response length: ${response.choices[0]?.message?.content?.length || 0}`);
-
-      return response.choices[0].message.content || "Desculpe, não consegui gerar uma resposta.";
+      return response;
 
     } catch (error) {
       console.error("❌ Error generating AI response - DETAILED:", {

@@ -23,15 +23,29 @@ export class OpenAiService {
       model?: string;
       temperature?: number;
       maxTokens?: number;
+      conversationHistory?: Array<{role: 'user' | 'assistant', content: string}>;
     } = {}
   ): Promise<AiResponse> {
     try {
+      // Build messages array with conversation history
+      const messages: any[] = [
+        { role: "system", content: systemMessage }
+      ];
+
+      // Add conversation history if provided
+      if (options.conversationHistory && options.conversationHistory.length > 0) {
+        console.log(`📚 [OPENAI] Adding ${options.conversationHistory.length} messages from history`);
+        messages.push(...options.conversationHistory.slice(-10)); // Last 10 messages to avoid token limits
+      }
+
+      // Add current message
+      messages.push({ role: "user", content: prompt });
+
+      console.log(`🔧 [OPENAI] Final messages count: ${messages.length}, with history: ${!!options.conversationHistory}`);
+
       const response = await this.openai.chat.completions.create({
         model: options.model || "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-        messages: [
-          { role: "system", content: systemMessage },
-          { role: "user", content: prompt }
-        ],
+        messages: messages,
         temperature: options.temperature || 0.7,
         max_tokens: options.maxTokens || 1000,
       });

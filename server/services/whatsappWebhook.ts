@@ -338,11 +338,26 @@ export class WhatsAppWebhookService {
 
       console.log(`📱 Processing Evolution message from ${senderPhone} to instance ${instanceName}: "${messageText}"`);
 
+      // Buscar companyId da instância para passar no contexto
+      let companyId = undefined;
+      try {
+        const aiService = new AIService();
+        const dbInstanceId = await aiService.findDatabaseInstanceId(data.instanceId);
+        if (dbInstanceId) {
+          const storage = getStorage();
+          const instance = await storage.getWhatsappInstance(dbInstanceId);
+          companyId = instance?.companyId;
+        }
+      } catch (error) {
+        console.log(`⚠️ Could not fetch companyId from instance: ${error}`);
+      }
+
       // Processar mensagem com IA (incluindo dados de imagem se presente)
       const messageContext = {
         phone: senderPhone,
         message: messageText,
         instanceId: data.instanceId, // IMPORTANTE: Usar o instanceId real, não o nome
+        companyId: companyId, // Adicionar companyId para o contexto
         mediaUrl,
         mediaBase64,
         caption,
