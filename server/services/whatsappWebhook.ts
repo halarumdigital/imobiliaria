@@ -535,23 +535,24 @@ export class WhatsAppWebhookService {
       return false;
     }
     
-    // Verificar se tem conteúdo de texto ou imagem
+    // Verificar se tem conteúdo de texto, imagem ou áudio
     const messageText = data.message.conversation || data.message.extendedTextMessage?.text;
     const imageMessage = data.message.imageMessage;
+    const audioMessage = data.message.audioMessage;
     
-    if (!messageText && !imageMessage) {
-      console.log("❌ Evolution message ignored - no text or image content");
+    if (!messageText && !imageMessage && !audioMessage) {
+      console.log("❌ Evolution message ignored - no text, image or audio content");
       return false;
     }
 
-    // Se tem texto mas não tem imagem, verificar se está vazio
-    if (messageText && !imageMessage && messageText.trim().length === 0) {
+    // Se tem texto mas não tem imagem/áudio, verificar se está vazio
+    if (messageText && !imageMessage && !audioMessage && messageText.trim().length === 0) {
       console.log("❌ Evolution message ignored - empty text content");
       return false;
     }
 
-    // Verificar se o tipo de mensagem é suportado (texto ou imagem)
-    const supportedTypes = ['conversation', 'extendedTextMessage', 'imageMessage'];
+    // Verificar se o tipo de mensagem é suportado (texto, imagem ou áudio)
+    const supportedTypes = ['conversation', 'extendedTextMessage', 'imageMessage', 'audioMessage'];
     if (!supportedTypes.includes(data.messageType)) {
       console.log(`❌ Evolution message ignored - unsupported type: ${data.messageType}`);
       return false;
