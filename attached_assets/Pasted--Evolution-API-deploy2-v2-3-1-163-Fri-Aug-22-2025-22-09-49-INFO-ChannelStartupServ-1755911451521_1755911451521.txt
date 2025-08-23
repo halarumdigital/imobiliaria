@@ -1,0 +1,190 @@
+[Evolution API]  [deploy2]  v2.3.1  163   -  Fri Aug 22 2025 22:09:49     INFO   [ChannelStartupService]  [string]  Message duplicated ignored [avoid deadlock]: e5b71c35-276b-417e-a1c3-267f904b2b98_3EB08519D8524F2BA3A48B5BD6C01F1C0E4D55E9_3 
+
+[Evolution API]  [deploy2]  v2.3.1  163   -  Fri Aug 22 2025 22:09:50     LOG   [ChannelStartupService]  [string]  Update messages [
+
+  {
+
+    "key": {
+
+      "remoteJid": "554999214230@s.whatsapp.net",
+
+      "id": "3EB08519D8524F2BA3A48B5BD6C01F1C0E4D55E9",
+
+      "fromMe": true
+
+    },
+
+    "update": {
+
+      "status": 2
+
+    }
+
+  }
+
+] 
+
+[Evolution API]    v2.3.1  163   -  Fri Aug 22 2025 22:09:50     LOG   [WebsocketController]  [object]   
+
+{
+
+  local: 'p.sendData-WebsocketGlobal',
+
+  event: 'messages.update',
+
+  instance: 'deploy2',
+
+
+
+{
+
+    messageId: 'cmenkaz1m0enplh4jswb142a5',
+
+    keyId: '3EB08519D8524F2BA3A48B5BD6C01F1C0E4D55E9',
+
+    remoteJid: '554999214230@s.whatsapp.net',
+
+    fromMe: true,
+
+    participant: '554999214230@s.whatsapp.net',
+
+    status: 'SERVER_ACK',
+
+    pollUpdates: undefined,
+
+    instanceId: 'e5b71c35-276b-417e-a1c3-267f904b2b98'
+
+  },
+
+  server_url: 'https://apizap.halarum.com.br',
+
+  date_time: '2025-08-22T22:09:50.146Z',
+
+  sender: '5514981856962@s.whatsapp.net',
+
+  apikey: '94eff8b9da7b6c86e50b5c43334f6f69'
+
+} 
+
+[Evolution API]    v2.3.1  163   -  Fri Aug 22 2025 22:09:50     LOG   [WebhookController]  [object]   
+
+{
+
+  local: 'p.sendData-Webhook',
+
+  url: 'https://79e4e196-eb12-4414-8f84-45ae132f9718-00-ojvhl9qdrt4k.worf.replit.dev/api/webhook/messages/messages-update',
+
+  event: 'messages.update',
+
+  instance: 'deploy2',
+
+
+
+{
+
+    messageId: 'cmenkaz1m0enplh4jswb142a5',
+
+    keyId: '3EB08519D8524F2BA3A48B5BD6C01F1C0E4D55E9',
+
+    remoteJid: '554999214230@s.whatsapp.net',
+
+    fromMe: true,
+
+    participant: '554999214230@s.whatsapp.net',
+
+    status: 'SERVER_ACK',
+
+    pollUpdates: undefined,
+
+    instanceId: 'e5b71c35-276b-417e-a1c3-267f904b2b98'
+
+  },
+
+  destination: 'https://79e4e196-eb12-4414-8f84-45ae132f9718-00-ojvhl9qdrt4k.worf.replit.dev/api/webhook/messages',
+
+  date_time: '2025-08-22T22:09:50.146Z',
+
+  sender: '5514981856962@s.whatsapp.net',
+
+  server_url: 'https://apizap.halarum.com.br',
+
+  apikey: '94eff8b9da7b6c86e50b5c43334f6f69'
+
+} 
+
+[Evolution API]    v2.3.1  163   -  Fri Aug 22 2025 22:09:50     LOG   [WebsocketController]  [object]   
+
+{
+
+  local: 'p.sendData-WebsocketGlobal',
+
+  event: 'chats.upsert',
+
+  instance: 'deploy2',
+
+
+
+[
+
+    {
+
+      remoteJid: '554999214230@s.whatsapp.net',
+
+      instanceId: 'e5b71c35-276b-417e-a1c3-267f904b2b98',
+
+      unreadMessages: 0
+
+    }
+
+  ],
+
+  server_url: 'https://apizap.halarum.com.br',
+
+  date_time: '2025-08-22T22:09:50.160Z',
+
+  sender: '5514981856962@s.whatsapp.net',
+
+  apikey: '94eff8b9da7b6c86e50b5c43334f6f69'
+
+} 
+
+[Evolution API]    v2.3.1  163   -  Fri Aug 22 2025 22:09:50     LOG   [WebhookController]  [object]   
+
+{
+
+  local: 'p.sendData-Webhook',
+
+  url: 'https://79e4e196-eb12-4414-8f84-45ae132f9718-00-ojvhl9qdrt4k.worf.replit.dev/api/webhook/messages/chats-upsert',
+
+  event: 'chats.upsert',
+
+  instance: 'deploy2',
+
+
+
+[
+
+    {
+
+      remoteJid: '554999214230@s.whatsapp.net',
+
+      instanceId: 'e5b71c35-276b-417e-a1c3-267f904b2b98',
+
+      unreadMessages: 0
+
+    }
+
+  ],
+
+  destination: 'https://79e4e196-eb12-4414-8f84-45ae132f9718-00-ojvhl9qdrt4k.worf.replit.dev/api/webhook/messages',
+
+  date_time: '2025-08-22T22:09:50.160Z',
+
+  sender: '5514981856962@s.whatsapp.net',
+
+  server_url: 'https://apizap.halarum.com.br',
+
+  apikey: '94eff8b9da7b6c86e50b5c43334f6f69'
+
+} 
+

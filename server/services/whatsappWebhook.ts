@@ -175,7 +175,12 @@ export class WhatsAppWebhookService {
 
   async handleEvolutionMessage(evolutionData: EvolutionWebhookData): Promise<void> {
     try {
-      console.log("📨 Processing Evolution API message:", JSON.stringify(evolutionData, null, 2));
+      console.log("📨 [WEBHOOK] RAW Evolution API message received!");
+      console.log("📨 [WEBHOOK] Event type:", evolutionData.data?.messageType || 'unknown');
+      console.log("📨 [WEBHOOK] FromMe:", evolutionData.data?.key?.fromMe);
+      console.log("📨 [WEBHOOK] Status:", evolutionData.data?.status);
+      console.log("📨 [WEBHOOK] Available message fields:", Object.keys(evolutionData.data?.message || {}));
+      console.log("📨 [WEBHOOK] Full raw data:", JSON.stringify(evolutionData, null, 2));
 
       // Verificar se é uma mensagem válida para processar
       if (!this.shouldProcessEvolutionMessage(evolutionData)) {
@@ -445,9 +450,16 @@ export class WhatsAppWebhookService {
   private shouldProcessEvolutionMessage(evolutionData: EvolutionWebhookData): boolean {
     const data = evolutionData.data;
     
+    console.log("🔍 [FILTER] shouldProcessEvolutionMessage called");
+    console.log("🔍 [FILTER] data.key:", JSON.stringify(data.key, null, 2));
+    console.log("🔍 [FILTER] data.messageType:", data.messageType);
+    console.log("🔍 [FILTER] data.status:", data.status);
+    console.log("🔍 [FILTER] evolutionData.destination:", evolutionData.destination);
+    console.log("🔍 [FILTER] Available message types:", Object.keys(data.message));
+    
     // CRÍTICO: Verificar se a mensagem foi enviada por nós (evitar loop infinito)
     if (data.key?.fromMe === true) {
-      console.log("❌ Evolution message ignored - message sent by us (fromMe: true)");
+      console.log("❌ [FILTER] Evolution message ignored - message sent by us (fromMe: true)");
       return false;
     }
     
