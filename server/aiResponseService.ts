@@ -29,11 +29,7 @@ export class AiResponseService {
    */
   async generateResponse(request: AiResponseRequest): Promise<string> {
     try {
-      console.log(`🚨🚨🚨 [CRITICAL] AI-RESPONSE-SERVICE.GENERATE-RESPONSE CHAMADO!`);
-      console.log(`🤖 [AI-RESPONSE] Gerando resposta para agente ID: ${request.agentId} (Tipo: ${request.agentType || 'main'})`);
-      console.log(`🔍 [AI-RESPONSE] CompanyId recebido: ${request.companyId}`);
-      console.log(`🔍 [AI-RESPONSE] Mensagem: "${request.message}"`);
-      console.log(`🔍 [AI-RESPONSE] Request completo:`, JSON.stringify(request, null, 2));
+      console.log(`🤖 Gerando resposta para agente ID: ${request.agentId} (Tipo: ${request.agentType || 'main'})`);
       
       // If this is a main agent, check if we need to delegate to secondary agents
       if (request.agentType === 'main' && request.companyId) {
@@ -45,7 +41,6 @@ export class AiResponseService {
       }
 
       // Generate response from the current agent
-      console.log(`🔍 [AI-RESPONSE] Chamando generateDirectResponse...`);
       return await this.generateDirectResponse(request);
     } catch (error: any) {
       console.error('❌ Erro ao gerar resposta do agente:', error);
@@ -108,16 +103,7 @@ export class AiResponseService {
    */
   private async generateDirectResponse(request: AiResponseRequest): Promise<string> {
     // Check for property search integration first
-    console.log(`🚨🚨🚨 [CRITICAL-DEBUG] GENERATE-DIRECT-RESPONSE CHAMADO!`);
     console.log(`🏢 [DIRECT-RESPONSE] CompanyId presente: ${!!request.companyId}, valor: ${request.companyId}`);
-    console.log(`🏢 [DIRECT-RESPONSE] request.message: "${request.message}"`);
-    console.log(`🏢 [DIRECT-RESPONSE] request.userMessage: "${request.userMessage}"`);
-    
-    // Ensure userMessage is set (for backward compatibility)
-    if (!request.userMessage && request.message) {
-      request.userMessage = request.message;
-    }
-    
     if (request.companyId) {
       console.log(`🏢 [DIRECT-RESPONSE] Chamando handlePropertySearch...`);
       const propertyResponse = await this.handlePropertySearch(request);
@@ -188,95 +174,6 @@ ${request.conversationHistory && request.conversationHistory.length > 0
     );
 
     console.log(`✅ Resposta gerada com sucesso - Tamanho: ${response.content.length} caracteres`);
-    
-    // Verificar se a resposta do AI contém frases de intenção de busca
-    const aiResponseLower = response.content.toLowerCase();
-    const searchIntentPhrases = [
-      'vou procurar', 'vou buscar', 'vou verificar', 'vou pesquisar',
-      'deixa eu procurar', 'deixa eu buscar', 'deixa eu verificar',
-      'irei procurar', 'irei buscar', 'irei verificar',
-      'vou fazer uma busca', 'vou consultar', 'vou checar'
-    ];
-    
-    const hasSearchIntentInResponse = searchIntentPhrases.some(phrase => 
-      aiResponseLower.includes(phrase)
-    );
-    
-    console.log(`🔍 [AI-RESPONSE-CHECK] Resposta do AI contém intenção de busca?: ${hasSearchIntentInResponse}`);
-    
-    // Se o AI disse que vai procurar, executar a busca automaticamente
-    if (hasSearchIntentInResponse && request.companyId) {
-      console.log(`🏠 [AUTO-SEARCH] AI disse que vai procurar - executando busca automática de imóveis`);
-      
-      try {
-        // Criar um request de busca genérico (sem filtros específicos)
-        const searchRequest = {
-          ...request,
-          userMessage: 'apartamento casa imóvel', // Busca genérica para trazer vários resultados
-          message: 'apartamento casa imóvel'
-        };
-        
-        // Executar busca direta de imóveis na API sem filtros específicos
-        const storage = getStorage();
-        const apiSettings = await storage.getPropertyApiSettings(request.companyId!);
-        
-        if (!apiSettings || !apiSettings.apiUrl || !apiSettings.apiToken) {
-          console.log(`🏠 [AUTO-SEARCH] API não configurada para esta empresa`);
-          return response.content;
-        }
-        
-        // Buscar imóveis sem filtros específicos (trazer uma amostra geral)
-        const searchParams = {
-          filter: { 
-            SiteSuder: "Sim"
-          },
-          fields: [
-            "Codigo", "Categoria", "BairroComercial", "Cidade", "Suites", "DescricaoWeb", 
-            "Dormitorios", "Vagas", "Endereco", "Complemento", "AreaPrivativa", 
-            "ValorVenda", "ValorLocacao", "FotoDestaque"
-          ],
-          paginacao: { 
-            pagina: 1, 
-            quantidade: 5 // Trazer apenas 5 imóveis para não sobrecarregar
-          }
-        };
-        
-        const baseUrl = `${apiSettings.apiUrl}/imoveis/listar`;
-        const pesquisaParam = encodeURIComponent(JSON.stringify(searchParams));
-        const apiUrl = `${baseUrl}?key=${apiSettings.apiToken}&v2=1&pesquisa=${pesquisaParam}&showtotal=1`;
-        
-        console.log(`🏠 [AUTO-SEARCH] Fazendo busca automática na API`);
-        
-        const apiResponse = await fetch(apiUrl, {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json'
-          }
-        });
-        
-        if (apiResponse.ok) {
-          const data = await apiResponse.json();
-          
-          if (data.result && data.result.length > 0) {
-            console.log(`🏠 [AUTO-SEARCH] Encontrados ${data.result.length} imóveis`);
-            
-            // Formatar os resultados
-            const formattedResults = await this.formatPropertyResponse(data.result, request.message, request);
-            
-            // Adicionar os resultados à resposta do AI
-            const enhancedResponse = response.content + '\n\n' + formattedResults;
-            
-            return enhancedResponse;
-          }
-        }
-        
-        console.log(`🏠 [AUTO-SEARCH] Nenhum imóvel encontrado para adicionar à resposta`);
-      } catch (error) {
-        console.error(`❌ [AUTO-SEARCH] Erro na busca automática:`, error);
-        // Em caso de erro, retornar apenas a resposta original
-      }
-    }
-    
     return response.content;
   }
 
@@ -285,17 +182,8 @@ ${request.conversationHistory && request.conversationHistory.length > 0
    */
   private async handlePropertySearch(request: AiResponseRequest): Promise<string | null> {
     try {
-      console.log(`🚨🚨🚨 [CRITICAL] handlePropertySearch CHAMADO!`);
-      console.log(`🚨 [CRITICAL] request.message: "${request.message}"`);
-      console.log(`🚨 [CRITICAL] request.userMessage: "${request.userMessage}"`);
-      
-      const message = (request.userMessage || request.message || '').toLowerCase();
+      const message = request.message.toLowerCase();
       console.log(`🏠🏠🏠 [PROPERTY SEARCH] MÉTODO CHAMADO - Analisando mensagem: "${message}"`);
-      console.log(`🏠 [PROPERTY SEARCH] Request tem message: "${request.message}"`);
-      console.log(`🏠 [PROPERTY SEARCH] Request tem userMessage: "${request.userMessage}"`);
-      
-      // Extrair contexto da conversa para verificar se temos todas as informações necessárias
-      const conversationContext = await this.extractConversationContext(request);
       
       // Check if user is asking for photos or details of a specific property
       const photoKeywords = ['foto', 'fotos', 'imagem', 'imagens', 'envie fotos', 'me envie', 'quero ver', 'mostrar fotos'];
@@ -316,12 +204,9 @@ ${request.conversationHistory && request.conversationHistory.length > 0
       const propertyKeywords = [
         'imóvel', 'imovel', 'imóveis', 'imoveis', 'casa', 'casas', 'apartamento', 'apartamentos',
         'propriedade', 'propriedades', 'terreno', 'terrenos', 'venda', 'vender', 'comprar',
-        'aluguel', 'alugar', 'aluga', 'locação', 'locar', 'quarto', 'quartos', 'dormitório', 'dormitórios', 'garagem',
+        'aluguel', 'alugar', 'quarto', 'quartos', 'dormitório', 'dormitórios', 'garagem',
         'banheiro', 'banheiros', 'metro', 'metros', 'm²', 'preço', 'valor', 'disponível',
-        'disponíveis', 'localização', 'bairro', 'cidade', 'região', 'encontrou', 'achou', 'tem', 
-        'possui', 'existe', 'há', 'mostrar', 'ver', 'listar', 'opções', 'alternativas',
-        'vou procurar', 'vou buscar', 'vou verificar', 'vou pesquisar', 'procurar', 'buscar', 
-        'pesquisar', 'verificar', 'consultar', 'próxima', 'proxima', 'mais', 'outros', 'outras opções'
+        'disponíveis', 'localização', 'bairro', 'cidade', 'região'
       ];
 
       console.log(`🔍 [PROPERTY-KEYWORDS] Mensagem original: "${message}"`);
@@ -344,7 +229,11 @@ ${request.conversationHistory && request.conversationHistory.length > 0
       }
 
       console.log(`🏠 Detectada consulta sobre imóveis: "${request.message}"`);
-      
+
+      // Extrair contexto da conversa para verificar se temos todas as informações necessárias
+      const conversationContext = await this.extractConversationContext(request);
+      console.log(`📋 [CONTEXT] Informações extraídas da conversa:`, conversationContext);
+
       // SEMPRE verificar se temos todas as informações ANTES de qualquer tentativa de busca
       if (!conversationContext.nome || !conversationContext.telefone || 
           !conversationContext.tipoImovel || !conversationContext.finalidade || 
@@ -376,42 +265,9 @@ ${request.conversationHistory && request.conversationHistory.length > 0
       
       console.log(`✅ [CONTEXT] Todas as informações coletadas, AGORA sim fazendo busca`);
 
-      // Construir filtros baseados no contexto coletado
-      const filters: any = {};
-      
-      // Adicionar filtro de categoria baseado no tipo de imóvel
-      if (conversationContext.tipoImovel) {
-        const tipo = conversationContext.tipoImovel.toLowerCase();
-        if (tipo.includes('casa')) {
-          filters.Categoria = 'Casa';
-        } else if (tipo.includes('apartamento') || tipo.includes('apto')) {
-          filters.Categoria = 'Apartamento';
-        } else if (tipo.includes('terreno')) {
-          filters.Categoria = 'Terreno';
-        }
-      }
-      
-      // Adicionar filtro de cidade
-      if (conversationContext.cidade) {
-        filters.Cidade = conversationContext.cidade;
-      }
-      
-      // Adicionar filtro de finalidade (mas como a maioria é só venda, vamos ignorar por enquanto)
-      // if (conversationContext.finalidade === 'aluguel') {
-      //   filters.Finalidade = 'Locação';
-      // } else {
-      //   filters.Finalidade = 'Venda';
-      // }
-      
-      console.log(`🔍 Filtros construídos do contexto:`, filters);
-
-      // DOUBLE CHECK: Se chegou aqui sem as informações, PARAR e retornar mensagem de coleta
-      if (!conversationContext || !conversationContext.nome || !conversationContext.telefone || 
-          !conversationContext.tipoImovel || !conversationContext.finalidade || 
-          !conversationContext.cidade) {
-        console.log(`❌ [CRITICAL] Tentou buscar sem informações completas! Retornando para coleta.`);
-        return "Ótimo! Vou ajudá-lo a encontrar o imóvel perfeito. Para começar, qual é o seu nome?";
-      }
+      // Extract filters from the message using AI
+      const filters = await this.extractPropertyFilters(request.message);
+      console.log(`🔍 Filtros extraídos:`, filters);
 
       // Get API settings for the company
       const storage = getStorage();
@@ -450,11 +306,11 @@ ${request.conversationHistory && request.conversationHistory.length > 0
 Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
       }
 
-      // Search for properties seguindo formato n8n que funciona
+      // Search for properties (busca inicial sem fotos para performance)
       const searchParams = {
-        filter: { 
-          SiteSuder: "Sim",
-          ...(filters && Object.keys(filters).length > 0 ? filters : {})
+        filter: {
+          ...filters,
+          "SiteSuder": "Sim"
         },
         fields: [
           "Codigo", "Categoria", "BairroComercial", "Cidade", "Suites", "DescricaoWeb", 
@@ -462,32 +318,30 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
           "ValorVenda", "ValorLocacao", "FotoDestaque"
         ],
         paginacao: { 
-          pagina: conversationContext.pagina || 1,  // Usar a página do contexto
-          quantidade: 5  // Mostrar 5 imóveis por vez
+          pagina: "1", 
+          quantidade: "10" 
         }
       };
 
       console.log(`🔍 [DEBUG] Search params being sent:`, JSON.stringify(searchParams, null, 2));
-      console.log(`🔍 [DEBUG] API Settings:`, { 
-        apiUrl: apiSettings.apiUrl, 
-        hasToken: !!apiSettings.apiToken,
-        tokenLength: apiSettings.apiToken?.length 
-      });
 
-      // Construir URL seguindo formato n8n (com v2=1)
+      // Construir URL exatamente como no n8n
       const baseUrl = `${apiSettings.apiUrl}/imoveis/listar`;
-      const pesquisaParam = encodeURIComponent(JSON.stringify(searchParams));
-      const apiUrl = `${baseUrl}?key=${apiSettings.apiToken}&v2=1&pesquisa=${pesquisaParam}&showtotal=1`;
+      const queryParams = new URLSearchParams({
+        key: apiSettings.apiToken,
+        v2: "1",
+        pesquisa: JSON.stringify(searchParams),
+        showtotal: "1"
+      });
       
+      const apiUrl = `${baseUrl}?${queryParams.toString()}`;
       console.log(`🔍 [DEBUG] Final API URL:`, apiUrl);
 
       // Log API call start
       const apiCallStart = Date.now();
       console.log(`🚀 [DEBUG] Making API call to:`, apiUrl);
       
-      // Header obrigatório segundo documentação VistaHost
       const response = await fetch(apiUrl, {
-        method: 'GET',
         headers: {
           'Accept': 'application/json'
         }
@@ -526,90 +380,31 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
         sampleData: data
       });
 
-      // Com v2=1, VistaSoft retorna formato: {"result": [...], "paginacao": {...}}
+      // A API VistaHost pode retornar diferentes estruturas
       let properties = [];
       
-      console.log(`🔍 [DEBUG] Estrutura completa da resposta:`, JSON.stringify(data, null, 2));
-      
-      if (data.result && Array.isArray(data.result)) {
-        properties = data.result;
-        console.log(`🎯 [DEBUG] VistaSoft v2=1: Encontrados ${data.result.length} imóveis em data.result`);
-        
-        // Log dos metadados da paginação
-        if (data.paginacao) {
-          console.log(`📊 [DEBUG] VistaSoft metadados: Total=${data.paginacao.total}, Páginas=${data.paginacao.paginas}, Página=${data.paginacao.pagina}, Quantidade=${data.paginacao.quantidade}`);
-        }
-      } else if (Array.isArray(data)) {
+      if (Array.isArray(data)) {
         properties = data;
         console.log(`🔍 [DEBUG] Dados são array direto com ${data.length} itens`);
-      } else if (data.registros && Array.isArray(data.registros)) {
-        properties = data.registros;
-        console.log(`🔍 [DEBUG] Dados em data.registros com ${data.registros.length} itens`);
-      } else if (data && typeof data === 'object') {
-        // Fallback: formato antigo com chaves numéricas
-        const propertyKeys = Object.keys(data).filter(key => 
-          !['total', 'paginas', 'pagina', 'quantidade', 'result', 'paginacao'].includes(key) && 
-          data[key] && 
-          typeof data[key] === 'object' && 
-          (data[key].Codigo || data[key].codigo)
-        );
-        
-        if (propertyKeys.length > 0) {
-          properties = propertyKeys.map(key => ({
-            ...data[key],
-            _id: key,
-            _originalKey: key
-          }));
-          console.log(`🎯 [DEBUG] VistaSoft formato antigo: Encontrados ${properties.length} imóveis em formato objeto (chaves: ${propertyKeys.join(', ')})`);
-        } else {
-          console.log(`🔍 [DEBUG] Estrutura de objeto não contém imóveis reconhecíveis`);
-        }
+      } else if (data.result && Array.isArray(data.result)) {
+        properties = data.result;
+        console.log(`🔍 [DEBUG] Dados em data.result com ${data.result.length} itens`);
+      } else if (data.imoveis && Array.isArray(data.imoveis)) {
+        properties = data.imoveis;
+        console.log(`🔍 [DEBUG] Dados em data.imoveis com ${data.imoveis.length} itens`);
+      } else if (data.data && Array.isArray(data.data)) {
+        properties = data.data;
+        console.log(`🔍 [DEBUG] Dados em data.data com ${data.data.length} itens`);
       } else {
-        console.log(`🔍 [DEBUG] Estrutura não reconhecida, tentando buscar arrays:`);
-        Object.keys(data || {}).forEach(key => {
-          const value = data[key];
-          console.log(`🔍 [DEBUG] Chave "${key}": tipo=${typeof value}, isArray=${Array.isArray(value)}, length=${Array.isArray(value) ? value.length : 'N/A'}`);
-          
-          if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'object') {
-            const firstItem = value[0];
-            const hasPropertyFields = firstItem.Codigo || firstItem.codigo || firstItem.id || 
-                                    firstItem.Categoria || firstItem.categoria || 
-                                    firstItem.Endereco || firstItem.endereco ||
-                                    firstItem.ValorVenda || firstItem.valorVenda ||
-                                    firstItem.ValorLocacao || firstItem.valorLocacao;
-            if (hasPropertyFields) {
-              console.log(`🎯 [DEBUG] Encontrado array de imóveis na chave "${key}" com ${value.length} itens`);
-              properties = value;
-            }
-          }
-        });
+        console.log(`🔍 [DEBUG] Estrutura não reconhecida:`, JSON.stringify(data, null, 2));
       }
       
       console.log(`✅ [PROPERTY-SEARCH] ${properties.length || 0} imóveis encontrados`);
-      
-      // 🔧 DEBUGGING: Log especial para verificar se a correção está funcionando
-      console.log(`🔧 [WHATSAPP-DEBUG] RESULTADO FINAL:`, {
-        propertiesCount: properties.length,
-        dataType: typeof data,
-        dataKeys: data ? Object.keys(data).slice(0, 10) : [],
-        hasNumericKeys: data ? Object.keys(data).some(k => !isNaN(Number(k))) : false,
-        sample: properties.length > 0 ? properties[0] : null
-      });
 
       // Verificar se temos dados válidos
       if (!properties || properties.length === 0) {
         console.log(`❌ [PROPERTY-SEARCH] Nenhum imóvel encontrado`);
         console.log(`🔍 [DEBUG] Estrutura da resposta completa:`, JSON.stringify(data, null, 2));
-        
-        // 🚨 ALERTA: Se chegou aqui, a correção VistaSoft não funcionou
-        console.log(`🚨 [WHATSAPP-DEBUG] CORREÇÃO VISTASOFT FALHOU! Dados recebidos:`, {
-          type: typeof data,
-          isArray: Array.isArray(data),
-          keys: data ? Object.keys(data) : [],
-          hasTotal: data && data.total,
-          rawData: data
-        });
-        
         return "Não encontrei imóveis que correspondem aos critérios solicitados. Posso ajudar com uma busca mais ampla?";
       }
 
@@ -630,15 +425,7 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
       });
 
       // Format the response with found properties
-      const formattedResponse = await this.formatPropertyResponse(properties, request.message, request);
-      
-      // Adicionar informação sobre paginação se houver mais imóveis
-      let paginationInfo = '';
-      if (data.paginacao && data.paginacao.total > (conversationContext.pagina * 5)) {
-        paginationInfo = `\n\n📄 Mostrando página ${conversationContext.pagina} de ${Math.ceil(data.paginacao.total / 5)}. Digite "próxima", "mais opções" ou "outros" para ver mais imóveis.`;
-      }
-      
-      return formattedResponse + paginationInfo;
+      return await this.formatPropertyResponse(properties, request.message, request);
 
     } catch (error) {
       console.error("❌ Erro na busca de imóveis:", error);
@@ -651,14 +438,15 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
    */
   private async extractConversationContext(request: AiResponseRequest): Promise<any> {
     try {
+      console.log(`📋 [CONTEXT] Analisando contexto da conversa para extrair informações`);
       const conversationHistory = request.conversationHistory || [];
       const allMessages = conversationHistory.map(m => m.content).join(' ');
       
       // Adicionar mensagem atual
       const fullContext = allMessages + ' ' + request.message;
       
-      console.log(`📋 [CONTEXT] Analisando contexto da conversa para extrair informações`);
-      
+      console.log(`📋 [CONTEXT] Histórico completo para análise: ${fullContext.substring(0, 200)}...`);
+
       // Usar AI para extrair informações estruturadas da conversa
       const extractionPrompt = `
         Analise o histórico de conversa e extraia as seguintes informações que o cliente forneceu:
@@ -686,8 +474,9 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
         Se o cliente pediu "próxima página", "mais opções", "outros imóveis" incremente a página.
       `;
       
-      const contextResponse = await this.openAiService.generateContent(
+      const contextResponse = await this.openAiService.generateResponse(
         extractionPrompt,
+        "Você é um assistente especializado em extrair informações estruturadas de conversas. Retorne apenas JSON válido.",
         { 
           temperature: 0.1,
           maxTokens: 200
@@ -704,7 +493,7 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
         console.log(`📋 [CONTEXT] Contexto extraído:`, context);
         return context;
       } catch (error) {
-        console.log(`⚠️ [CONTEXT] Erro ao parsear contexto, retornando vazio`);
+        console.log(`⚠️ [CONTEXT] Erro ao parsear contexto, retornando vazio:`, error);
         return {
           nome: null,
           telefone: null,
@@ -781,13 +570,6 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
   private async formatPropertyResponse(properties: any[], originalMessage: string, request?: AiResponseRequest): Promise<string> {
     try {
       if (!properties || properties.length === 0) {
-        // Verificar se o usuário estava buscando aluguel
-        const isRentalSearch = originalMessage.toLowerCase().includes('alug');
-        
-        if (isRentalSearch) {
-          return "No momento não temos imóveis disponíveis para locação, mas temos excelentes opções para venda! Gostaria de ver nossos imóveis à venda?";
-        }
-        
         return "Não encontrei imóveis que correspondem aos critérios solicitados. Posso ajudar com uma busca mais ampla?";
       }
 
@@ -878,7 +660,7 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
       };
 
       const searchQuery = encodeURIComponent(JSON.stringify(searchParams));
-      const apiUrl = `${apiSettings.apiUrl}/imoveis/detalhes?key=${apiSettings.apiToken}&pesquisa=${searchQuery}&imovel=${propertyCode}`;
+      const apiUrl = `${apiSettings.apiUrl}/imoveis/detalhes?key=${apiSettings.apiToken}&v2=1&pesquisa=${searchQuery}&imovel=${propertyCode}`;
 
       const response = await fetch(apiUrl, {
         headers: {
