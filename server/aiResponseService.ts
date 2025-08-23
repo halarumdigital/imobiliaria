@@ -544,7 +544,7 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
       };
 
       const searchQuery = encodeURIComponent(JSON.stringify(searchParams));
-      const apiUrl = `${apiSettings.apiUrl}/imoveis/detalhes?key=${apiSettings.apiToken}&v2=1&pesquisa=${searchQuery}&imovel=${propertyCode}`;
+      const apiUrl = `${apiSettings.apiUrl}/imoveis/detalhes?key=${apiSettings.apiToken}&pesquisa=${searchQuery}&imovel=${propertyCode}`;
 
       const response = await fetch(apiUrl, {
         headers: {
