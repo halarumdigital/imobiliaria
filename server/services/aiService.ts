@@ -116,13 +116,14 @@ export class AIService {
         return null;
       }
       
-      console.log(`✅ AI Config found with apiKey: ${aiConfig.apiKey ? 'YES' : 'NO'}`);
+      console.log(`✅ AI Config found with apiKey: ${aiConfig.apiKey ? 'YES (length: ' + aiConfig.apiKey.length + ')' : 'NO'}`);
       console.log(`🔧 AI Config details:`, {
         temperatura: aiConfig.temperatura,
         temperaturaType: typeof aiConfig.temperatura,
         numeroTokens: aiConfig.numeroTokens,
         numeroTokensType: typeof aiConfig.numeroTokens,
-        modelo: aiConfig.modelo
+        modelo: aiConfig.modelo,
+        apiKeyPrefix: aiConfig.apiKey ? aiConfig.apiKey.substring(0, 10) + '...' : 'NONE'
       });
       console.log(`✅ Agent found: ${mainAgent.name}, ID: ${mainAgent.id}`);
 
@@ -152,6 +153,8 @@ export class AIService {
       
       // Gerar resposta usando OpenAI
       console.log(`🤖 Gerando resposta com agente ativo: ${activeAgent.name} (Tipo: ${activeAgent.agentType || 'main'})`);
+      console.log(`🔑 Testando inicialização OpenAI com chave: ${aiConfig.apiKey ? aiConfig.apiKey.substring(0, 8) + '...' : 'MISSING'}`);
+      
       const response = await this.generateResponse(activeAgent, contextWithHistory, aiConfig);
 
       return {
@@ -306,13 +309,18 @@ export class AIService {
 
   private async generateResponse(agent: any, context: MessageContext, aiConfig: any): Promise<string> {
     try {
+      console.log(`🤖 [GENERATE] Starting generateResponse for agent: ${agent.name}`);
+      console.log(`🔑 [GENERATE] API Key exists: ${!!aiConfig.apiKey}, length: ${aiConfig.apiKey?.length || 0}`);
+      
       // Verificar se temos a chave OpenAI na configuração do administrador
       if (!aiConfig.apiKey) {
         return "Desculpe, o serviço de IA não está configurado. Entre em contato com o administrador.";
       }
 
       // Criar instância do OpenAI com a chave da configuração
+      console.log(`🔧 [GENERATE] Creating OpenAI instance...`);
       const openai = new OpenAI({ apiKey: aiConfig.apiKey });
+      console.log(`✅ [GENERATE] OpenAI instance created successfully`);}
 
       // Construir o prompt do sistema baseado no agente (usando lógica do AiResponseService)
       let systemPrompt = agent.prompt || `Você é ${agent.name}, um assistente de IA especializado.`;
@@ -365,8 +373,10 @@ export class AIService {
       }
 
       // Gerar resposta usando OpenAI
-      console.log(`🔧 Pre-OpenAI call - temperatura: ${aiConfig.temperatura}, type: ${typeof aiConfig.temperatura}`);
-      console.log(`🔧 Pre-OpenAI call - numeroTokens: ${aiConfig.numeroTokens}, type: ${typeof aiConfig.numeroTokens}`);
+      console.log(`🔧 [OPENAI] Pre-OpenAI call - temperatura: ${aiConfig.temperatura}, type: ${typeof aiConfig.temperatura}`);
+      console.log(`🔧 [OPENAI] Pre-OpenAI call - numeroTokens: ${aiConfig.numeroTokens}, type: ${typeof aiConfig.numeroTokens}`);
+      console.log(`🔧 [OPENAI] Messages count: ${messages.length}, has image: ${context.messageType === 'image'}`);
+      console.log(`🔧 [OPENAI] About to call OpenAI API...`);
       
       const response = await openai.chat.completions.create({
         model: "gpt-4o", // Hardcode para garantir - gpt-4o suporta imagens
@@ -374,6 +384,8 @@ export class AIService {
         max_tokens: 1000, // Hardcode para garantir
         temperature: 0.7, // Hardcode para garantir
       });
+      
+      console.log(`✅ [OPENAI] OpenAI call successful, response length: ${response.choices[0]?.message?.content?.length || 0}`);
 
       return response.choices[0].message.content || "Desculpe, não consegui gerar uma resposta.";
 
