@@ -1271,46 +1271,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Empresa não encontrada" });
       }
       
+      console.log(`🔍 [DEBUG] Buscando stats para empresa: ${user.companyId}`);
+      
       // Buscar todas as instâncias da empresa
       const instances = await storage.getWhatsappInstancesByCompany(user.companyId);
+      console.log(`🔍 [DEBUG] Instâncias encontradas: ${instances.length}`, instances.map(i => ({ id: i.id, name: i.name })));
       
       let totalStats: any = {};
+      let totalMessages = 0;
+      let assistantMessages = 0;
+      let messagesWithAgent = 0;
       
       for (const instance of instances) {
         // Buscar conversas da instância
         const conversations = await storage.getConversationsByInstance(instance.id);
+        console.log(`🔍 [DEBUG] Conversas para instância ${instance.name}: ${conversations.length}`);
         
         for (const conversation of conversations) {
           // Buscar mensagens da conversa
           const messages = await storage.getMessagesByConversation(conversation.id);
+          console.log(`🔍 [DEBUG] Mensagens na conversa ${conversation.id}: ${messages.length}`);
+          totalMessages += messages.length;
           
           // Contar uso de agentes
           for (const message of messages) {
-            if (message.sender === 'assistant' && message.agentId) {
-              try {
-                const agent = await storage.getAiAgent(message.agentId);
-                if (agent) {
-                  const agentKey = `${agent.id}|${agent.name}|${agent.agentType || 'main'}`;
-                  if (!totalStats[agentKey]) {
-                    totalStats[agentKey] = {
-                      agentId: agent.id,
-                      agentName: agent.name,
-                      agentType: agent.agentType || 'main',
-                      specialization: agent.specialization,
-                      messageCount: 0,
-                      conversationCount: new Set()
-                    };
+            if (message.sender === 'assistant') {
+              assistantMessages++;
+              console.log(`🔍 [DEBUG] Mensagem assistant encontrada - AgentId: ${message.agentId}, Content: ${message.content?.substring(0, 50)}...`);
+              
+              if (message.agentId) {
+                messagesWithAgent++;
+                try {
+                  const agent = await storage.getAiAgent(message.agentId);
+                  if (agent) {
+                    const agentKey = `${agent.id}|${agent.name}|${agent.agentType || 'main'}`;
+                    if (!totalStats[agentKey]) {
+                      totalStats[agentKey] = {
+                        agentId: agent.id,
+                        agentName: agent.name,
+                        agentType: agent.agentType || 'main',
+                        specialization: agent.specialization,
+                        messageCount: 0,
+                        conversationCount: new Set()
+                      };
+                    }
+                    totalStats[agentKey].messageCount++;
+                    totalStats[agentKey].conversationCount.add(conversation.id);
                   }
-                  totalStats[agentKey].messageCount++;
-                  totalStats[agentKey].conversationCount.add(conversation.id);
+                } catch (error) {
+                  console.error(`Error processing agent ${message.agentId}:`, error);
                 }
-              } catch (error) {
-                console.error(`Error processing agent ${message.agentId}:`, error);
               }
             }
           }
         }
       }
+      
+      console.log(`🔍 [DEBUG] Totais: ${totalMessages} mensagens, ${assistantMessages} de assistant, ${messagesWithAgent} com agentId`);
+      console.log(`🔍 [DEBUG] Stats processadas:`, Object.keys(totalStats).length, 'agentes');
       
       // Converter Sets em contadores
       const stats = Object.values(totalStats).map((stat: any) => ({
