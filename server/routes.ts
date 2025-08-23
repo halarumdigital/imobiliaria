@@ -2406,24 +2406,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
               keys: typeof data === 'object' ? Object.keys(data || {}) : 'N/A'
             });
 
+            // Apply VistaSoft parsing logic with detailed debugging
+            let propertyCount = 0;
+            let sampleProperty = null;
+            
+            console.log("🔍 [PARSING-DEBUG] Starting property parsing...");
+            
+            if (Array.isArray(data)) {
+              propertyCount = data.length;
+              sampleProperty = data.length > 0 ? data[0] : null;
+              console.log("🔍 [PARSING-DEBUG] Data is array:", propertyCount);
+            } else if (data && typeof data === 'object') {
+              console.log("🔍 [PARSING-DEBUG] Data is object, keys:", Object.keys(data));
+              
+              // VistaSoft format: object with numeric keys for properties
+              const allKeys = Object.keys(data);
+              const excludeKeys = ['total', 'paginas', 'pagina', 'quantidade'];
+              const propertyKeys = allKeys.filter(key => {
+                const isExcluded = excludeKeys.includes(key);
+                const hasData = data[key] && typeof data[key] === 'object';
+                const hasCodigo = hasData && (data[key].Codigo || data[key].codigo);
+                
+                console.log(`🔍 [PARSING-DEBUG] Key "${key}": excluded=${isExcluded}, hasData=${hasData}, hasCodigo=${hasCodigo}`);
+                
+                return !isExcluded && hasData && hasCodigo;
+              });
+              
+              console.log("🔍 [PARSING-DEBUG] Property keys found:", propertyKeys);
+              propertyCount = propertyKeys.length;
+              sampleProperty = propertyKeys.length > 0 ? data[propertyKeys[0]] : null;
+            }
+            
+            console.log("🔍 [PARSING-DEBUG] Final count:", propertyCount);
+
             result.vistaSoftTest = {
               success: true,
               responseStatus: response.status,
               dataType: typeof data,
               isArray: Array.isArray(data),
-              count: Array.isArray(data) ? data.length : 0,
-              sampleData: Array.isArray(data) && data.length > 0 ? {
-                Codigo: data[0].Codigo,
-                Categoria: data[0].Categoria,
-                Cidade: data[0].Cidade,
-                ValorVenda: data[0].ValorVenda,
-                ValorLocacao: data[0].ValorLocacao
-              } : data,
-              message: Array.isArray(data) ? `Found ${data.length} properties` : 'No properties found'
+              count: propertyCount,
+              totalFromAPI: data.total || 'N/A',
+              sampleData: sampleProperty || data,
+              message: propertyCount > 0 ? `Found ${propertyCount} properties` : 'No properties found',
+              metaData: data.total ? {
+                total: data.total,
+                pages: data.paginas,
+                currentPage: data.pagina,
+                perPage: data.quantidade
+              } : null
             };
 
-            if (Array.isArray(data) && data.length > 0) {
-              console.log("✅ [VISTASOFT-TEST] Found properties:", data.length);
+            if (propertyCount > 0) {
+              console.log(`✅ [VISTASOFT-TEST] Found ${propertyCount} properties!`);
             } else {
               console.log("⚠️ [VISTASOFT-TEST] No properties found");
             }
