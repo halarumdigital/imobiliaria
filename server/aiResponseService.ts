@@ -349,7 +349,7 @@ ${request.conversationHistory && request.conversationHistory.length > 0
       if (!conversationContext.nome || !conversationContext.telefone || 
           !conversationContext.tipoImovel || !conversationContext.finalidade || 
           !conversationContext.cidade) {
-        console.log(`📋 [CONTEXT] Informações faltando - deixar o AI coletar:`, {
+        console.log(`📋 [CONTEXT] Informações faltando - instruir AI a coletar:`, {
           nome: !!conversationContext.nome,
           telefone: !!conversationContext.telefone,
           tipoImovel: !!conversationContext.tipoImovel,
@@ -357,7 +357,30 @@ ${request.conversationHistory && request.conversationHistory.length > 0
           cidade: !!conversationContext.cidade
         });
         
-        // Retornar null para deixar o AI pedir as informações faltantes na ordem correta
+        // Gerar mensagem instruindo o AI a coletar as informações faltantes
+        let missingInfo = [];
+        if (!conversationContext.nome) missingInfo.push("nome");
+        if (!conversationContext.telefone) missingInfo.push("telefone");
+        if (!conversationContext.tipoImovel) missingInfo.push("tipo de imóvel");
+        if (!conversationContext.finalidade) missingInfo.push("finalidade (compra ou aluguel)");
+        if (!conversationContext.cidade) missingInfo.push("cidade");
+        
+        // Retornar uma resposta indicando que precisa coletar informações
+        const firstMissing = missingInfo[0];
+        
+        if (firstMissing === "nome") {
+          return "Ótimo! Vou ajudá-lo a encontrar o imóvel perfeito. Para começar, qual é o seu nome?";
+        } else if (firstMissing === "telefone") {
+          return "Perfeito! Agora preciso do seu telefone para contato.";
+        } else if (firstMissing === "tipo de imóvel") {
+          return "Excelente! Que tipo de imóvel você está procurando? (casa, apartamento, terreno, etc)";
+        } else if (firstMissing === "finalidade (compra ou aluguel)") {
+          return "Entendi! Você deseja comprar ou alugar?";
+        } else if (firstMissing === "cidade") {
+          return "Ótimo! Em qual cidade você está procurando o imóvel?";
+        }
+        
+        // Se por algum motivo não entrar nos casos acima, deixar o AI lidar
         return null;
       }
       
