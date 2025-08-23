@@ -77,6 +77,19 @@ export interface IStorage {
     executionTime: number;
     userPhone: string | null;
   }): Promise<void>;
+  getApiCallLogs(companyId: string, limit?: number): Promise<{
+    id: string;
+    companyId: string;
+    agentId: string;
+    apiType: string;
+    endpoint: string;
+    requestData: any;
+    responseStatus: string;
+    responseData: any;
+    executionTime: number;
+    userPhone: string | null;
+    createdAt: Date;
+  }[]>;
 }
 
 export class MySQLStorage implements IStorage {
@@ -1076,6 +1089,45 @@ export class MySQLStorage implements IStorage {
         logData.userPhone
       ]
     );
+  }
+
+  async getApiCallLogs(companyId: string, limit: number = 100): Promise<{
+    id: string;
+    companyId: string;
+    agentId: string;
+    apiType: string;
+    endpoint: string;
+    requestData: any;
+    responseStatus: string;
+    responseData: any;
+    executionTime: number;
+    userPhone: string | null;
+    createdAt: Date;
+  }[]> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const [rows] = await this.connection.execute(
+      `SELECT * FROM api_call_logs 
+       WHERE company_id = ? 
+       ORDER BY created_at DESC 
+       LIMIT ?`,
+      [companyId, limit]
+    );
+    
+    const rawRows = rows as any[];
+    return rawRows.map(row => ({
+      id: row.id,
+      companyId: row.company_id,
+      agentId: row.agent_id,
+      apiType: row.api_type,
+      endpoint: row.endpoint,
+      requestData: JSON.parse(row.request_data || '{}'),
+      responseStatus: row.response_status,
+      responseData: JSON.parse(row.response_data || '{}'),
+      executionTime: row.execution_time,
+      userPhone: row.user_phone,
+      createdAt: row.created_at
+    }));
   }
 }
 

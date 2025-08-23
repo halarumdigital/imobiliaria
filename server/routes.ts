@@ -1298,6 +1298,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test endpoint to simulate API call logging
+  app.post("/api/test-api-log", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      console.log("🧪 [TEST-API-LOG] Creating test log for company:", req.user?.companyId);
+      
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+      
+      // Simulate an API call log
+      await storage.logApiCall({
+        companyId: req.user.companyId,
+        agentId: "test-agent-id",
+        apiType: "VistaHost",
+        endpoint: "https://api.vistahost.com.br/properties/search",
+        requestData: {
+          filters: {
+            location: "São Paulo",
+            priceMin: 500000,
+            priceMax: 1000000,
+            propertyType: "apartamento"
+          }
+        },
+        responseStatus: "200",
+        responseData: {
+          count: 15,
+          properties: ["prop1", "prop2", "prop3"]
+        },
+        executionTime: 1250,
+        userPhone: "+5511999999999"
+      });
+      
+      console.log("🧪 [TEST-API-LOG] Test log created successfully");
+      res.json({ success: true, message: "Log de API criado com sucesso para teste" });
+    } catch (error) {
+      console.error("Test API log error:", error);
+      res.status(500).json({ error: "Erro ao criar log de teste" });
+    }
+  });
+
+  // API Call Logs endpoint
+  app.get("/api/api-call-logs", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      console.log("🔍 [API-CALL-LOGS] Request received for company:", req.user?.companyId);
+      
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+      
+      const limit = parseInt(req.query.limit as string) || 100;
+      console.log("🔍 [API-CALL-LOGS] Fetching logs with limit:", limit);
+      
+      const logs = await storage.getApiCallLogs(req.user.companyId, limit);
+      console.log("🔍 [API-CALL-LOGS] Found logs:", logs.length);
+      
+      res.json(logs);
+    } catch (error) {
+      console.error("Get API call logs error:", error);
+      res.status(500).json({ error: "Erro ao buscar logs de chamadas da API" });
+    }
+  });
+
   app.get('/api/agents/usage-stats', authenticate, requireClient, async (req: AuthRequest, res) => {
     try {
       const user = req.user;

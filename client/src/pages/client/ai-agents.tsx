@@ -22,17 +22,28 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 function AgentUsageHistory() {
   const { toast } = useToast();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showApiLogs, setShowApiLogs] = useState(false);
   
   const { data: usageStats = [], refetch } = useQuery({
     queryKey: ["/api/agents/usage-stats"],
     select: (data: any[]) => data.sort((a, b) => b.messageCount - a.messageCount)
   });
 
+  const { data: apiLogs = [], refetch: refetchApiLogs } = useQuery({
+    queryKey: ["/api/api-call-logs"],
+    queryFn: () => apiGet("/api-call-logs?limit=50"),
+    enabled: showApiLogs
+  });
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
       await queryClient.invalidateQueries({ queryKey: ["/api/agents/usage-stats"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/api-call-logs"] });
       await refetch();
+      if (showApiLogs) {
+        await refetchApiLogs();
+      }
       toast({
         title: "Estatísticas atualizadas",
         description: "Os dados foram recarregados com sucesso",
@@ -175,6 +186,133 @@ function AgentUsageHistory() {
             ))
           )}
         </div>
+      </div>
+
+      {/* API Call Logs Section */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-lg font-semibold">🔌 Histórico de Chamadas API</h3>
+          <div className="flex gap-2">
+            <Button 
+              onClick={async () => {
+                try {
+                  await apiPost("/test-api-log", {});
+                  toast({
+                    title: "Log de teste criado",
+                    description: "Um log de API de exemplo foi adicionado",
+                  });
+                  queryClient.invalidateQueries({ queryKey: ["/api/api-call-logs"] });
+                  refetchApiLogs();
+                } catch (error) {
+                  toast({
+                    title: "Erro",
+                    description: "Não foi possível criar o log de teste",
+                    variant: "destructive",
+                  });
+                }
+              }}
+              variant="outline" 
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              🧪 Teste
+            </Button>
+            <Button 
+              onClick={() => {
+                setShowApiLogs(!showApiLogs);
+                if (!showApiLogs) {
+                  queryClient.invalidateQueries({ queryKey: ["/api/api-call-logs"] });
+                }
+              }}
+              variant="outline" 
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              {showApiLogs ? 'Ocultar' : 'Mostrar'} Logs de API
+            </Button>
+          </div>
+        </div>
+        
+        {showApiLogs && (
+          <>
+            <p className="text-sm text-muted-foreground mb-4">
+              Histórico completo de todas as chamadas para APIs externas (VistaHost, etc.)
+            </p>
+            
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {apiLogs.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="w-12 h-12 mx-auto text-muted-foreground mb-2 bg-gray-100 rounded-lg flex items-center justify-center">
+                    🔌
+                  </div>
+                  <p className="text-muted-foreground">Nenhuma chamada de API encontrada</p>
+                </div>
+              ) : (
+                apiLogs.map((log: any) => (
+                  <Card key={log.id} className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start space-x-3 flex-1">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                          log.responseStatus.startsWith('2') ? 'bg-green-100 dark:bg-green-900' : 'bg-red-100 dark:bg-red-900'
+                        }`}>
+                          <span className={`text-xs font-bold ${
+                            log.responseStatus.startsWith('2') ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                          }`}>
+                            {log.responseStatus.startsWith('2') ? '✓' : '✗'}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="font-medium text-sm truncate">{log.apiType}</p>
+                            <Badge variant="outline" className="text-xs">
+                              {log.responseStatus}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {log.executionTime}ms
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate mb-1">
+                            {log.endpoint}
+                          </p>
+                          {log.userPhone && (
+                            <p className="text-xs text-blue-600 dark:text-blue-400">
+                              📱 {log.userPhone}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right text-xs text-muted-foreground ml-4">
+                        <p>{format(new Date(log.createdAt), "dd/MM/yyyy", { locale: ptBR })}</p>
+                        <p>{format(new Date(log.createdAt), "HH:mm:ss", { locale: ptBR })}</p>
+                      </div>
+                    </div>
+                    
+                    {/* Request/Response Details - Collapsible */}
+                    <details className="mt-3">
+                      <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+                        Ver detalhes da requisição/resposta
+                      </summary>
+                      <div className="mt-2 space-y-2">
+                        <div>
+                          <p className="text-xs font-medium mb-1">Dados da Requisição:</p>
+                          <pre className="text-xs bg-muted p-2 rounded max-h-32 overflow-auto">
+                            {JSON.stringify(log.requestData, null, 2)}
+                          </pre>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium mb-1">Resposta da API:</p>
+                          <pre className="text-xs bg-muted p-2 rounded max-h-32 overflow-auto">
+                            {JSON.stringify(log.responseData, null, 2)}
+                          </pre>
+                        </div>
+                      </div>
+                    </details>
+                  </Card>
+                ))
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
