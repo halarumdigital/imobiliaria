@@ -13,31 +13,14 @@ import { queryClient } from "@/lib/queryClient";
 import { apiGet, apiPost, apiPut, apiDelete } from "@/lib/api";
 import { AiAgent, WhatsappInstance } from "@/types";
 import { ObjectUploader } from "@/components/ObjectUploader";
-import { Bot, Plus, Edit, Trash2, FileText, Upload, TestTube2, Send, BarChart3, Clock, MessageCircle, User } from "lucide-react";
+import { Bot, Plus, Edit, Trash2, FileText, Upload, TestTube2, Send, BarChart3 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 // Component for Agent Usage History
 function AgentUsageHistory() {
-  const [selectedInstanceId, setSelectedInstanceId] = useState<string>("");
-  const [selectedConversationId, setSelectedConversationId] = useState<string>("");
-
-  const { data: instances = [] } = useQuery<WhatsappInstance[]>({
-    queryKey: ["/api/whatsapp-instances"],
-  });
-
   const { data: usageStats = [] } = useQuery({
     queryKey: ["/api/agents/usage-stats"],
     select: (data: any[]) => data.sort((a, b) => b.messageCount - a.messageCount)
-  });
-
-  const { data: conversations = [] } = useQuery({
-    queryKey: [`/api/conversations/by-instance/${selectedInstanceId}`],
-    enabled: !!selectedInstanceId,
-  });
-
-  const { data: messagesWithAgents = [] } = useQuery({
-    queryKey: [`/api/conversations/${selectedConversationId}/messages-with-agents`],
-    enabled: !!selectedConversationId,
   });
 
   return (
@@ -106,75 +89,53 @@ function AgentUsageHistory() {
       </div>
 
       <div>
-        <h3 className="text-lg font-semibold mb-2">🔍 Detalhamento por Conversa</h3>
+        <h3 className="text-lg font-semibold mb-2">🤖 Histórico de Acionamentos</h3>
         <p className="text-sm text-muted-foreground mb-4">
-          Selecione uma instância e conversa para ver qual agente respondeu cada mensagem
+          Lista de quando e qual agente foi acionado
         </p>
         
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="instance-select">Selecione uma Instância WhatsApp</Label>
-            <Select value={selectedInstanceId} onValueChange={setSelectedInstanceId}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Escolha uma instância..." />
-              </SelectTrigger>
-              <SelectContent>
-                {instances.map((instance) => (
-                  <SelectItem key={instance.id} value={instance.id}>
-                    📱 {instance.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {selectedInstanceId && (
-            <div>
-              <Label htmlFor="conversation-select">Selecione uma Conversa</Label>
-              <Select value={selectedConversationId} onValueChange={setSelectedConversationId}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Escolha uma conversa..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {conversations.map((conversation: any) => (
-                    <SelectItem key={conversation.id} value={conversation.id}>
-                      📞 {conversation.contactPhone} {conversation.contactName && `(${conversation.contactName})`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        {/* Lista simples de acionamentos */}
+        <div className="space-y-2 max-h-96 overflow-y-auto">
+          {usageStats.length === 0 ? (
+            <div className="text-center py-8">
+              <Bot className="w-12 h-12 mx-auto text-muted-foreground mb-2" />
+              <p className="text-muted-foreground">Nenhum acionamento encontrado</p>
             </div>
-          )}
-
-          {selectedConversationId && messagesWithAgents.length > 0 && (
-            <div>
-              <h4 className="font-medium mb-3">💬 Histórico da Conversa</h4>
-              <div className="space-y-3 max-h-96 overflow-y-auto border rounded-lg p-4">
-                {messagesWithAgents.map((message: any, index: number) => (
-                  <div key={message.id} className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[70%] p-3 rounded-lg ${
-                      message.sender === 'user' 
-                        ? 'bg-primary text-primary-foreground' 
-                        : 'bg-muted'
+          ) : (
+            usageStats.map((stat: any) => (
+              <Card key={stat.agentId} className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                      stat.agentType === 'secondary' ? 'bg-blue-100 dark:bg-blue-900' : 'bg-purple-100 dark:bg-purple-900'
                     }`}>
-                      <p className="text-sm">{message.content}</p>
-                      <div className="flex items-center justify-between mt-2 text-xs opacity-70">
-                        <span>{new Date(message.createdAt).toLocaleTimeString()}</span>
-                        {message.agent && (
-                          <div className="flex items-center gap-1">
-                            <Bot className="w-3 h-3" />
-                            <span className="font-medium">
-                              {message.agent.name}
-                              {message.agent.agentType === 'secondary' && ' (S)'}
-                            </span>
-                          </div>
+                      <Bot className={`w-4 h-4 ${
+                        stat.agentType === 'secondary' ? 'text-blue-600 dark:text-blue-400' : 'text-purple-600 dark:text-purple-400'
+                      }`} />
+                    </div>
+                    <div>
+                      <p className="font-medium">{stat.agentName}</p>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={stat.agentType === 'secondary' ? "default" : "secondary"} className={`text-xs ${
+                          stat.agentType === 'secondary' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
+                        }`}>
+                          {stat.agentType === 'secondary' ? 'Secundário' : 'Principal'}
+                        </Badge>
+                        {stat.specialization && (
+                          <span className="text-xs text-muted-foreground">• {stat.specialization}</span>
                         )}
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
+                  <div className="text-right">
+                    <p className="text-sm font-medium">{stat.messageCount} acionamentos</p>
+                    <p className="text-xs text-muted-foreground">
+                      {stat.lastUsed ? format(new Date(stat.lastUsed), "dd/MM HH:mm", { locale: ptBR }) : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            ))
           )}
         </div>
       </div>
