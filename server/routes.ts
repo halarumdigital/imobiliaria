@@ -22,7 +22,7 @@ import { whatsappWebhookService } from "./services/whatsappWebhook";
 import { 
   insertUserSchema, insertCompanySchema, insertGlobalConfigSchema, 
   insertEvolutionConfigSchema, insertAiConfigSchema, insertWhatsappInstanceSchema,
-  insertAiAgentSchema, insertConversationSchema, insertMessageSchema 
+  insertAiAgentSchema, insertConversationSchema, insertMessageSchema, insertApiSettingsSchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -373,6 +373,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: "Erro ao testar IA",
         details: error instanceof Error ? error.message : "Erro desconhecido"
       });
+    }
+  });
+
+  // API settings for VistaHost integration (Admin only)
+  app.get("/api/api-settings", authenticate, requireAdmin, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+      
+      const settings = await storage.getApiSettings(req.user.companyId);
+      res.json(settings);
+    } catch (error) {
+      console.error("Get API settings error:", error);
+      res.status(500).json({ error: "Erro ao buscar configurações da API" });
+    }
+  });
+
+  app.post("/api/api-settings", authenticate, requireAdmin, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+      
+      const settingsData = insertApiSettingsSchema.parse(req.body);
+      const settings = await storage.saveApiSettings(
+        req.user.companyId,
+        settingsData.apiUrl,
+        settingsData.apiToken
+      );
+      res.json(settings);
+    } catch (error) {
+      console.error("Save API settings error:", error);
+      res.status(500).json({ error: "Erro ao salvar configurações da API" });
     }
   });
 

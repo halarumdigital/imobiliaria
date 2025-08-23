@@ -60,6 +60,23 @@ export interface IStorage {
   // Messages
   getMessagesByConversation(conversationId: string): Promise<Message[]>;
   createMessage(message: InsertMessage): Promise<Message>;
+  
+  // API Settings
+  getApiSettings(companyId: string): Promise<{id: string; companyId: string; apiUrl: string; apiToken: string} | undefined>;
+  saveApiSettings(companyId: string, apiUrl: string, apiToken: string): Promise<{id: string; companyId: string; apiUrl: string; apiToken: string}>;
+  
+  // API Call Logs
+  logApiCall(logData: {
+    companyId: string;
+    agentId: string;
+    apiType: string;
+    endpoint: string;
+    requestData: any;
+    responseStatus: string;
+    responseData: any;
+    executionTime: number;
+    userPhone: string | null;
+  }): Promise<void>;
 }
 
 export class MySQLStorage implements IStorage {
@@ -219,6 +236,29 @@ export class MySQLStorage implements IStorage {
         agent_id VARCHAR(36),
         message_type VARCHAR(20) DEFAULT 'text',
         evolution_message_id VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )`,
+      
+      `CREATE TABLE IF NOT EXISTS api_settings (
+        id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+        company_id VARCHAR(36) NOT NULL,
+        api_url TEXT NOT NULL,
+        api_token TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )`,
+      
+      `CREATE TABLE IF NOT EXISTS api_call_logs (
+        id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+        company_id VARCHAR(36) NOT NULL,
+        agent_id VARCHAR(36) NOT NULL,
+        api_type VARCHAR(50) NOT NULL,
+        endpoint TEXT NOT NULL,
+        request_data JSON,
+        response_status VARCHAR(20) NOT NULL,
+        response_data JSON,
+        execution_time INT NOT NULL,
+        user_phone VARCHAR(20),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )`
     ];
@@ -946,6 +986,96 @@ export class MySQLStorage implements IStorage {
       caption: rawRow.caption,
       createdAt: rawRow.created_at
     } as Message;
+  }
+
+  // API Settings methods
+  async getApiSettings(companyId: string): Promise<{id: string; companyId: string; apiUrl: string; apiToken: string} | undefined> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM api_settings WHERE company_id = ? LIMIT 1',
+      [companyId]
+    );
+    
+    const rawRows = rows as any[];
+    if (rawRows.length === 0) return undefined;
+    
+    const row = rawRows[0];
+    return {
+      id: row.id,
+      companyId: row.company_id,
+      apiUrl: row.api_url,
+      apiToken: row.api_token
+    };
+  }
+
+  async saveApiSettings(companyId: string, apiUrl: string, apiToken: string): Promise<{id: string; companyId: string; apiUrl: string; apiToken: string}> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    // Check if settings already exist
+    const existing = await this.getApiSettings(companyId);
+    
+    if (existing) {
+      // Update existing settings
+      await this.connection.execute(
+        'UPDATE api_settings SET api_url = ?, api_token = ?, updated_at = NOW() WHERE company_id = ?',
+        [apiUrl, apiToken, companyId]
+      );
+      
+      return {
+        id: existing.id,
+        companyId,
+        apiUrl,
+        apiToken
+      };
+    } else {
+      // Create new settings
+      const id = randomUUID();
+      await this.connection.execute(
+        'INSERT INTO api_settings (id, company_id, api_url, api_token) VALUES (?, ?, ?, ?)',
+        [id, companyId, apiUrl, apiToken]
+      );
+      
+      return {
+        id,
+        companyId,
+        apiUrl,
+        apiToken
+      };
+    }
+  }
+
+  async logApiCall(logData: {
+    companyId: string;
+    agentId: string;
+    apiType: string;
+    endpoint: string;
+    requestData: any;
+    responseStatus: string;
+    responseData: any;
+    executionTime: number;
+    userPhone: string | null;
+  }): Promise<void> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const id = randomUUID();
+    await this.connection.execute(
+      `INSERT INTO api_call_logs 
+       (id, company_id, agent_id, api_type, endpoint, request_data, response_status, response_data, execution_time, user_phone) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        logData.companyId,
+        logData.agentId,
+        logData.apiType,
+        logData.endpoint,
+        JSON.stringify(logData.requestData),
+        logData.responseStatus,
+        JSON.stringify(logData.responseData),
+        logData.executionTime,
+        logData.userPhone
+      ]
+    );
   }
 }
 

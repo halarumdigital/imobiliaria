@@ -112,8 +112,31 @@ export const messages = mysqlTable("messages", {
   messageType: varchar("message_type", { length: 20 }).default("text"), // 'text' | 'image' | 'document'
   evolutionMessageId: varchar("evolution_message_id", { length: 255 }),
   mediaUrl: text("media_url"), // URL to download the image from Evolution API
-  mediaBase64: text("media_base64", { mode: "longtext" }), // Base64 encoded image data
+  mediaBase64: text("media_base64"), // Base64 encoded image data
   caption: text("caption"), // Image caption/description from user
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const apiSettings = mysqlTable("api_settings", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  companyId: varchar("company_id", { length: 36 }).notNull(),
+  apiUrl: text("api_url").notNull(),
+  apiToken: text("api_token").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+export const apiCallLogs = mysqlTable("api_call_logs", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  companyId: varchar("company_id", { length: 36 }).notNull(),
+  agentId: varchar("agent_id", { length: 36 }).notNull(),
+  apiType: varchar("api_type", { length: 50 }).notNull(),
+  endpoint: text("endpoint").notNull(),
+  requestData: json("request_data"),
+  responseStatus: varchar("response_status", { length: 20 }).notNull(),
+  responseData: json("response_data"),
+  executionTime: int("execution_time").notNull(),
+  userPhone: varchar("user_phone", { length: 20 }),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -203,6 +226,24 @@ export const insertMessageSchema = createInsertSchema(messages).pick({
   caption: true,
 });
 
+export const insertApiSettingsSchema = createInsertSchema(apiSettings).pick({
+  companyId: true,
+  apiUrl: true,
+  apiToken: true,
+});
+
+export const insertApiCallLogSchema = createInsertSchema(apiCallLogs).pick({
+  companyId: true,
+  agentId: true,
+  apiType: true,
+  endpoint: true,
+  requestData: true,
+  responseStatus: true,
+  responseData: true,
+  executionTime: true,
+  userPhone: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -222,3 +263,7 @@ export type Conversation = typeof conversations.$inferSelect;
 export type InsertConversation = z.infer<typeof insertConversationSchema>;
 export type Message = typeof messages.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
+export type ApiSetting = typeof apiSettings.$inferSelect;
+export type InsertApiSetting = z.infer<typeof insertApiSettingsSchema>;
+export type ApiCallLog = typeof apiCallLogs.$inferSelect;
+export type InsertApiCallLog = z.infer<typeof insertApiCallLogSchema>;
