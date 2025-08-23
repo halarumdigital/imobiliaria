@@ -351,6 +351,10 @@ export class AIService {
         conversationHistory: context.conversationHistory
       };
 
+      console.log(`🚨🚨🚨 [CRITICAL] PREPARANDO REQUEST PARA AI-RESPONSE-SERVICE`);
+      console.log(`🚨 [CRITICAL] message: "${responseRequest.message}"`);
+      console.log(`🚨 [CRITICAL] companyId: "${responseRequest.companyId}"`);
+      console.log(`🚨 [CRITICAL] agentType: "${responseRequest.agentType}"`);
       console.log(`🏢 [RESPONSE] ResponseRequest companyId: ${responseRequest.companyId}`);
       console.log(`🔍 [WHATSAPP-FLOW] Chamando AiResponseService.generateResponse com:`, {
         message: context.message,

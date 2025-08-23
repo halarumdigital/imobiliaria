@@ -54,6 +54,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ success: true, message: "Test webhook 2 received", timestamp: new Date().toISOString() });
   });
 
+  // TEST: Validate property search integration
+  app.get("/api/test-property-search", async (req, res) => {
+    try {
+      console.log("🧪🧪🧪 [TEST] INICIANDO TESTE DE INTEGRAÇÃO PROPERTY SEARCH");
+      
+      const { AiResponseService } = await import("./aiResponseService");
+      const aiResponseService = new AiResponseService("test-key");
+      
+      // Simular request com palavra "apartamento"
+      const testRequest = {
+        message: "apartamento",
+        userMessage: "apartamento",
+        agentId: "test-agent",
+        agentPrompt: "Você é um assistente imobiliário",
+        temperatura: 0.7,
+        modelo: "gpt-4o",
+        numeroTokens: 1000,
+        agentType: "main" as const,
+        companyId: "a9a2f3e1-6e37-43d4-b411-d7fb999f93e2",
+        conversationHistory: []
+      };
+      
+      console.log("🧪 [TEST] Request simulado:", JSON.stringify(testRequest, null, 2));
+      
+      // Testar diretamente handlePropertySearch
+      const privateMethod = (aiResponseService as any).handlePropertySearch;
+      if (privateMethod) {
+        console.log("🧪 [TEST] Chamando handlePropertySearch diretamente...");
+        const result = await privateMethod.call(aiResponseService, testRequest);
+        console.log("🧪 [TEST] Resultado:", result);
+        
+        return res.json({
+          success: true,
+          testType: "handlePropertySearch",
+          result: result,
+          hasResult: !!result
+        });
+      } else {
+        return res.json({
+          success: false,
+          error: "handlePropertySearch method not found"
+        });
+      }
+      
+    } catch (error) {
+      console.error("❌ [TEST] Erro no teste:", error);
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
+    }
+  });
+
   // TEST: Quick API settings setup for VistaHost
   app.post("/api/quick-setup-vistahost/:companyId", async (req, res) => {
     try {

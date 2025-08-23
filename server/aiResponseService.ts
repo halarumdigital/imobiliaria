@@ -29,9 +29,11 @@ export class AiResponseService {
    */
   async generateResponse(request: AiResponseRequest): Promise<string> {
     try {
+      console.log(`🚨🚨🚨 [CRITICAL] AI-RESPONSE-SERVICE.GENERATE-RESPONSE CHAMADO!`);
       console.log(`🤖 [AI-RESPONSE] Gerando resposta para agente ID: ${request.agentId} (Tipo: ${request.agentType || 'main'})`);
       console.log(`🔍 [AI-RESPONSE] CompanyId recebido: ${request.companyId}`);
       console.log(`🔍 [AI-RESPONSE] Mensagem: "${request.message}"`);
+      console.log(`🔍 [AI-RESPONSE] Request completo:`, JSON.stringify(request, null, 2));
       
       // If this is a main agent, check if we need to delegate to secondary agents
       if (request.agentType === 'main' && request.companyId) {
