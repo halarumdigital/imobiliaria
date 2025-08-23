@@ -274,14 +274,17 @@ ${request.conversationHistory && request.conversationHistory.length > 0
 Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
       }
 
-      // Search for properties seguindo documentação oficial VistaSoft
+      // Search for properties seguindo formato n8n que funciona
       const searchParams = {
+        filter: { 
+          SiteSuder: "Sim",
+          ...(filters && Object.keys(filters).length > 0 ? filters : {})
+        },
         fields: [
           "Codigo", "Categoria", "BairroComercial", "Cidade", "Suites", "DescricaoWeb", 
           "Dormitorios", "Vagas", "Endereco", "Complemento", "AreaPrivativa", 
           "ValorVenda", "ValorLocacao", "FotoDestaque"
         ],
-        filter: filters && Object.keys(filters).length > 0 ? filters : {},
         paginacao: { 
           pagina: 1, 
           quantidade: 10 
@@ -295,10 +298,10 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
         tokenLength: apiSettings.apiToken?.length 
       });
 
-      // Construir URL seguindo documentação oficial
+      // Construir URL seguindo formato n8n (com v2=1)
       const baseUrl = `${apiSettings.apiUrl}/imoveis/listar`;
       const pesquisaParam = encodeURIComponent(JSON.stringify(searchParams));
-      const apiUrl = `${baseUrl}?key=${apiSettings.apiToken}&pesquisa=${pesquisaParam}&showtotal=1`;
+      const apiUrl = `${baseUrl}?key=${apiSettings.apiToken}&v2=1&pesquisa=${pesquisaParam}&showtotal=1`;
       
       console.log(`🔍 [DEBUG] Final API URL:`, apiUrl);
 
@@ -347,21 +350,29 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
         sampleData: data
       });
 
-      // A API VistaSoft retorna dados como objeto com chaves numéricas para cada imóvel
+      // Com v2=1, VistaSoft retorna formato: {"result": [...], "paginacao": {...}}
       let properties = [];
       
       console.log(`🔍 [DEBUG] Estrutura completa da resposta:`, JSON.stringify(data, null, 2));
       
-      if (Array.isArray(data)) {
+      if (data.result && Array.isArray(data.result)) {
+        properties = data.result;
+        console.log(`🎯 [DEBUG] VistaSoft v2=1: Encontrados ${data.result.length} imóveis em data.result`);
+        
+        // Log dos metadados da paginação
+        if (data.paginacao) {
+          console.log(`📊 [DEBUG] VistaSoft metadados: Total=${data.paginacao.total}, Páginas=${data.paginacao.paginas}, Página=${data.paginacao.pagina}, Quantidade=${data.paginacao.quantidade}`);
+        }
+      } else if (Array.isArray(data)) {
         properties = data;
         console.log(`🔍 [DEBUG] Dados são array direto com ${data.length} itens`);
       } else if (data.registros && Array.isArray(data.registros)) {
         properties = data.registros;
         console.log(`🔍 [DEBUG] Dados em data.registros com ${data.registros.length} itens`);
       } else if (data && typeof data === 'object') {
-        // VistaSoft retorna objeto com chaves numéricas para imóveis e metadados
+        // Fallback: formato antigo com chaves numéricas
         const propertyKeys = Object.keys(data).filter(key => 
-          !['total', 'paginas', 'pagina', 'quantidade'].includes(key) && 
+          !['total', 'paginas', 'pagina', 'quantidade', 'result', 'paginacao'].includes(key) && 
           data[key] && 
           typeof data[key] === 'object' && 
           (data[key].Codigo || data[key].codigo)
@@ -370,26 +381,19 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
         if (propertyKeys.length > 0) {
           properties = propertyKeys.map(key => ({
             ...data[key],
-            // Garantir que tenha um ID único
             _id: key,
             _originalKey: key
           }));
-          console.log(`🎯 [DEBUG] VistaSoft: Encontrados ${properties.length} imóveis em formato objeto (chaves: ${propertyKeys.join(', ')})`);
-          
-          // Log dos metadados se existirem
-          if (data.total) {
-            console.log(`📊 [DEBUG] VistaSoft metadados: Total=${data.total}, Páginas=${data.paginas}, Página=${data.pagina}, Quantidade=${data.quantidade}`);
-          }
+          console.log(`🎯 [DEBUG] VistaSoft formato antigo: Encontrados ${properties.length} imóveis em formato objeto (chaves: ${propertyKeys.join(', ')})`);
         } else {
           console.log(`🔍 [DEBUG] Estrutura de objeto não contém imóveis reconhecíveis`);
         }
       } else {
-        console.log(`🔍 [DEBUG] Estrutura não reconhecida, verificando todas as propriedades:`);
+        console.log(`🔍 [DEBUG] Estrutura não reconhecida, tentando buscar arrays:`);
         Object.keys(data || {}).forEach(key => {
           const value = data[key];
           console.log(`🔍 [DEBUG] Chave "${key}": tipo=${typeof value}, isArray=${Array.isArray(value)}, length=${Array.isArray(value) ? value.length : 'N/A'}`);
           
-          // Se encontrarmos um array com objetos que parecem imóveis, vamos usá-lo
           if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'object') {
             const firstItem = value[0];
             const hasPropertyFields = firstItem.Codigo || firstItem.codigo || firstItem.id || 
