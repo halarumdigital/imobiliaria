@@ -345,7 +345,7 @@ ${request.conversationHistory && request.conversationHistory.length > 0
 
       console.log(`🏠 Detectada consulta sobre imóveis: "${request.message}"`);
       
-      // Verificar se temos todas as informações necessárias (na ordem correta do prompt)
+      // IMPORTANTE: Verificar PRIMEIRO se temos todas as informações antes de fazer qualquer busca
       if (!conversationContext.nome || !conversationContext.telefone || 
           !conversationContext.tipoImovel || !conversationContext.finalidade || 
           !conversationContext.cidade) {
