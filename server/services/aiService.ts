@@ -231,7 +231,7 @@ export class AIService {
     }
   }
 
-  private async findDatabaseInstanceId(evolutionInstanceId: string): Promise<string | null> {
+  async findDatabaseInstanceId(evolutionInstanceId: string): Promise<string | null> {
     try {
       const storage = getStorage();
       const companies = await storage.getAllCompanies();

@@ -119,19 +119,59 @@ export class WhatsAppWebhookService {
       }
 
       console.log(`🤖 AI Response for Evolution message: "${aiResponse.response}"`);
+      console.log(`🔍 [DEBUG] activeAgentId from AI response: ${aiResponse.activeAgentId}`);
 
       // Enviar resposta via Evolution API
       console.log(`🚀 About to call sendResponse with instance: ${instanceName}, phone: ${senderPhone}`);
       await this.sendResponse(instanceName, senderPhone, aiResponse.response);
 
       // Salvar conversa no banco de dados
-      await aiService.saveConversation(
-        data.instanceId,
-        senderPhone,
-        messageText,
-        aiResponse.response,
-        aiResponse.activeAgentId || 'main'
-      );
+      let agentIdToSave = aiResponse.activeAgentId;
+      
+      // Se não tem activeAgentId, buscar o agente principal da empresa
+      if (!agentIdToSave) {
+        console.log(`💾 [DEBUG] No activeAgentId, searching for main agent...`);
+        try {
+          // Buscar a instância para obter a empresa
+          const dbInstanceId = await aiService.findDatabaseInstanceId(data.instanceId);
+          if (dbInstanceId) {
+            const storage = getStorage();
+            const instance = await storage.getWhatsappInstance(dbInstanceId);
+            if (instance?.companyId) {
+              const mainAgents = await storage.getMainAgentsByCompany(instance.companyId);
+              if (mainAgents.length > 0) {
+                agentIdToSave = mainAgents[0].id;
+                console.log(`💾 [DEBUG] Using main agent ID: ${agentIdToSave}`);
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`💾 [DEBUG] Error finding main agent:`, error);
+        }
+      }
+      
+      console.log(`💾 [DEBUG] Final agentId to save: ${agentIdToSave}`);
+      
+      // Se ainda não tem agentId, não salvar a mensagem com agente
+      if (agentIdToSave) {
+        await aiService.saveConversation(
+          data.instanceId,
+          senderPhone,
+          messageText,
+          aiResponse.response,
+          agentIdToSave
+        );
+      } else {
+        console.log(`⚠️ [DEBUG] No valid agentId found, skipping conversation save with agent tracking`);
+        // Salvar apenas a conversa sem rastreamento de agente
+        await aiService.saveConversation(
+          data.instanceId,
+          senderPhone,
+          messageText,
+          aiResponse.response,
+          'unknown' // Usar placeholder para agente desconhecido
+        );
+      }
 
       console.log("✅ Evolution message processed successfully");
 
