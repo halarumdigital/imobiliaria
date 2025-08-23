@@ -332,6 +332,7 @@ export class AIService {
 
       // Gerar resposta usando AiResponseService
       console.log(`🤖 [RESPONSE] Using AiResponseService to generate response...`);
+      console.log(`🏢 [RESPONSE] CompanyId being passed: ${context.companyId}`);
       const aiResponseService = new AiResponseService(aiConfig.apiKey);
       
       const responseRequest: AiResponseRequest = {
@@ -347,6 +348,7 @@ export class AIService {
         conversationHistory: context.conversationHistory
       };
 
+      console.log(`🏢 [RESPONSE] ResponseRequest companyId: ${responseRequest.companyId}`);
       const response = await aiResponseService.generateResponse(responseRequest);
       console.log(`✅ [RESPONSE] Response generated successfully - length: ${response.length}`);
       
