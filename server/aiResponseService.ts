@@ -345,17 +345,19 @@ ${request.conversationHistory && request.conversationHistory.length > 0
 
       console.log(`🏠 Detectada consulta sobre imóveis: "${request.message}"`);
       
-      // Verificar se temos todas as informações necessárias
-      if (!conversationContext.telefone || !conversationContext.tipoImovel || 
-          !conversationContext.finalidade || !conversationContext.cidade) {
+      // Verificar se temos todas as informações necessárias (na ordem correta do prompt)
+      if (!conversationContext.nome || !conversationContext.telefone || 
+          !conversationContext.tipoImovel || !conversationContext.finalidade || 
+          !conversationContext.cidade) {
         console.log(`📋 [CONTEXT] Informações faltando - deixar o AI coletar:`, {
+          nome: !!conversationContext.nome,
           telefone: !!conversationContext.telefone,
           tipoImovel: !!conversationContext.tipoImovel,
           finalidade: !!conversationContext.finalidade,
           cidade: !!conversationContext.cidade
         });
         
-        // Retornar null para deixar o AI pedir as informações faltantes
+        // Retornar null para deixar o AI pedir as informações faltantes na ordem correta
         return null;
       }
       
@@ -642,15 +644,17 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
         
         HISTÓRICO: ${fullContext}
         
-        Extraia:
-        1. Telefone do cliente (se fornecido)
-        2. Tipo de imóvel desejado (casa, apartamento, terreno, etc)
-        3. Finalidade (compra ou aluguel)
-        4. Cidade de interesse
-        5. Página atual de busca (se o cliente pediu "próxima", "mais opções", conte quantas vezes)
+        Extraia na ordem correta:
+        1. Nome do cliente (primeira informação pedida)
+        2. Telefone do cliente
+        3. Tipo de imóvel desejado (casa, apartamento, terreno, etc)
+        4. Finalidade (compra ou aluguel)
+        5. Cidade de interesse
+        6. Página atual de busca (se o cliente pediu "próxima", "mais opções", conte quantas vezes)
         
         Retorne APENAS um JSON válido no formato:
         {
+          "nome": "nome ou null",
           "telefone": "número ou null",
           "tipoImovel": "tipo ou null",
           "finalidade": "compra/aluguel ou null",
@@ -681,6 +685,7 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
       } catch (error) {
         console.log(`⚠️ [CONTEXT] Erro ao parsear contexto, retornando vazio`);
         return {
+          nome: null,
           telefone: null,
           tipoImovel: null,
           finalidade: null,
@@ -691,6 +696,7 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
     } catch (error) {
       console.error(`❌ [CONTEXT] Erro ao extrair contexto:`, error);
       return {
+        nome: null,
         telefone: null,
         tipoImovel: null,
         finalidade: null,
