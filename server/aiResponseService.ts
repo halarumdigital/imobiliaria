@@ -227,7 +227,9 @@ ${request.conversationHistory && request.conversationHistory.length > 0
         'aluguel', 'alugar', 'aluga', 'locação', 'locar', 'quarto', 'quartos', 'dormitório', 'dormitórios', 'garagem',
         'banheiro', 'banheiros', 'metro', 'metros', 'm²', 'preço', 'valor', 'disponível',
         'disponíveis', 'localização', 'bairro', 'cidade', 'região', 'encontrou', 'achou', 'tem', 
-        'possui', 'existe', 'há', 'mostrar', 'ver', 'listar', 'opções', 'alternativas'
+        'possui', 'existe', 'há', 'mostrar', 'ver', 'listar', 'opções', 'alternativas',
+        'vou procurar', 'vou buscar', 'vou verificar', 'vou pesquisar', 'procurar', 'buscar', 
+        'pesquisar', 'verificar', 'consultar'
       ];
 
       console.log(`🔍 [PROPERTY-KEYWORDS] Mensagem original: "${message}"`);
