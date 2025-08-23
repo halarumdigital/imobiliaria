@@ -1868,11 +1868,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Endpoint adicional para Evolution API (formato padrão)
   app.post("/api/webhook/messages", async (req, res) => {
     try {
-      console.log("🔥 WEBHOOK DEBUG - Full request body:", JSON.stringify(req.body, null, 2));
+      console.log("🔥 [WEBHOOK] ================================");
+      console.log("🔥 [WEBHOOK] NEW MESSAGE RECEIVED!");
+      console.log("🔥 [WEBHOOK] ================================");
       console.log("🔍 [WEBHOOK] Event type:", req.body.event);
       console.log("🔍 [WEBHOOK] Has message data:", !!req.body.data?.message);
       console.log("🔍 [WEBHOOK] FromMe value:", req.body.data?.fromMe || req.body.data?.key?.fromMe);
       console.log("🔍 [WEBHOOK] Message type:", req.body.data?.messageType);
+      console.log("🔍 [WEBHOOK] Available message fields:", Object.keys(req.body.data?.message || {}));
+      console.log("🔍 [WEBHOOK] Has imageMessage:", !!req.body.data?.message?.imageMessage);
+      console.log("🔍 [WEBHOOK] Has conversation:", !!req.body.data?.message?.conversation);
+      console.log("🔍 [WEBHOOK] Has extendedTextMessage:", !!req.body.data?.message?.extendedTextMessage);
+      console.log("🔥 [WEBHOOK] Full request body:", JSON.stringify(req.body, null, 2));
       
       // Verificar se temos dados válidos
       if (!req.body.data || !req.body.sender) {
