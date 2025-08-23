@@ -345,11 +345,11 @@ ${request.conversationHistory && request.conversationHistory.length > 0
 
       console.log(`🏠 Detectada consulta sobre imóveis: "${request.message}"`);
       
-      // IMPORTANTE: Verificar PRIMEIRO se temos todas as informações antes de fazer qualquer busca
+      // SEMPRE verificar se temos todas as informações ANTES de qualquer tentativa de busca
       if (!conversationContext.nome || !conversationContext.telefone || 
           !conversationContext.tipoImovel || !conversationContext.finalidade || 
           !conversationContext.cidade) {
-        console.log(`📋 [CONTEXT] Informações faltando - instruir AI a coletar:`, {
+        console.log(`📋 [CONTEXT] Informações faltando - PARANDO BUSCA e iniciando coleta:`, {
           nome: !!conversationContext.nome,
           telefone: !!conversationContext.telefone,
           tipoImovel: !!conversationContext.tipoImovel,
@@ -357,34 +357,24 @@ ${request.conversationHistory && request.conversationHistory.length > 0
           cidade: !!conversationContext.cidade
         });
         
-        // Gerar mensagem instruindo o AI a coletar as informações faltantes
-        let missingInfo = [];
-        if (!conversationContext.nome) missingInfo.push("nome");
-        if (!conversationContext.telefone) missingInfo.push("telefone");
-        if (!conversationContext.tipoImovel) missingInfo.push("tipo de imóvel");
-        if (!conversationContext.finalidade) missingInfo.push("finalidade (compra ou aluguel)");
-        if (!conversationContext.cidade) missingInfo.push("cidade");
-        
-        // Retornar uma resposta indicando que precisa coletar informações
-        const firstMissing = missingInfo[0];
-        
-        if (firstMissing === "nome") {
+        // SEMPRE retornar a mensagem de coleta, NUNCA deixar passar
+        if (!conversationContext.nome) {
           return "Ótimo! Vou ajudá-lo a encontrar o imóvel perfeito. Para começar, qual é o seu nome?";
-        } else if (firstMissing === "telefone") {
-          return "Perfeito! Agora preciso do seu telefone para contato.";
-        } else if (firstMissing === "tipo de imóvel") {
+        } else if (!conversationContext.telefone) {
+          return `Prazer, ${conversationContext.nome}! Agora preciso do seu telefone para contato.`;
+        } else if (!conversationContext.tipoImovel) {
           return "Excelente! Que tipo de imóvel você está procurando? (casa, apartamento, terreno, etc)";
-        } else if (firstMissing === "finalidade (compra ou aluguel)") {
-          return "Entendi! Você deseja comprar ou alugar?";
-        } else if (firstMissing === "cidade") {
+        } else if (!conversationContext.finalidade) {
+          return "Perfeito! Você deseja comprar ou alugar este imóvel?";
+        } else if (!conversationContext.cidade) {
           return "Ótimo! Em qual cidade você está procurando o imóvel?";
         }
         
-        // Se por algum motivo não entrar nos casos acima, deixar o AI lidar
-        return null;
+        // Este return garante que NUNCA continuaremos sem as informações
+        return "Vou precisar de algumas informações para encontrar o imóvel ideal para você. Qual é o seu nome?";
       }
       
-      console.log(`✅ [CONTEXT] Todas as informações coletadas, fazendo busca`);
+      console.log(`✅ [CONTEXT] Todas as informações coletadas, AGORA sim fazendo busca`);
 
       // Construir filtros baseados no contexto coletado
       const filters: any = {};
@@ -414,6 +404,14 @@ ${request.conversationHistory && request.conversationHistory.length > 0
       // }
       
       console.log(`🔍 Filtros construídos do contexto:`, filters);
+
+      // DOUBLE CHECK: Se chegou aqui sem as informações, PARAR e retornar mensagem de coleta
+      if (!conversationContext || !conversationContext.nome || !conversationContext.telefone || 
+          !conversationContext.tipoImovel || !conversationContext.finalidade || 
+          !conversationContext.cidade) {
+        console.log(`❌ [CRITICAL] Tentou buscar sem informações completas! Retornando para coleta.`);
+        return "Ótimo! Vou ajudá-lo a encontrar o imóvel perfeito. Para começar, qual é o seu nome?";
+      }
 
       // Get API settings for the company
       const storage = getStorage();
