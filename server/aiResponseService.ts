@@ -226,7 +226,8 @@ ${request.conversationHistory && request.conversationHistory.length > 0
         'propriedade', 'propriedades', 'terreno', 'terrenos', 'venda', 'vender', 'comprar',
         'aluguel', 'alugar', 'aluga', 'locação', 'locar', 'quarto', 'quartos', 'dormitório', 'dormitórios', 'garagem',
         'banheiro', 'banheiros', 'metro', 'metros', 'm²', 'preço', 'valor', 'disponível',
-        'disponíveis', 'localização', 'bairro', 'cidade', 'região'
+        'disponíveis', 'localização', 'bairro', 'cidade', 'região', 'encontrou', 'achou', 'tem', 
+        'possui', 'existe', 'há', 'mostrar', 'ver', 'listar', 'opções', 'alternativas'
       ];
 
       console.log(`🔍 [PROPERTY-KEYWORDS] Mensagem original: "${message}"`);
