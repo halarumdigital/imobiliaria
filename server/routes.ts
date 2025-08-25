@@ -1575,6 +1575,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Client API Settings endpoints
+  app.get("/api/client/api-settings", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+      
+      const settings = await storage.getApiSettings(req.user.companyId);
+      res.json(settings);
+    } catch (error) {
+      console.error("Get client API settings error:", error);
+      res.status(500).json({ error: "Erro ao buscar configurações da API" });
+    }
+  });
+
+  app.put("/api/client/api-settings", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+      
+      const settingsData = insertApiSettingsSchema.parse(req.body);
+      const settings = await storage.saveApiSettings(
+        req.user.companyId,
+        settingsData.apiUrl,
+        settingsData.apiToken
+      );
+      
+      res.json(settings);
+    } catch (error) {
+      console.error("Update client API settings error:", error);
+      res.status(500).json({ error: "Erro ao salvar configurações da API" });
+    }
+  });
+
+  app.get("/api/client/test-api-settings", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+      
+      const settings = await storage.getApiSettings(req.user.companyId);
+      if (!settings || !settings.apiUrl || !settings.apiToken) {
+        return res.json({
+          success: false,
+          message: "Configurações da API não encontradas. Configure primeiro a URL e o token da API.",
+          details: null
+        });
+      }
+
+      try {
+        // Test the API connection by making a simple request
+        const testResponse = await fetch(`${settings.apiUrl}/properties?limit=1`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${settings.apiToken}`,
+            "Content-Type": "application/json"
+          }
+        });
+
+        if (testResponse.ok) {
+          const data = await testResponse.json();
+          res.json({
+            success: true,
+            message: "Conexão com a API estabelecida com sucesso!",
+            details: {
+              status: testResponse.status,
+              responseSize: JSON.stringify(data).length,
+              timestamp: new Date().toISOString()
+            }
+          });
+        } else {
+          const errorText = await testResponse.text();
+          res.json({
+            success: false,
+            message: `Erro na API: ${testResponse.status} - ${testResponse.statusText}`,
+            details: {
+              status: testResponse.status,
+              error: errorText,
+              timestamp: new Date().toISOString()
+            }
+          });
+        }
+      } catch (apiError) {
+        res.json({
+          success: false,
+          message: `Erro ao conectar com a API: ${apiError instanceof Error ? apiError.message : 'Erro desconhecido'}`,
+          details: {
+            error: apiError instanceof Error ? apiError.message : String(apiError),
+            timestamp: new Date().toISOString()
+          }
+        });
+      }
+    } catch (error) {
+      console.error("Test client API settings error:", error);
+      res.status(500).json({ error: "Erro ao testar configurações da API" });
+    }
+  });
+
   app.get('/api/agents/usage-stats', authenticate, requireClient, async (req: AuthRequest, res) => {
     try {
       const user = req.user;

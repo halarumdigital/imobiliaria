@@ -30,7 +30,7 @@ export default function ApiConfig() {
 
   const { data: apiSettings, isLoading, refetch } = useQuery<ApiSettings>({
     queryKey: ["/api/client/api-settings"],
-    queryFn: () => apiGet("/api/client/api-settings"),
+    queryFn: () => apiGet("/client/api-settings"),
   });
 
   // Update form data when apiSettings changes
@@ -42,12 +42,12 @@ export default function ApiConfig() {
 
   const { data: testResult, refetch: refetchTest } = useQuery({
     queryKey: ["/api/client/test-api-settings"],
-    queryFn: () => apiGet("/api/client/test-api-settings"),
+    queryFn: () => apiGet("/client/test-api-settings"),
     enabled: false,
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: Partial<ApiSettings>) => apiPut("/api/client/api-settings", data),
+    mutationFn: (data: Partial<ApiSettings>) => apiPut("/client/api-settings", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/client/api-settings"] });
       toast({
