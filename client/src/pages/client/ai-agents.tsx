@@ -18,11 +18,109 @@ import { ObjectUploader } from "@/components/ObjectUploader";
 import { Bot, Plus, Edit, Trash2, FileText, Upload, TestTube2, Send, BarChart3, MessageCircle, User, RefreshCw } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
+// Component for JSON visualization
+function JSONViewer({ data }: { data: any }) {
+  if (!data) {
+    return <span className="text-xs text-muted-foreground italic">Dados não disponíveis</span>;
+  }
+
+  const renderValue = (value: any, key?: string, depth = 0): React.ReactNode => {
+    // Limitar profundidade para evitar conteúdo muito extenso
+    if (depth > 2) {
+      return <span className="text-muted-foreground italic">...</span>;
+    }
+    
+    if (value === null) {
+      return <span className="text-gray-500">null</span>;
+    }
+    
+    if (typeof value === "string") {
+      const truncated = value.length > 50 ? `${value.substring(0, 50)}...` : value;
+      return <span className="text-green-600 dark:text-green-400">"{truncated}"</span>;
+    }
+    
+    if (typeof value === "number") {
+      return <span className="text-blue-600 dark:text-blue-400">{value}</span>;
+    }
+    
+    if (typeof value === "boolean") {
+      return <span className="text-purple-600 dark:text-purple-400">{value.toString()}</span>;
+    }
+    
+    if (Array.isArray(value)) {
+      if (value.length === 0) {
+        return <span className="text-gray-500">[]</span>;
+      }
+      
+      if (value.length > 2) {
+        return (
+          <span className="text-gray-500">
+            [<span className="text-muted-foreground italic"> {value.length} itens</span>]
+          </span>
+        );
+      }
+      
+      return (
+        <span className="text-gray-500">
+          [{value.slice(0, 2).map((item, index) => (
+            <span key={index}>
+              {index > 0 && ", "}
+              {renderValue(item, undefined, depth + 1)}
+            </span>
+          ))}
+          {value.length > 2 && <span className="text-muted-foreground italic">, ...</span>}]
+        </span>
+      );
+    }
+    
+    if (typeof value === "object") {
+      const keys = Object.keys(value);
+      
+      if (keys.length === 0) {
+        return <span className="text-gray-500">{}</span>;
+      }
+      
+      if (keys.length > 3) {
+        return (
+          <span className="text-gray-500">
+            {`{ `}<span className="text-muted-foreground italic">{keys.length} propriedades</span>{` }`}
+          </span>
+        );
+      }
+      
+      return (
+        <span className="text-gray-500">
+          {"{ "}
+          {keys.slice(0, 3).map((k, index) => (
+            <span key={k}>
+              {index > 0 && ", "}
+              <span className="text-orange-600 dark:text-orange-400">"{k}"</span>
+              <span className="text-gray-500">: </span>
+              {renderValue(value[k], k, depth + 1)}
+            </span>
+          ))}
+          {keys.length > 3 && <span className="text-muted-foreground italic">, ...</span>}
+          {" }"}
+        </span>
+      );
+    }
+    
+    return <span>{String(value)}</span>;
+  };
+
+  return (
+    <div className="font-mono text-xs leading-relaxed">
+      {renderValue(data)}
+    </div>
+  );
+}
+
 // Component for Agent Usage History
 function AgentUsageHistory() {
   const { toast } = useToast();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showApiLogs, setShowApiLogs] = useState(false);
+  const [logFilter, setLogFilter] = useState("");
   
   const { data: usageStats = [], refetch } = useQuery({
     queryKey: ["/api/agents/usage-stats"],
@@ -85,11 +183,11 @@ function AgentUsageHistory() {
             <p className="text-muted-foreground">Nenhuma conversa encontrada ainda</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
             {usageStats.map((stat: any, index: number) => (
-              <Card key={stat.agentId} className="p-4">
-                <div className="flex items-center space-x-3 mb-3">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+              <Card key={stat.agentId} className="p-3">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
                     stat.agentType === 'secondary' ? 'bg-blue-100 dark:bg-blue-900' : 'bg-purple-100 dark:bg-purple-900'
                   }`}>
                     {stat.agentType === 'secondary' ? 
@@ -97,17 +195,17 @@ function AgentUsageHistory() {
                       <Bot className="text-purple-600 dark:text-purple-400" />
                     }
                   </div>
-                  <div className="flex-1">
-                    <h4 className="font-medium flex items-center gap-2">
-                      {stat.agentName}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h4 className="font-medium text-sm truncate">{stat.agentName}</h4>
                       {stat.agentType === 'secondary' && (
-                        <Badge variant="outline" className="text-xs">
+                        <Badge variant="outline" className="text-xs flex-shrink-0">
                           Secundário
                         </Badge>
                       )}
-                    </h4>
+                    </div>
                     {stat.specialization && (
-                      <p className="text-xs text-blue-600 dark:text-blue-400">
+                      <p className="text-xs text-blue-600 dark:text-blue-400 truncate">
                         📋 {stat.specialization}
                       </p>
                     )}
@@ -117,14 +215,14 @@ function AgentUsageHistory() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
                     <span className="flex items-center gap-1">
-                      <MessageCircle className="w-4 h-4" />
+                      <MessageCircle className="w-4 h-4 flex-shrink-0" />
                       Mensagens
                     </span>
                     <span className="font-medium">{stat.messageCount}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="flex items-center gap-1">
-                      <User className="w-4 h-4" />
+                      <User className="w-4 h-4 flex-shrink-0" />
                       Conversas
                     </span>
                     <span className="font-medium">{stat.conversationCount}</span>
@@ -142,8 +240,8 @@ function AgentUsageHistory() {
           Lista de quando e qual agente foi acionado
         </p>
         
-        {/* Lista simples de acionamentos */}
-        <div className="space-y-2 max-h-96 overflow-y-auto">
+        {/* Lista de acionamentos com melhor organização */}
+        <div className="space-y-3 max-h-96 overflow-y-auto">
           {usageStats.length === 0 ? (
             <div className="text-center py-8">
               <Bot className="w-12 h-12 mx-auto text-muted-foreground mb-2" />
@@ -151,31 +249,33 @@ function AgentUsageHistory() {
             </div>
           ) : (
             usageStats.map((stat: any) => (
-              <Card key={stat.agentId} className="p-4">
+              <Card key={stat.agentId} className="p-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
                       stat.agentType === 'secondary' ? 'bg-blue-100 dark:bg-blue-900' : 'bg-purple-100 dark:bg-purple-900'
                     }`}>
                       <Bot className={`w-4 h-4 ${
                         stat.agentType === 'secondary' ? 'text-blue-600 dark:text-blue-400' : 'text-purple-600 dark:text-purple-400'
                       }`} />
                     </div>
-                    <div>
-                      <p className="font-medium">{stat.agentName}</p>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={stat.agentType === 'secondary' ? "default" : "secondary"} className={`text-xs ${
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-medium text-sm truncate">{stat.agentName}</p>
+                        <Badge variant={stat.agentType === 'secondary' ? "default" : "secondary"} className={`text-xs flex-shrink-0 ${
                           stat.agentType === 'secondary' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
                         }`}>
                           {stat.agentType === 'secondary' ? 'Secundário' : 'Principal'}
                         </Badge>
-                        {stat.specialization && (
-                          <span className="text-xs text-muted-foreground">• {stat.specialization}</span>
-                        )}
                       </div>
+                      {stat.specialization && (
+                        <p className="text-xs text-muted-foreground truncate">
+                          📋 {stat.specialization}
+                        </p>
+                      )}
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right flex-shrink-0 ml-3">
                     <p className="text-sm font-medium">{stat.messageCount} acionamentos</p>
                     <p className="text-xs text-muted-foreground">
                       {stat.lastUsed ? format(new Date(stat.lastUsed), "dd/MM HH:mm", { locale: ptBR }) : 'N/A'}
@@ -235,24 +335,57 @@ function AgentUsageHistory() {
         
         {showApiLogs && (
           <>
-            <p className="text-sm text-muted-foreground mb-4">
-              Histórico completo de todas as chamadas para APIs externas (VistaHost, etc.)
-            </p>
+            <div className="flex flex-col sm:flex-row gap-3 mb-4">
+              <div className="flex-1">
+                <p className="text-sm text-muted-foreground">
+                  Histórico completo de todas as chamadas para APIs externas (VistaHost, etc.)
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Filtrar por API, endpoint ou telefone..."
+                  value={logFilter}
+                  onChange={(e) => setLogFilter(e.target.value)}
+                  className="w-64 text-xs"
+                />
+              </div>
+            </div>
             
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {apiLogs.length === 0 ? (
+            <div className="space-y-3">
+              {apiLogs.filter((log: any) => {
+                if (!logFilter) return true;
+                const searchTerm = logFilter.toLowerCase();
+                return (
+                  log.apiType?.toLowerCase().includes(searchTerm) ||
+                  log.endpoint?.toLowerCase().includes(searchTerm) ||
+                  log.userPhone?.includes(searchTerm) ||
+                  log.responseStatus?.includes(searchTerm)
+                );
+              }).length === 0 ? (
                 <div className="text-center py-8">
                   <div className="w-12 h-12 mx-auto text-muted-foreground mb-2 bg-gray-100 rounded-lg flex items-center justify-center">
                     🔌
                   </div>
-                  <p className="text-muted-foreground">Nenhuma chamada de API encontrada</p>
+                  <p className="text-muted-foreground">
+                    {logFilter ? "Nenhum log encontrado com os critérios de busca" : "Nenhuma chamada de API encontrada"}
+                  </p>
                 </div>
               ) : (
-                apiLogs.map((log: any) => (
-                  <Card key={log.id} className="p-4">
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                      <div className="flex items-start space-x-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                apiLogs.filter((log: any) => {
+                  if (!logFilter) return true;
+                  const searchTerm = logFilter.toLowerCase();
+                  return (
+                    log.apiType?.toLowerCase().includes(searchTerm) ||
+                    log.endpoint?.toLowerCase().includes(searchTerm) ||
+                    log.userPhone?.includes(searchTerm) ||
+                    log.responseStatus?.includes(searchTerm)
+                  );
+                }).map((log: any) => (
+                  <Card key={log.id} className="p-3 overflow-hidden hover:shadow-md transition-shadow">
+                    {/* Header compacto com informações principais */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
                           log.responseStatus.startsWith('2') ? 'bg-green-100 dark:bg-green-900' : 'bg-red-100 dark:bg-red-900'
                         }`}>
                           <span className={`text-xs font-bold ${
@@ -261,51 +394,53 @@ function AgentUsageHistory() {
                             {log.responseStatus.startsWith('2') ? '✓' : '✗'}
                           </span>
                         </div>
-                        <div className="flex-1 min-w-0 space-y-1">
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2">
-                            <p className="font-medium text-sm truncate">{log.apiType}</p>
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              <Badge variant="outline" className="text-xs">
-                                {log.responseStatus}
-                              </Badge>
-                              <span className="text-xs text-muted-foreground">
-                                {log.executionTime}ms
-                              </span>
-                            </div>
-                          </div>
-                          <p className="text-xs text-muted-foreground break-words">
-                            {log.endpoint}
-                          </p>
-                          {log.userPhone && (
-                            <p className="text-xs text-blue-600 dark:text-blue-400 truncate">
-                              📱 {log.userPhone}
-                            </p>
-                          )}
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <span className="font-medium text-sm truncate">{log.apiType}</span>
+                          <Badge variant="outline" className="text-xs flex-shrink-0">
+                            {log.responseStatus}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground flex-shrink-0">
+                            {log.executionTime}ms
+                          </span>
                         </div>
                       </div>
-                      <div className="text-right text-xs text-muted-foreground sm:ml-4 sm:whitespace-nowrap">
-                        <p>{format(new Date(log.createdAt), "dd/MM/yyyy", { locale: ptBR })}</p>
-                        <p>{format(new Date(log.createdAt), "HH:mm:ss", { locale: ptBR })}</p>
+                      <div className="text-xs text-muted-foreground flex-shrink-0">
+                        {format(new Date(log.createdAt), "dd/MM HH:mm", { locale: ptBR })}
                       </div>
                     </div>
+
+                    {/* Linha de informações secundárias */}
+                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-3 gap-2">
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium">Endpoint:</span>
+                        <span className="ml-1 break-all">{log.endpoint}</span>
+                      </div>
+                      {log.userPhone && (
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <span>📱</span>
+                          <span className="text-blue-600 dark:text-blue-400">{log.userPhone}</span>
+                        </div>
+                      )}
+                    </div>
                     
-                    {/* Request/Response Details - Collapsible */}
-                    <details className="mt-3">
-                      <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
-                        Ver detalhes da requisição/resposta
+                    {/* Request/Response Details - Melhorado */}
+                    <details className="group">
+                      <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground select-none py-2 px-3 rounded bg-muted/30 hover:bg-muted/50 transition-colors">
+                        <span className="group-open:hidden">▶ Mostrar dados da requisição e resposta</span>
+                        <span className="hidden group-open:inline">▼ Ocultar dados da requisição e resposta</span>
                       </summary>
-                      <div className="mt-2 space-y-2">
+                      <div className="mt-3 space-y-3 border-t pt-3">
                         <div>
-                          <p className="text-xs font-medium mb-1">Dados da Requisição:</p>
-                          <pre className="text-xs bg-muted p-2 rounded max-h-32 overflow-auto">
-                            {JSON.stringify(log.requestData, null, 2)}
-                          </pre>
+                          <p className="text-xs font-medium mb-2 text-blue-600 dark:text-blue-400">📤 Dados da Requisição:</p>
+                          <div className="bg-blue-50 dark:bg-blue-950/30 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+                            <JSONViewer data={log.requestData} />
+                          </div>
                         </div>
                         <div>
-                          <p className="text-xs font-medium mb-1">Resposta da API:</p>
-                          <pre className="text-xs bg-muted p-2 rounded max-h-32 overflow-auto">
-                            {JSON.stringify(log.responseData, null, 2)}
-                          </pre>
+                          <p className="text-xs font-medium mb-2 text-green-600 dark:text-green-400">📥 Resposta da API:</p>
+                          <div className="bg-green-50 dark:bg-green-950/30 p-3 rounded-lg border border-green-200 dark:border-green-800">
+                            <JSONViewer data={log.responseData} />
+                          </div>
                         </div>
                       </div>
                     </details>

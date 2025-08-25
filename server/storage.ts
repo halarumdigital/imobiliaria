@@ -63,8 +63,8 @@ export interface IStorage {
   createMessage(message: InsertMessage): Promise<Message>;
   
   // API Settings
-  getApiSettings(companyId: string): Promise<{id: string; companyId: string; apiUrl: string; apiToken: string; isActive: boolean} | undefined>;
-  saveApiSettings(companyId: string, apiUrl: string, apiToken: string, isActive?: boolean): Promise<{id: string; companyId: string; apiUrl: string; apiToken: string; isActive: boolean}>;
+  getApiSettings(companyId: string): Promise<{id: string; companyId: string; apiUrl: string; apiToken: string} | undefined>;
+  saveApiSettings(companyId: string, apiUrl: string, apiToken: string): Promise<{id: string; companyId: string; apiUrl: string; apiToken: string}>;
   
   // API Call Logs
   logApiCall(logData: {
@@ -1022,7 +1022,7 @@ export class MySQLStorage implements IStorage {
   }
 
   // API Settings methods
-  async getApiSettings(companyId: string): Promise<{id: string; companyId: string; apiUrl: string; apiToken: string; isActive: boolean} | undefined> {
+  async getApiSettings(companyId: string): Promise<{id: string; companyId: string; apiUrl: string; apiToken: string} | undefined> {
     if (!this.connection) throw new Error('No database connection');
     
     const [rows] = await this.connection.execute(
@@ -1038,12 +1038,11 @@ export class MySQLStorage implements IStorage {
       id: row.id,
       companyId: row.company_id,
       apiUrl: row.api_url,
-      apiToken: row.api_token,
-      isActive: Boolean(row.is_active)
+      apiToken: row.api_token
     };
   }
 
-  async saveApiSettings(companyId: string, apiUrl: string, apiToken: string, isActive: boolean = true): Promise<{id: string; companyId: string; apiUrl: string; apiToken: string; isActive: boolean}> {
+  async saveApiSettings(companyId: string, apiUrl: string, apiToken: string): Promise<{id: string; companyId: string; apiUrl: string; apiToken: string}> {
     if (!this.connection) throw new Error('No database connection');
     
     // Check if settings already exist
@@ -1052,31 +1051,29 @@ export class MySQLStorage implements IStorage {
     if (existing) {
       // Update existing settings
       await this.connection.execute(
-        'UPDATE api_settings SET api_url = ?, api_token = ?, is_active = ?, updated_at = NOW() WHERE company_id = ?',
-        [apiUrl, apiToken, isActive, companyId]
+        'UPDATE api_settings SET api_url = ?, api_token = ?, updated_at = NOW() WHERE company_id = ?',
+        [apiUrl, apiToken, companyId]
       );
       
       return {
         id: existing.id,
         companyId,
         apiUrl,
-        apiToken,
-        isActive
+        apiToken
       };
     } else {
       // Create new settings
       const id = randomUUID();
       await this.connection.execute(
-        'INSERT INTO api_settings (id, company_id, api_url, api_token, is_active) VALUES (?, ?, ?, ?, ?)',
-        [id, companyId, apiUrl, apiToken, isActive]
+        'INSERT INTO api_settings (id, company_id, api_url, api_token) VALUES (?, ?, ?, ?)',
+        [id, companyId, apiUrl, apiToken]
       );
       
       return {
         id,
         companyId,
         apiUrl,
-        apiToken,
-        isActive
+        apiToken
       };
     }
   }

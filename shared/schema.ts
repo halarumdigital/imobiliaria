@@ -122,7 +122,6 @@ export const apiSettings = mysqlTable("api_settings", {
   companyId: varchar("company_id", { length: 36 }).notNull(),
   apiUrl: text("api_url").notNull(),
   apiToken: text("api_token").notNull(),
-  isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });
@@ -244,7 +243,6 @@ export const insertApiSettingsSchema = createInsertSchema(apiSettings).pick({
   companyId: true,
   apiUrl: true,
   apiToken: true,
-  isActive: true,
 });
 
 export const insertApiCallLogSchema = createInsertSchema(apiCallLogs).pick({
