@@ -25,6 +25,7 @@ import AiAgents from "@/pages/client/ai-agents";
 import TestAI from "@/pages/client/test-ai";
 import Conversations from "@/pages/client/conversations";
 import Leads from "@/pages/client/leads";
+import ApiConfig from "@/pages/client/api-config";
 
 interface ProtectedRouteProps {
   component: React.ComponentType;
@@ -176,6 +177,14 @@ function Router() {
           requiredRole="client"
           title="Leads"
           subtitle="Gerencie seus leads e potenciais clientes"
+        />
+      </Route>
+      <Route path="/client/api-config">
+        <ProtectedRoute 
+          component={ApiConfig}
+          requiredRole="client"
+          title="Configurações da API"
+          subtitle="Configure a integração com VistaHost/VistaSoft"
         />
       </Route>
 

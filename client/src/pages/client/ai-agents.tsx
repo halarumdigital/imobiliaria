@@ -239,43 +239,8 @@ function AgentUsageHistory() {
               Histórico completo de todas as chamadas para APIs externas (VistaHost, etc.)
             </p>
             
-            {/* Summary Stats */}
-            {apiLogs.length > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                <Card className="p-3">
-                  <div className="text-center">
-                    <p className="text-2xl font-bold">{apiLogs.length}</p>
-                    <p className="text-xs text-muted-foreground">Total de Chamadas</p>
-                  </div>
-                </Card>
-                <Card className="p-3">
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-green-600">
-                      {apiLogs.filter((log: any) => log.responseStatus.startsWith('2')).length}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Sucessos</p>
-                  </div>
-                </Card>
-                <Card className="p-3">
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-red-600">
-                      {apiLogs.filter((log: any) => !log.responseStatus.startsWith('2')).length}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Erros</p>
-                  </div>
-                </Card>
-                <Card className="p-3">
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-blue-600">
-                      {Math.round(apiLogs.reduce((sum: number, log: any) => sum + log.executionTime, 0) / apiLogs.length)}ms
-                    </p>
-                    <p className="text-xs text-muted-foreground">Tempo Médio</p>
-                  </div>
-                </Card>
-              </div>
-            )}
-            
-            <div className="space-y-3 max-h-96 overflow-y-auto">{apiLogs.length === 0 ? (
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {apiLogs.length === 0 ? (
                 <div className="text-center py-8">
                   <div className="w-12 h-12 mx-auto text-muted-foreground mb-2 bg-gray-100 rounded-lg flex items-center justify-center">
                     🔌
@@ -285,22 +250,21 @@ function AgentUsageHistory() {
               ) : (
                 apiLogs.map((log: any) => (
                   <Card key={log.id} className="p-4">
-                    <div className="space-y-3">
-                      {/* Header Section */}
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-start space-x-3 flex-1 min-w-0">
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                            log.responseStatus.startsWith('2') ? 'bg-green-100 dark:bg-green-900' : 'bg-red-100 dark:bg-red-900'
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                      <div className="flex items-start space-x-3">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                          log.responseStatus.startsWith('2') ? 'bg-green-100 dark:bg-green-900' : 'bg-red-100 dark:bg-red-900'
+                        }`}>
+                          <span className={`text-xs font-bold ${
+                            log.responseStatus.startsWith('2') ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                           }`}>
-                            <span className={`text-xs font-bold ${
-                              log.responseStatus.startsWith('2') ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                            }`}>
-                              {log.responseStatus.startsWith('2') ? '✓' : '✗'}
-                            </span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex flex-wrap items-center gap-2 mb-1">
-                              <p className="font-medium text-sm">{log.apiType}</p>
+                            {log.responseStatus.startsWith('2') ? '✓' : '✗'}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2">
+                            <p className="font-medium text-sm truncate">{log.apiType}</p>
+                            <div className="flex items-center gap-2 flex-shrink-0">
                               <Badge variant="outline" className="text-xs">
                                 {log.responseStatus}
                               </Badge>
@@ -308,76 +272,43 @@ function AgentUsageHistory() {
                                 {log.executionTime}ms
                               </span>
                             </div>
-                            {log.userPhone && (
-                              <p className="text-xs text-blue-600 dark:text-blue-400 mb-1">
-                                📱 {log.userPhone}
-                              </p>
-                            )}
                           </div>
-                        </div>
-                        <div className="text-right text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
-                          <p>{format(new Date(log.createdAt), "dd/MM/yyyy", { locale: ptBR })}</p>
-                          <p>{format(new Date(log.createdAt), "HH:mm:ss", { locale: ptBR })}</p>
+                          <p className="text-xs text-muted-foreground break-words">
+                            {log.endpoint}
+                          </p>
+                          {log.userPhone && (
+                            <p className="text-xs text-blue-600 dark:text-blue-400 truncate">
+                              📱 {log.userPhone}
+                            </p>
+                          )}
                         </div>
                       </div>
-
-                      {/* Endpoint */}
-                      <div className="text-xs">
-                        <span className="font-medium text-muted-foreground">Endpoint: </span>
-                        <span className="break-all">{log.endpoint}</span>
+                      <div className="text-right text-xs text-muted-foreground sm:ml-4 sm:whitespace-nowrap">
+                        <p>{format(new Date(log.createdAt), "dd/MM/yyyy", { locale: ptBR })}</p>
+                        <p>{format(new Date(log.createdAt), "HH:mm:ss", { locale: ptBR })}</p>
                       </div>
-
-                      {/* Request Data - Inline */}
-                      {log.requestData && Object.keys(log.requestData).length > 0 && (
-                        <div className="text-xs">
-                          <span className="font-medium text-muted-foreground">📤 Requisição: </span>
-                          <span className="text-blue-600 dark:text-blue-400 break-words">
-                            {typeof log.requestData === 'object' 
-                              ? Object.entries(log.requestData).map(([key, value]) => 
-                                  `${key}: ${typeof value === 'string' ? value : JSON.stringify(value)}`
-                                ).join(' • ')
-                              : String(log.requestData)
-                            }
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Response Data - Inline */}
-                      {log.responseData && (
-                        <div className="text-xs">
-                          <span className="font-medium text-muted-foreground">📥 Resposta: </span>
-                          <span className="text-green-600 dark:text-green-400 break-words">
-                            {typeof log.responseData === 'object'
-                              ? Object.entries(log.responseData).slice(0, 3).map(([key, value]) => 
-                                  `${key}: ${typeof value === 'string' ? value : JSON.stringify(value)}`
-                                ).join(' • ')
-                              : String(log.responseData).substring(0, 100) + (String(log.responseData).length > 100 ? '...' : '')
-                            }
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Expandable Full Details */}
-                      <details className="text-xs">
-                        <summary className="cursor-pointer text-muted-foreground hover:text-foreground py-1">
-                          🔍 Ver dados completos
-                        </summary>
-                        <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 gap-3">
-                          <div className="bg-blue-50 dark:bg-blue-950/30 p-3 rounded border-l-2 border-blue-400">
-                            <p className="font-medium mb-2 text-blue-700 dark:text-blue-300">📤 Dados da Requisição</p>
-                            <div className="text-xs text-blue-800 dark:text-blue-200 whitespace-pre-wrap break-words">
-                              {JSON.stringify(log.requestData, null, 2)}
-                            </div>
-                          </div>
-                          <div className="bg-green-50 dark:bg-green-950/30 p-3 rounded border-l-2 border-green-400">
-                            <p className="font-medium mb-2 text-green-700 dark:text-green-300">📥 Resposta da API</p>
-                            <div className="text-xs text-green-800 dark:text-green-200 whitespace-pre-wrap break-words">
-                              {JSON.stringify(log.responseData, null, 2)}
-                            </div>
-                          </div>
-                        </div>
-                      </details>
                     </div>
+                    
+                    {/* Request/Response Details - Collapsible */}
+                    <details className="mt-3">
+                      <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+                        Ver detalhes da requisição/resposta
+                      </summary>
+                      <div className="mt-2 space-y-2">
+                        <div>
+                          <p className="text-xs font-medium mb-1">Dados da Requisição:</p>
+                          <pre className="text-xs bg-muted p-2 rounded max-h-32 overflow-auto">
+                            {JSON.stringify(log.requestData, null, 2)}
+                          </pre>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium mb-1">Resposta da API:</p>
+                          <pre className="text-xs bg-muted p-2 rounded max-h-32 overflow-auto">
+                            {JSON.stringify(log.responseData, null, 2)}
+                          </pre>
+                        </div>
+                      </div>
+                    </details>
                   </Card>
                 ))
               )}
