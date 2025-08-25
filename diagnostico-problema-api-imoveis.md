@@ -1,170 +1,151 @@
-# Diagnóstico do Problema: Agente não está consultando API de imóveis
+# Diagnóstico: Problema com Agente Não Chamando API Após Coleta de Dados
 
-## 📋 Análise Realizada
+## 📋 Análise Geral
 
-Após investigar todo o fluxo do sistema, identifiquei onde está o problema e como resolvê-lo.
+Após análise detalhada do código, identifiquei que o sistema tem uma estrutura complexa mas bem definida para processamento de mensagens e busca de imóveis. O problema está no fluxo de coleta de dados e chamada da API.
 
-## 🔍 Problema Identificado
+## 🔍 Fluxo Atual do Sistema
 
-### 1. **Contexto do Problema**
-O usuário relatou que "o agente não está consultando a API e retornando os imóveis".
+1. **WhatsApp Webhook** (`server/services/whatsappWebhook.ts`)
+   - Recebe mensagens do WhatsApp
+   - Chama `AIService.processMessage()`
 
-### 2. **Análise do Código Fonte**
+2. **AI Service** (`server/services/aiService.ts`)
+   - Busca instância e agente vinculado
+   - Chama `AiResponseService.generateResponse()`
 
-#### **Arquivo: `server/aiResponseService.ts`**
-- **Função:** `handlePropertySearch()` (linhas 250-500)
-- **Status:** ✅ Implementada corretamente
-- **Lógica:** 
-  - Detecta palavras-chave de imóveis
-  - Verifica se todas as informações necessárias foram coletadas
-  - Busca configurações da API no banco de dados
-  - Faz requisição para a API VistaHost
+3. **AI Response Service** (`server/aiResponseService.ts`)
+   - Verifica se é uma consulta sobre imóveis
+   - Coleta dados do usuário (nome, telefone, tipo, finalidade, cidade)
+   - **PROBLEMA: A lógica de coleta de dados está interrompendo o fluxo**
 
-#### **Arquivo: `server/storage.ts`**
-- **Função:** `getApiSettings()` (linhas 950-970)
-- **Status:** ✅ Implementada corretamente
-- **Lógica:** Busca configurações da API na tabela `api_settings`
+## 🚨 Problema Principal Identificado
 
-#### **Arquivo: `server/routes.ts`**
-- **Rotas de API:** ✅ Implementadas
-- **Testes:** ✅ Possui rotas de teste para debug
+### 1. Lógica de Coleta de Dados Muito Restritiva
 
-#### **Arquivo: `shared/schema.ts`**
-- **Tabela:** `apiSettings` (linhas 220-230)
-- **Status:** ✅ Schema definido corretamente
-
-## 🚨 Causa Raiz do Problema
-
-### **Problema Principal: Configuração da API não está disponível**
-
-O sistema está funcionando corretamente, mas o agente não consegue consultar imóveis porque:
-
-1. **Tabela `api_settings` está vazia** ou não possui configurações para a empresa
-2. **Campo `companyId` não está sendo passado corretamente** para o serviço
-3. **Configurações da API (URL e Token) não foram inseridas** no sistema
-
-### **Evidências no Código**
-
-No arquivo `aiResponseService.ts`, linha 320:
+No arquivo `aiResponseService.ts`, método `handlePropertySearch()`:
 
 ```typescript
-const apiSettings = await storage.getApiSettings(request.companyId!);
-
-if (!apiSettings?.apiUrl || !apiSettings?.apiToken) {
-  return `🔧 **Configuração necessária para busca de imóveis:**
+// SEMPRE verificar se temos todas as informações ANTES de qualquer tentativa de busca
+if (!conversationContext.nome || !conversationContext.telefone || 
+    !conversationContext.tipoImovel || !conversationContext.finalidade || 
+    !conversationContext.cidade) {
+  console.log(`📋 [CONTEXT] Informações faltando - PARANDO BUSCA e iniciando coleta:`, {
+    nome: !!conversationContext.nome,
+    telefone: !!conversationContext.telefone,
+    tipoImovel: !!conversationContext.tipoImovel,
+    finalidade: !!conversationContext.finalidade,
+    cidade: !!conversationContext.cidade
+  });
   
-📋 **Faltando:** ${missingConfig.join(", ")}
-
-**Para configurar:**
-1. Acesse o sistema web em: https://imobiliaria.gilliard.dev.br
-2. Vá em "Configurações" → "API de Imóveis" 
-3. Configure:
-   - **URL da API VistaHost:** https://...
-   - **Token de acesso:** seu_token_aqui`;
+  // SEMPRE retornar a mensagem de coleta, NUNCA deixar passar
+  if (!conversationContext.nome) {
+    return "Ótimo! Vou ajudá-lo a encontrar o imóvel perfeito. Para começar, qual é o seu nome?";
+  } else if (!conversationContext.telefone) {
+    return `Prazer, ${conversationContext.nome}! Agora preciso do seu telefone para contato.`;
+  } else if (!conversationContext.tipoImovel) {
+    return "Excelente! Que tipo de imóvel você está procurando? (casa, apartamento, terreno, etc)";
+  } else if (!conversationContext.finalidade) {
+    return "Perfeito! Você deseja comprar ou alugar este imóvel?";
+  } else if (!conversationContext.cidade) {
+    return "Ótimo! Em qual cidade você está procurando o imóvel?";
+  }
+  
+  // Este return garante que NUNCA continuaremos sem as informações
+  return "Vou precisar de algumas informações para encontrar o imóvel ideal para você. Qual é o seu nome?";
 }
 ```
 
-## 🔧 Solução Proposta
+**Problema:** Esta lógica está SEMPRE retornando uma mensagem de coleta de dados, mesmo quando os dados já foram fornecidos em mensagens anteriores.
 
-### **Passo 1: Verificar Configurações no Banco de Dados**
+### 2. Problema com Extração de Contexto
 
-```sql
--- Verificar se existem configurações na tabela api_settings
-SELECT * FROM api_settings;
+O método `extractConversationContext()` tem problemas para extrair informações corretamente do histórico:
 
--- Verificar empresas cadastradas
-SELECT id, name FROM companies;
-```
+1. **Extração Manual Falhando:** O método `extractContextManually()` não está conseguindo extrair todas as informações necessárias
+2. **Extração por IA Inconsistente:** A IA não está conseguindo parsear o JSON corretamente
+3. **Combinação de Dados:** A lógica de combinar extração manual + IA não está funcionando
 
-### **Passo 2: Inserir Configurações da API (se necessário)**
+### 3. Problema com Histórico de Conversa
 
-```sql
--- Inserir configurações para a empresa (substitua o companyId)
-INSERT INTO api_settings (id, company_id, api_url, api_token, created_at, updated_at) 
-VALUES (
-  UUID(), 
-  'a9a2f3e1-6e37-43d4-b411-d7fb999f93e2', 
-  'https://suderneg-rest.vistahost.com.br',
-  'SEU_TOKEN_AQUI',
-  NOW(),
-  NOW()
-);
-```
+O histórico de conversa não está sendo passado corretamente para o contexto, fazendo com que o agente "esqueça" as informações já fornecidas pelo usuário.
 
-### **Passo 3: Verificar se o companyId está sendo passado**
+## 🔧 Soluções Propostas
 
-No fluxo de mensagens, verificar se o `companyId` está sendo incluído no request:
+### Solução 1: Melhorar Extração de Contexto
 
 ```typescript
-// Em server/aiResponseService.ts - função generateResponse
-const request: AiResponseRequest = {
-  message: userMessage,
-  agentId: agent.id,
-  agentPrompt: agent.prompt,
-  companyId: agent.companyId, // ✅ Isso deve estar presente
-  // ... outros campos
-};
+// Melhorar a extração manual no método extractContextManually()
+private extractContextManually(text: string): { nome: string | null; telefone: string | null; tipoImovel: string | null; finalidade: string | null; cidade: string | null; pagina: number } {
+  // ... código existente
+  
+  // Melhorar detecção de padrões
+  const nomePatterns = [
+    /(?:meu nome é|sou|chamo-me|eu sou)\s+([A-Z][a-záàâãéèêíìîóòôõúùûç\s]+)/i,
+    /([A-Z][a-záàâãéèêíìîóòôõúùûç]+)(?:,\s*|:\s*|\s+)?(?:sou|quero|gostaria|procuro)/i,
+    /(?:nome|chamo-se)\s*[:\-]?\s*([A-Z][a-záàâãéèêíìîóòôõúùûç]+)/i,
+    /oi[^,]*,\s*([A-Z][a-záàâãéèêíìîóòôõúùûç]+)/i  // Padrão: "Oi João, ..."
+  ];
+  
+  // ... melhorar outros padrões também
+}
 ```
 
-### **Passo 4: Testar a Configuração**
+### Solução 2: Adicionar Debug Detalhado
 
-Usar a rota de teste para verificar se a API está funcionando:
+```typescript
+// No método handlePropertySearch(), adicionar mais logs
+console.log(`🔍 [DEBUG] Contexto completo recebido:`, JSON.stringify(conversationContext, null, 2));
+console.log(`🔍 [DEBUG] Histórico completo:`, JSON.stringify(request.conversationHistory, null, 2));
+console.log(`🔍 [DEBUG] Mensagem atual:`, request.message);
+```
 
+### Solução 3: Melhorar Lógica de Coleta
+
+```typescript
+// Modificar a lógica para verificar se já temos algumas informações
+const missingInfo = [];
+if (!conversationContext.nome) missingInfo.push('nome');
+if (!conversationContext.telefone) missingInfo.push('telefone');
+if (!conversationContext.tipoImovel) missingInfo.push('tipo de imóvel');
+if (!conversationContext.finalidade) missingInfo.push('finalidade');
+if (!conversationContext.cidade) missingInfo.push('cidade');
+
+if (missingInfo.length > 0) {
+  // Perguntar apenas pela primeira informação faltando
+  const firstMissing = missingInfo[0];
+  // ... lógica para perguntar específica
+} else {
+  // Todas as informações coletadas, prosseguir com busca
+  console.log(`✅ [CONTEXT] Todas as informações coletadas, fazendo busca`);
+}
+```
+
+## 🧪 Testes para Executar
+
+### Teste 1: Verificar Configuração da API
 ```bash
-# Testar via curl ou navegador
-curl "http://localhost:3000/api/test-property-search"
+node test-api-settings.js
 ```
 
-Ou usar a interface web em:
-`https://imobiliaria.gilliard.dev.br/api-config`
-
-## 🎯 Checklist para Resolução
-
-- [ ] **Verificar banco de dados:** A tabela `api_settings` tem registros?
-- [ ] **Verificar companyId:** O ID da empresa está correto?
-- [ ] **Configurar API:** URL e Token estão inseridos?
-- [ ] **Testar conexão:** A API VistaHost está respondendo?
-- [ ] **Verificar logs:** Os logs de chamada API estão sendo registrados?
-
-## 📊 Fluxo Esperado de Funcionamento
-
-1. **Usuário envia mensagem** com palavras-chave de imóveis
-2. **Sistema detecta intenção** de busca de imóveis
-3. **Verifica informações necessárias** (nome, telefone, tipo, finalidade, cidade)
-4. **Busca configurações da API** no banco de dados
-5. **Faz requisição para VistaHost** com os filtros
-6. **Processa resposta** e formata para o usuário
-7. **Retorna imóveis encontrados** com fotos e detalhes
-
-## 🔍 Como Diagnosticar
-
-### **1. Verificar Logs do Servidor**
-
+### Teste 2: Testar Extração de Contexto
 ```bash
-# Procurar por mensagens de log relacionadas a property search
-grep -r "property search" server/
-grep -r "handlePropertySearch" server/
-grep -r "apiSettings" server/
+node test-conversa-completa.js
 ```
 
-### **2. Verificar Console do Navegador**
+### Teste 3: Testar Fluxo Completo
+```bash
+node test-property-search.js
+```
 
-Abrir DevTools e verificar se há erros de rede ou JavaScript quando tentar buscar imóveis.
+## 📊 Próximos Passos
 
-### **3. Testar Manualmente**
+1. **Executar testes** para identificar onde exatamente está falhando
+2. **Adicionar logs detalhados** no método `extractConversationContext()`
+3. **Melhorar padrões de extração** manual
+4. **Testar com conversas reais** para validar a extração
+5. **Implementar solução** definitiva
 
-Acessar a página de configuração de API e testar a conexão:
-`https://imobiliaria.gilliard.dev.br/api-config`
+## 🎯 Conclusão
 
-## 📝 Conclusão
-
-O **código está implementado corretamente**, o problema é de **configuração**. O sistema possui:
-
-- ✅ Detecção de intenção de busca de imóveis
-- ✅ Validação de informações necessárias  
-- ✅ Busca de configurações no banco
-- ✅ Tratamento de erros e mensagens informativas
-- ✅ Integração com API VistaHost
-- ✅ Formatação de resultados
-
-**Ação necessária:** Configurar a URL e Token da API VistaHost no sistema através da interface de administração.
+O problema principal está na extração de contexto do histórico da conversa. O sistema não está conseguindo identificar corretamente quando todas as informações já foram coletadas, fazendo com que ele sempre peça os dados novamente em vez de prosseguir com a busca na API.
