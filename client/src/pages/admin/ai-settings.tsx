@@ -10,13 +10,15 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { apiGet, apiPost } from "@/lib/api";
 import { AiConfiguration } from "@/types";
-import { Eye, EyeOff, Play } from "lucide-react";
+import { Eye, EyeOff, Play, RefreshCw } from "lucide-react";
 
 export default function AiSettings() {
   const { toast } = useToast();
   const [formData, setFormData] = useState<Partial<AiConfiguration>>({});
   const [showApiKey, setShowApiKey] = useState(false);
   const [testPrompt, setTestPrompt] = useState("");
+  const [availableModels, setAvailableModels] = useState<Array<{id: string, owned_by: string, created: number}>>([]);
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
 
   const { data: config, isLoading, error } = useQuery<AiConfiguration>({
     queryKey: ["/api/ai-config"],
@@ -91,6 +93,92 @@ export default function AiSettings() {
     testMutation.mutate(testPrompt);
   };
 
+  const loadAvailableModels = async () => {
+    console.log("🔍 [FRONTEND] Starting to load models...");
+    console.log("🔧 [FRONTEND] API Key present:", !!formData.apiKey);
+    console.log("🔧 [FRONTEND] API Key length:", formData.apiKey?.length);
+    console.log("🔧 [FRONTEND] API Key preview:", formData.apiKey?.substring(0, 10) + "...");
+    
+    if (!formData.apiKey) {
+      console.log("❌ [FRONTEND] No API key configured");
+      toast({
+        title: "Erro",
+        description: "Configure primeiro a chave da API OpenAI",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoadingModels(true);
+    try {
+      console.log("🌐 [FRONTEND] Making API request via apiGet...");
+      const response = await apiGet("/ai-config/models");
+      console.log("📋 [FRONTEND] API response:", response);
+      
+      if (response.models) {
+        console.log(`✅ [FRONTEND] Successfully loaded ${response.models.length} models`);
+        setAvailableModels(response.models);
+        toast({
+          title: "Sucesso",
+          description: `${response.models.length} modelos carregados da OpenAI`,
+        });
+      } else if (response.fallbackModels) {
+        console.log("🔄 [FRONTEND] Using fallback models from response");
+        setAvailableModels(response.fallbackModels);
+        toast({
+          title: "Modelos padrão carregados",
+          description: "Usando modelos padrão. Verifique sua chave da API",
+          variant: "destructive",
+        });
+      } else {
+        console.log("⚠️ [FRONTEND] No models or fallbackModels in response");
+      }
+    } catch (error: any) {
+      console.error("❌ [FRONTEND] Error loading models:", error);
+      console.log("📋 [FRONTEND] Error details:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      
+      // Use fallback models from error response if available
+      if (error.response?.data?.fallbackModels) {
+        console.log("🔄 [FRONTEND] Using fallback models from error response");
+        setAvailableModels(error.response.data.fallbackModels);
+      }
+      toast({
+        title: "Erro ao carregar modelos",
+        description: error.response?.data?.error || "Verifique sua chave da API",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingModels(false);
+      console.log("🏁 [FRONTEND] Finished loading models");
+    }
+  };
+
+  // Default models for initial display
+  const defaultModels = [
+    { id: "gpt-3.5-turbo", label: "GPT-3.5 Turbo (Rápido e Econômico)" },
+    { id: "gpt-4", label: "GPT-4 (Mais Preciso)" },
+    { id: "gpt-4o", label: "GPT-4o (Recomendado - Mais Recente)" },
+    { id: "gpt-4-turbo", label: "GPT-4 Turbo (Balanceado)" },
+    { id: "gpt-4o-mini", label: "GPT-4o Mini (Econômico)" },
+  ];
+
+  // Format model name for display
+  const formatModelName = (modelId: string) => {
+    const modelInfo: {[key: string]: string} = {
+      'gpt-4o': 'GPT-4o (Recomendado - Mais Recente)',
+      'gpt-4o-mini': 'GPT-4o Mini (Econômico)',
+      'gpt-4-turbo': 'GPT-4 Turbo (Balanceado)',
+      'gpt-4': 'GPT-4 (Mais Preciso)',
+      'gpt-3.5-turbo': 'GPT-3.5 Turbo (Rápido e Econômico)',
+    };
+    
+    return modelInfo[modelId] || modelId;
+  };
+
   if (isLoading) {
     return <div>Carregando...</div>;
   }
@@ -132,7 +220,20 @@ export default function AiSettings() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div>
-              <Label htmlFor="modelo">Modelo</Label>
+              <div className="flex items-center justify-between mb-2">
+                <Label htmlFor="modelo">Modelo</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={loadAvailableModels}
+                  disabled={isLoadingModels || !formData.apiKey}
+                  className="h-6 px-2 text-xs"
+                >
+                  <RefreshCw className={`w-3 h-3 mr-1 ${isLoadingModels ? 'animate-spin' : ''}`} />
+                  {isLoadingModels ? 'Carregando...' : 'Carregar Modelos'}
+                </Button>
+              </div>
               <Select
                 value={formData.modelo || "gpt-4o"}
                 onValueChange={(value) => handleInputChange("modelo", value)}
@@ -141,13 +242,28 @@ export default function AiSettings() {
                   <SelectValue placeholder="Selecionar modelo" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo (Rápido e Econômico)</SelectItem>
-                  <SelectItem value="gpt-4">GPT-4 (Mais Preciso)</SelectItem>
-                  <SelectItem value="gpt-4o">GPT-4o (Recomendado - Mais Recente)</SelectItem>
-                  <SelectItem value="gpt-4-turbo">GPT-4 Turbo (Balanceado)</SelectItem>
-                  <SelectItem value="gpt-4o-mini">GPT-4o Mini (Econômico)</SelectItem>
+                  {availableModels.length > 0 ? (
+                    // Show dynamically loaded models
+                    availableModels.map((model) => (
+                      <SelectItem key={model.id} value={model.id}>
+                        {formatModelName(model.id)}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    // Show default models
+                    defaultModels.map((model) => (
+                      <SelectItem key={model.id} value={model.id}>
+                        {model.label}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
+              {availableModels.length > 0 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  ✅ {availableModels.length} modelos carregados da sua conta OpenAI
+                </p>
+              )}
             </div>
 
             <div>

@@ -591,6 +591,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get available OpenAI models
+  app.get("/api/ai-config/models", authenticate, requireAdmin, async (req, res) => {
+    try {
+      console.log("🔍 [AI-MODELS] Request received");
+      const config = await storage.getAiConfiguration();
+      
+      if (!config) {
+        console.log("❌ [AI-MODELS] No AI config found");
+        return res.status(404).json({ error: "Configuração de IA não encontrada" });
+      }
+
+      if (!config.apiKey) {
+        console.log("❌ [AI-MODELS] No API key configured");
+        return res.status(400).json({ 
+          error: "Chave da API OpenAI não configurada",
+          fallbackModels: [
+            { id: 'gpt-4o', owned_by: 'openai', created: Date.now() },
+            { id: 'gpt-4o-mini', owned_by: 'openai', created: Date.now() },
+            { id: 'gpt-4-turbo', owned_by: 'openai', created: Date.now() },
+            { id: 'gpt-4', owned_by: 'openai', created: Date.now() },
+            { id: 'gpt-3.5-turbo', owned_by: 'openai', created: Date.now() }
+          ]
+        });
+      }
+
+      console.log("🔧 [AI-MODELS] Creating OpenAI service with API key");
+      const openAiService = new OpenAiService(config.apiKey);
+      const models = await openAiService.getAvailableModels();
+      
+      console.log(`✅ [AI-MODELS] Successfully fetched ${models.length} models`);
+      res.json({ models });
+    } catch (error) {
+      console.error("❌ [AI-MODELS] Error fetching models:", error);
+      res.status(500).json({ 
+        error: "Erro ao buscar modelos",
+        details: error instanceof Error ? error.message : "Erro desconhecido",
+        fallbackModels: [
+          { id: 'gpt-4o', owned_by: 'openai', created: Date.now() },
+          { id: 'gpt-4o-mini', owned_by: 'openai', created: Date.now() },
+          { id: 'gpt-4-turbo', owned_by: 'openai', created: Date.now() },
+          { id: 'gpt-4', owned_by: 'openai', created: Date.now() },
+          { id: 'gpt-3.5-turbo', owned_by: 'openai', created: Date.now() }
+        ]
+      });
+    }
+  });
+
   // API settings for VistaHost integration (Admin only)
   app.get("/api/api-settings", authenticate, requireAdmin, async (req: AuthRequest, res) => {
     try {
