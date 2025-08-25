@@ -447,7 +447,18 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
       
       console.log(`📋 [CONTEXT] Histórico completo para análise: ${fullContext.substring(0, 200)}...`);
 
-      // Usar AI para extrair informações estruturadas da conversa
+      // PRIMEIRO: Tentar extração manual baseada em padrões
+      const manualContext = this.extractContextManually(fullContext);
+      console.log(`📋 [CONTEXT] Contexto extraído manualmente:`, manualContext);
+      
+      // Se a extração manual encontrou informações suficientes, usar ela
+      if (manualContext.nome && manualContext.telefone && manualContext.tipoImovel && 
+          manualContext.finalidade && manualContext.cidade) {
+        console.log(`✅ [CONTEXT] Extração manual encontrou todas as informações, usando ela`);
+        return manualContext;
+      }
+
+      // SEGUNDO: Usar AI para extrair informações estruturadas da conversa
       const extractionPrompt = `
         Analise o histórico de conversa e extraia as seguintes informações que o cliente forneceu:
         
@@ -461,10 +472,17 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
         5. Cidade de interesse
         6. Página atual de busca (se o cliente pediu "próxima", "mais opções", conte quantas vezes)
         
-        Retorne APENAS um JSON válido no formato:
+        REGRAS IMPORTANTES:
+        - Retorne APENAS um JSON válido, sem texto adicional
+        - Se não encontrar uma informação, use "null" (em minúsculas)
+        - Para finalidade, use apenas "compra" ou "aluguel"
+        - Para página, use número inteiro começando em 1
+        - NÃO inclua explicações ou texto fora do JSON
+        
+        Formato exato:
         {
           "nome": "nome ou null",
-          "telefone": "número ou null",
+          "telefone": "número ou null", 
           "tipoImovel": "tipo ou null",
           "finalidade": "compra/aluguel ou null",
           "cidade": "cidade ou null",
@@ -476,44 +494,193 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
       
       const contextResponse = await this.openAiService.generateResponse(
         extractionPrompt,
-        "Você é um assistente especializado em extrair informações estruturadas de conversas. Retorne apenas JSON válido.",
+        "Você é um assistente especializado em extrair informações estruturadas de conversas. Retorne apenas JSON válido sem texto adicional.",
         { 
           temperature: 0.1,
           maxTokens: 200
         }
       );
       
+      console.log(`📋 [CONTEXT] Resposta bruta da IA:`, contextResponse.content);
+      
       try {
         const cleanedResponse = contextResponse.content
           .replace(/```json\n?/g, '')
           .replace(/```\n?/g, '')
+          .replace(/^[^{]*/, '') // Remover texto antes do JSON
+          .replace(/[^}]*$/, '') // Remover texto depois do JSON
           .trim();
         
+        console.log(`📋 [CONTEXT] Resposta limpa:`, cleanedResponse);
+        
+        if (!cleanedResponse.startsWith('{') || !cleanedResponse.endsWith('}')) {
+          throw new Error('Resposta não é um JSON válido');
+        }
+        
         const context = JSON.parse(cleanedResponse);
-        console.log(`📋 [CONTEXT] Contexto extraído:`, context);
-        return context;
-      } catch (error) {
-        console.log(`⚠️ [CONTEXT] Erro ao parsear contexto, retornando vazio:`, error);
-        return {
-          nome: null,
-          telefone: null,
-          tipoImovel: null,
-          finalidade: null,
-          cidade: null,
-          pagina: 1
+        console.log(`📋 [CONTEXT] Contexto extraído da IA:`, context);
+        
+        // Validar e normalizar o contexto
+        const normalizedContext = {
+          nome: context.nome || null,
+          telefone: context.telefone || null,
+          tipoImovel: context.tipoImovel || null,
+          finalidade: context.finalidade || null,
+          cidade: context.cidade || null,
+          pagina: context.pagina || 1
         };
+        
+        console.log(`📋 [CONTEXT] Contexto normalizado:`, normalizedContext);
+        
+        // TERCEIRO: Combinar com extração manual para preencher lacunas
+        const combinedContext = {
+          nome: normalizedContext.nome || manualContext.nome,
+          telefone: normalizedContext.telefone || manualContext.telefone,
+          tipoImovel: normalizedContext.tipoImovel || manualContext.tipoImovel,
+          finalidade: normalizedContext.finalidade || manualContext.finalidade,
+          cidade: normalizedContext.cidade || manualContext.cidade,
+          pagina: normalizedContext.pagina || manualContext.pagina || 1
+        };
+        
+        console.log(`📋 [CONTEXT] Contexto combinado final:`, combinedContext);
+        return combinedContext;
+        
+      } catch (error) {
+        console.log(`⚠️ [CONTEXT] Erro ao parsear contexto da IA:`, error);
+        console.log(`📋 [CONTEXT] Usando extração manual como fallback`);
+        return manualContext;
       }
     } catch (error) {
       console.error(`❌ [CONTEXT] Erro ao extrair contexto:`, error);
-      return {
-        nome: null,
-        telefone: null,
-        tipoImovel: null,
-        finalidade: null,
-        cidade: null,
-        pagina: 1
-      };
+      // Fallback para extração manual
+      return this.extractContextManually(request.message);
     }
+  }
+
+  /**
+   * Extrai informações manualmente usando padrões e expressões regulares
+   */
+  private extractContextManually(text: string): { nome: string | null; telefone: string | null; tipoImovel: string | null; finalidade: string | null; cidade: string | null; pagina: number } {
+    console.log(`🔍 [MANUAL-EXTRACT] Iniciando extração manual de: "${text.substring(0, 100)}..."`);
+    
+    const context = {
+      nome: null as string | null,
+      telefone: null as string | null,
+      tipoImovel: null as string | null,
+      finalidade: null as string | null,
+      cidade: null as string | null,
+      pagina: 1
+    };
+
+    try {
+      // Extrair nome - procurar por padrões comuns
+      const nomePatterns = [
+        /(?:meu nome é|sou|chamo-me|eu sou)\s+([A-Z][a-z]+)/i,
+        /([A-Z][a-z]+)(?:,\s*|:\s*|\s+)?(?:sou|quero|gostaria|procuro)/i,
+        /(?:nome|chamo-se)\s*[:\-]?\s*([A-Z][a-z]+)/i
+      ];
+      
+      for (const pattern of nomePatterns) {
+        const match = text.match(pattern);
+        if (match && match[1]) {
+          context.nome = match[1].trim();
+          console.log(`🔍 [MANUAL-EXTRACT] Nome encontrado: "${context.nome}"`);
+          break;
+        }
+      }
+
+      // Extrair telefone - padrões brasileiros
+      const telefonePatterns = [
+        /(\d{2}\s?\d{4,5}\-?\d{4})/, // (11) 99999-9999 ou 11999999999
+        /(\d{4,5}\-?\d{4})/, // 99999-9999
+        /(\d{10,11})/ // 11999999999 ou 9999999999
+      ];
+      
+      for (const pattern of telefonePatterns) {
+        const match = text.match(pattern);
+        if (match && match[1]) {
+          context.telefone = match[1].replace(/\D/g, ''); // Remover não dígitos
+          console.log(`🔍 [MANUAL-EXTRACT] Telefone encontrado: "${context.telefone}"`);
+          break;
+        }
+      }
+
+      // Extrair tipo de imóvel
+      const tipoPatterns = [
+        /(casa|apartamento|apto|terreno|sala|loja|galpão|cobertura|kitnet|studio)/i,
+        /(imóvel|imovel)\s+(?:tipo|de)\s+([a-z]+)/i
+      ];
+      
+      for (const pattern of tipoPatterns) {
+        const match = text.match(pattern);
+        if (match) {
+          const tipo = match[1] || match[2];
+          context.tipoImovel = this.normalizeTipoImovel(tipo);
+          console.log(`🔍 [MANUAL-EXTRACT] Tipo de imóvel encontrado: "${context.tipoImovel}"`);
+          break;
+        }
+      }
+
+      // Extrair finalidade
+      if (/comprar|compra|venda/i.test(text)) {
+        context.finalidade = 'compra';
+        console.log(`🔍 [MANUAL-EXTRACT] Finalidade encontrada: "${context.finalidade}"`);
+      } else if (/alugar|aluguel|locacao/i.test(text)) {
+        context.finalidade = 'aluguel';
+        console.log(`🔍 [MANUAL-EXTRACT] Finalidade encontrada: "${context.finalidade}"`);
+      }
+
+      // Extrair cidade
+      const cidadePatterns = [
+        /(?:cidade|em)\s+([A-Z][a-záàâãéèêíìîóòôõúùûç\s]+)/i,
+        /([A-Z][a-záàâãéèêíìîóòôõúùûç]+)(?:,\s*[A-Z]{2})?\s*$/,
+        /(?:porto alegre|são paulo|rio de janeiro|belo horizonte|brasília|salvador|fortaleza|curitiba|manaus|recife|belém|goiânia)/i
+      ];
+      
+      for (const pattern of cidadePatterns) {
+        const match = text.match(pattern);
+        if (match && match[1]) {
+          context.cidade = match[1].trim();
+          console.log(`🔍 [MANUAL-EXTRACT] Cidade encontrada: "${context.cidade}"`);
+          break;
+        }
+      }
+
+      // Extrair página (próxima, mais opções, etc)
+      const pageMatches = text.match(/(?:próxima|mais|outras|outras?\s+opções)/gi);
+      if (pageMatches) {
+        context.pagina = pageMatches.length + 1;
+        console.log(`🔍 [MANUAL-EXTRACT] Página calculada: ${context.pagina}`);
+      }
+
+      console.log(`🔍 [MANUAL-EXTRACT] Contexto final extraído manualmente:`, context);
+      return context;
+
+    } catch (error) {
+      console.error(`❌ [MANUAL-EXTRACT] Erro na extração manual:`, error);
+      return context;
+    }
+  }
+
+  /**
+   * Normaliza o tipo de imóvel para um formato padrão
+   */
+  private normalizeTipoImovel(tipo: string): string {
+    const normalizations: { [key: string]: string } = {
+      'apto': 'apartamento',
+      'apartamentos': 'apartamento',
+      'casas': 'casa',
+      'terrenos': 'terreno',
+      'salas': 'sala',
+      'lojas': 'loja',
+      'galpões': 'galpão',
+      'coberturas': 'cobertura',
+      'kitnets': 'kitnet',
+      'studios': 'studio'
+    };
+
+    const tipoLower = tipo.toLowerCase();
+    return normalizations[tipoLower] || tipoLower;
   }
 
   /**
