@@ -40,6 +40,33 @@ export default function AiSettings() {
     retry: 1,
   });
 
+  const refreshModelsForDropdown = useCallback(async () => {
+    try {
+      const response = await apiGet("/ai-config/models");
+      if (response.models) {
+        // Modelos padrão já presentes no dropdown
+        const defaultModels = ['gpt-3.5-turbo', 'gpt-4', 'gpt-4o', 'gpt-4-turbo', 'gpt-4o-mini'];
+        
+        const gptModels = response.models
+          .filter((model: OpenAIModel) => model.id.includes('gpt'))
+          .filter((model: OpenAIModel) => !defaultModels.includes(model.id)) // Remove duplicatas
+          .sort((a: OpenAIModel, b: OpenAIModel) => a.id.localeCompare(b.id));
+        
+        setAvailableModels(gptModels);
+        toast({
+          title: "Modelos atualizados",
+          description: `${gptModels.length} modelos adicionais da OpenAI carregados`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erro ao buscar modelos",
+        description: "Verifique sua chave da API OpenAI",
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
+
   useEffect(() => {
     console.log("AI Config loaded:", config);
     if (config) {
@@ -119,33 +146,6 @@ export default function AiSettings() {
       refetchModels();
     }
   };
-
-  const refreshModelsForDropdown = useCallback(async () => {
-    try {
-      const response = await apiGet("/ai-config/models");
-      if (response.models) {
-        // Modelos padrão já presentes no dropdown
-        const defaultModels = ['gpt-3.5-turbo', 'gpt-4', 'gpt-4o', 'gpt-4-turbo', 'gpt-4o-mini'];
-        
-        const gptModels = response.models
-          .filter((model: OpenAIModel) => model.id.includes('gpt'))
-          .filter((model: OpenAIModel) => !defaultModels.includes(model.id)) // Remove duplicatas
-          .sort((a: OpenAIModel, b: OpenAIModel) => a.id.localeCompare(b.id));
-        
-        setAvailableModels(gptModels);
-        toast({
-          title: "Modelos atualizados",
-          description: `${gptModels.length} modelos adicionais da OpenAI carregados`,
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Erro ao buscar modelos",
-        description: "Verifique sua chave da API OpenAI",
-        variant: "destructive",
-      });
-    }
-  }, [toast]);
 
   if (isLoading) {
     return <div>Carregando...</div>;
