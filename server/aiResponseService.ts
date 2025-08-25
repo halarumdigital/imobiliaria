@@ -206,9 +206,7 @@ ${request.conversationHistory && request.conversationHistory.length > 0
         'propriedade', 'propriedades', 'terreno', 'terrenos', 'venda', 'vender', 'comprar',
         'aluguel', 'alugar', 'quarto', 'quartos', 'dormitório', 'dormitórios', 'garagem',
         'banheiro', 'banheiros', 'metro', 'metros', 'm²', 'preço', 'valor', 'disponível',
-        'disponíveis', 'localização', 'bairro', 'cidade', 'região', 'buscar', 'procurar',
-        'encontrar', 'quero', 'gostaria', 'preciso', 'tenho interesse', 'interessado',
-        'suite', 'suites', 'vagas', 'vaga', 'financiamento', 'entrada', 'parcela'
+        'disponíveis', 'localização', 'bairro', 'cidade', 'região'
       ];
 
       console.log(`🔍 [PROPERTY-KEYWORDS] Mensagem original: "${message}"`);
@@ -232,38 +230,40 @@ ${request.conversationHistory && request.conversationHistory.length > 0
 
       console.log(`🏠 Detectada consulta sobre imóveis: "${request.message}"`);
 
-      // MUDANÇA IMPORTANTE: Fazer a busca imediatamente se detectou palavras-chave de imóveis
-      // Só coletar informações se realmente necessário
-      console.log(`🚀 [PROPERTY SEARCH] Palavra-chave detectada - iniciando busca com informações disponíveis`);
-
       // Extrair contexto da conversa para verificar se temos todas as informações necessárias
       const conversationContext = await this.extractConversationContext(request);
       console.log(`📋 [CONTEXT] Informações extraídas da conversa:`, conversationContext);
 
-      // NOVA LÓGICA: Tentar busca com informações parciais primeiro
-      const hasAnyInfo = conversationContext.nome || conversationContext.telefone || 
-                        conversationContext.tipoImovel || conversationContext.finalidade || 
-                        conversationContext.cidade;
-
-      if (!hasAnyInfo) {
-        console.log(`📋 [CONTEXT] Nenhuma informação coletada ainda - iniciando coleta`);
-        return "Ótimo! Vou ajudá-lo a encontrar o imóvel perfeito. Para começar, qual é o seu nome?";
-      }
-
-      // Se tem algumas informações, mas não todas, coletar as faltantes
-      if (!conversationContext.nome) {
-        return "Para personalizar melhor nossa busca, qual é o seu nome?";
-      } else if (!conversationContext.telefone) {
-        return `Prazer em conhecê-lo, ${conversationContext.nome}! Para manter contato, preciso do seu telefone.`;
-      } else if (!conversationContext.tipoImovel) {
-        return "Perfeito! Que tipo de imóvel você está procurando? (casa, apartamento, terreno, etc)";
-      } else if (!conversationContext.finalidade) {
-        return "Entendi! Você deseja comprar ou alugar este imóvel?";
-      } else if (!conversationContext.cidade) {
-        return "Ótimo! Em qual cidade você está procurando o imóvel?";
+      // SEMPRE verificar se temos todas as informações ANTES de qualquer tentativa de busca
+      if (!conversationContext.nome || !conversationContext.telefone || 
+          !conversationContext.tipoImovel || !conversationContext.finalidade || 
+          !conversationContext.cidade) {
+        console.log(`📋 [CONTEXT] Informações faltando - PARANDO BUSCA e iniciando coleta:`, {
+          nome: !!conversationContext.nome,
+          telefone: !!conversationContext.telefone,
+          tipoImovel: !!conversationContext.tipoImovel,
+          finalidade: !!conversationContext.finalidade,
+          cidade: !!conversationContext.cidade
+        });
+        
+        // SEMPRE retornar a mensagem de coleta, NUNCA deixar passar
+        if (!conversationContext.nome) {
+          return "Ótimo! Vou ajudá-lo a encontrar o imóvel perfeito. Para começar, qual é o seu nome?";
+        } else if (!conversationContext.telefone) {
+          return `Prazer, ${conversationContext.nome}! Agora preciso do seu telefone para contato.`;
+        } else if (!conversationContext.tipoImovel) {
+          return "Excelente! Que tipo de imóvel você está procurando? (casa, apartamento, terreno, etc)";
+        } else if (!conversationContext.finalidade) {
+          return "Perfeito! Você deseja comprar ou alugar este imóvel?";
+        } else if (!conversationContext.cidade) {
+          return "Ótimo! Em qual cidade você está procurando o imóvel?";
+        }
+        
+        // Este return garante que NUNCA continuaremos sem as informações
+        return "Vou precisar de algumas informações para encontrar o imóvel ideal para você. Qual é o seu nome?";
       }
       
-      console.log(`✅ [CONTEXT] Informações suficientes coletadas, fazendo busca`);
+      console.log(`✅ [CONTEXT] Todas as informações coletadas, AGORA sim fazendo busca`);
 
       // Extract filters from the message using AI
       const filters = await this.extractPropertyFilters(request.message);
@@ -573,28 +573,23 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
     };
 
     try {
-      // Extrair nome - procurar por padrões comuns e mais flexíveis
+      // Extrair nome - procurar por padrões comuns
       const nomePatterns = [
-        /(?:meu nome é|sou|chamo-me|eu sou|me chamo)\s+([A-Z][a-z]{1,}(?:\s+[A-Z][a-z]+)*)/i,
-        /([A-Z][a-z]{2,})(?:,\s*|:\s*|\s+)(?:sou|quero|gostaria|procuro|aqui)/i,
-        /(?:nome|chamo-se|chamo)\s*[:\-]?\s*([A-Z][a-z]{2,}(?:\s+[A-Z][a-z]+)*)/i,
-        /^([A-Z][a-z]{2,}(?:\s+[A-Z][a-z]+)*)(?:\s*$|\s+(?:aqui|oi|olá|bom dia|boa tarde|boa noite))/i
+        /(?:meu nome é|sou|chamo-me|eu sou)\s+([A-Z][a-z]+)/i,
+        /([A-Z][a-z]+)(?:,\s*|:\s*|\s+)?(?:sou|quero|gostaria|procuro)/i,
+        /(?:nome|chamo-se)\s*[:\-]?\s*([A-Z][a-z]+)/i
       ];
       
       for (const pattern of nomePatterns) {
         const match = text.match(pattern);
-        if (match && match[1] && match[1].length >= 2) {
-          // Validar se não é uma palavra comum
-          const commonWords = ['casa', 'apartamento', 'quero', 'gostaria', 'procuro', 'comprar', 'alugar'];
-          if (!commonWords.includes(match[1].toLowerCase())) {
-            context.nome = match[1].trim();
-            console.log(`🔍 [MANUAL-EXTRACT] Nome encontrado: "${context.nome}"`);
-            break;
-          }
+        if (match && match[1]) {
+          context.nome = match[1].trim();
+          console.log(`🔍 [MANUAL-EXTRACT] Nome encontrado: "${context.nome}"`);
+          break;
         }
       }
 
-      // Extrair telefone - padrões brasileiros mais flexíveis
+      // Extrair telefone - padrões brasileiros
       const telefonePatterns = [
         /(\d{2}\s?\d{4,5}\-?\d{4})/, // (11) 99999-9999 ou 11999999999
         /(\d{4,5}\-?\d{4})/, // 99999-9999
@@ -603,59 +598,51 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
       
       for (const pattern of telefonePatterns) {
         const match = text.match(pattern);
-        if (match && match[1] && match[1].replace(/\D/g, '').length >= 10) {
+        if (match && match[1]) {
           context.telefone = match[1].replace(/\D/g, ''); // Remover não dígitos
           console.log(`🔍 [MANUAL-EXTRACT] Telefone encontrado: "${context.telefone}"`);
           break;
         }
       }
 
-      // Extrair tipo de imóvel - mais flexível
+      // Extrair tipo de imóvel
       const tipoPatterns = [
-        /(casa|apartamento|apto|terreno|sala|loja|galpão|cobertura|kitnet|studio|sobrado|duplex)/i,
-        /(?:imóvel|imovel)\s+(?:tipo|de)?\s*([a-z]+)/i,
-        /(?:procuro|quero|busco)\s+(?:um|uma)?\s*(casa|apartamento|apto|terreno|sala|loja)/i
+        /(casa|apartamento|apto|terreno|sala|loja|galpão|cobertura|kitnet|studio)/i,
+        /(imóvel|imovel)\s+(?:tipo|de)\s+([a-z]+)/i
       ];
       
       for (const pattern of tipoPatterns) {
         const match = text.match(pattern);
         if (match) {
           const tipo = match[1] || match[2];
-          if (tipo && tipo.length > 2) {
-            context.tipoImovel = this.normalizeTipoImovel(tipo);
-            console.log(`🔍 [MANUAL-EXTRACT] Tipo de imóvel encontrado: "${context.tipoImovel}"`);
-            break;
-          }
+          context.tipoImovel = this.normalizeTipoImovel(tipo);
+          console.log(`🔍 [MANUAL-EXTRACT] Tipo de imóvel encontrado: "${context.tipoImovel}"`);
+          break;
         }
       }
 
-      // Extrair finalidade - mais flexível
-      if (/(?:comprar|compra|venda|vender|adquirir)/i.test(text)) {
+      // Extrair finalidade
+      if (/comprar|compra|venda/i.test(text)) {
         context.finalidade = 'compra';
         console.log(`🔍 [MANUAL-EXTRACT] Finalidade encontrada: "${context.finalidade}"`);
-      } else if (/(?:alugar|aluguel|locacao|locar)/i.test(text)) {
+      } else if (/alugar|aluguel|locacao/i.test(text)) {
         context.finalidade = 'aluguel';
         console.log(`🔍 [MANUAL-EXTRACT] Finalidade encontrada: "${context.finalidade}"`);
       }
 
-      // Extrair cidade - padrões mais flexíveis
+      // Extrair cidade
       const cidadePatterns = [
-        /(?:cidade|em|na|de)\s+([A-Z][a-záàâãéèêíìîóòôõúùûç\s]{2,}?)(?:\s|$|,)/i,
-        /([A-Z][a-záàâãéèêíìîóòôõúùûç]+(?:\s+[A-Z][a-záàâãéèêíìîóòôõúùûç]+)*)(?:,\s*[A-Z]{2})?\s*$/,
-        /(?:porto alegre|são paulo|rio de janeiro|belo horizonte|brasília|salvador|fortaleza|curitiba|manaus|recife|belém|goiânia|santos|campinas|sorocaba|ribeirão preto)/i
+        /(?:cidade|em)\s+([A-Z][a-záàâãéèêíìîóòôõúùûç\s]+)/i,
+        /([A-Z][a-záàâãéèêíìîóòôõúùûç]+)(?:,\s*[A-Z]{2})?\s*$/,
+        /(?:porto alegre|são paulo|rio de janeiro|belo horizonte|brasília|salvador|fortaleza|curitiba|manaus|recife|belém|goiânia)/i
       ];
       
       for (const pattern of cidadePatterns) {
         const match = text.match(pattern);
-        if (match && match[1] && match[1].trim().length >= 3) {
-          // Validar se não é palavra comum
-          const commonWords = ['casa', 'apartamento', 'quero', 'venda', 'aluguel'];
-          const cidade = match[1].trim();
-          if (!commonWords.includes(cidade.toLowerCase())) {
-            context.cidade = cidade;
-            console.log(`🔍 [MANUAL-EXTRACT] Cidade encontrada: "${context.cidade}"`);
-            break;
-          }
+        if (match && match[1]) {
+          context.cidade = match[1].trim();
+          console.log(`🔍 [MANUAL-EXTRACT] Cidade encontrada: "${context.cidade}"`);
+          break;
         }
       }
 
