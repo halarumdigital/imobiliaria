@@ -28,6 +28,7 @@ export default function AiSettings() {
   const [showApiKey, setShowApiKey] = useState(false);
   const [testPrompt, setTestPrompt] = useState("");
   const [showModelsList, setShowModelsList] = useState(false);
+  const [availableModels, setAvailableModels] = useState<OpenAIModel[]>([]);
 
   const { data: config, isLoading, error } = useQuery<AiConfiguration>({
     queryKey: ["/api/ai-config"],
@@ -115,6 +116,28 @@ export default function AiSettings() {
     }
   };
 
+  const refreshModelsForDropdown = async () => {
+    try {
+      const response = await apiGet("/ai-config/models");
+      if (response.models) {
+        const gptModels = response.models
+          .filter((model: OpenAIModel) => model.id.includes('gpt'))
+          .sort((a: OpenAIModel, b: OpenAIModel) => a.id.localeCompare(b.id));
+        setAvailableModels(gptModels);
+        toast({
+          title: "Modelos atualizados",
+          description: `${gptModels.length} modelos da OpenAI carregados com sucesso`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erro ao buscar modelos",
+        description: "Verifique sua chave da API OpenAI",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (isLoading) {
     return <div>Carregando...</div>;
   }
@@ -156,7 +179,19 @@ export default function AiSettings() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div>
-              <Label htmlFor="modelo">Modelo</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="modelo">Modelo</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={refreshModelsForDropdown}
+                  className="h-7 px-2"
+                >
+                  <RefreshCw className="w-3 h-3 mr-1" />
+                  Atualizar
+                </Button>
+              </div>
               <Select
                 value={formData.modelo || "gpt-4o"}
                 onValueChange={(value) => handleInputChange("modelo", value)}
@@ -165,13 +200,33 @@ export default function AiSettings() {
                   <SelectValue placeholder="Selecionar modelo" />
                 </SelectTrigger>
                 <SelectContent>
+                  {/* Modelos padrão */}
                   <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo (Rápido e Econômico)</SelectItem>
                   <SelectItem value="gpt-4">GPT-4 (Mais Preciso)</SelectItem>
                   <SelectItem value="gpt-4o">GPT-4o (Recomendado - Mais Recente)</SelectItem>
                   <SelectItem value="gpt-4-turbo">GPT-4 Turbo (Balanceado)</SelectItem>
                   <SelectItem value="gpt-4o-mini">GPT-4o Mini (Econômico)</SelectItem>
+                  
+                  {/* Modelos carregados da OpenAI */}
+                  {availableModels.length > 0 && (
+                    <>
+                      <SelectItem disabled value="separator" className="text-center font-medium">
+                        ──── Modelos da OpenAI ────
+                      </SelectItem>
+                      {availableModels.map((model) => (
+                        <SelectItem key={model.id} value={model.id}>
+                          {model.id}
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
                 </SelectContent>
               </Select>
+              {availableModels.length > 0 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {availableModels.length} modelos da OpenAI carregados
+                </p>
+              )}
             </div>
 
             <div>
