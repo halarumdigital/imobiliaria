@@ -239,7 +239,7 @@ function AgentUsageHistory() {
               Histórico completo de todas as chamadas para APIs externas (VistaHost, etc.)
             </p>
             
-            <div className="space-y-2 max-h-96 overflow-y-auto">
+            <div className="space-y-2 max-h-96 overflow-y-auto overflow-x-hidden">
               {apiLogs.length === 0 ? (
                 <div className="text-center py-8">
                   <div className="w-12 h-12 mx-auto text-muted-foreground mb-2 bg-gray-100 rounded-lg flex items-center justify-center">
@@ -249,9 +249,9 @@ function AgentUsageHistory() {
                 </div>
               ) : (
                 apiLogs.map((log: any) => (
-                  <Card key={log.id} className="p-4">
+                  <Card key={log.id} className="p-4 overflow-hidden">
                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                      <div className="flex items-start space-x-3">
+                      <div className="flex items-start space-x-3 min-w-0 flex-1">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
                           log.responseStatus.startsWith('2') ? 'bg-green-100 dark:bg-green-900' : 'bg-red-100 dark:bg-red-900'
                         }`}>
@@ -273,9 +273,11 @@ function AgentUsageHistory() {
                               </span>
                             </div>
                           </div>
-                          <p className="text-xs text-muted-foreground break-words">
-                            {log.endpoint}
-                          </p>
+                          <div className="bg-gray-100 dark:bg-gray-800 rounded px-2 py-1">
+                            <p className="text-xs text-muted-foreground break-all word-break-all leading-relaxed font-mono">
+                              {log.endpoint}
+                            </p>
+                          </div>
                           {log.userPhone && (
                             <p className="text-xs text-blue-600 dark:text-blue-400 truncate">
                               📱 {log.userPhone}
@@ -291,21 +293,162 @@ function AgentUsageHistory() {
                     
                     {/* Request/Response Details - Collapsible */}
                     <details className="mt-3">
-                      <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
-                        Ver detalhes da requisição/resposta
+                      <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground transition-colors">
+                        📋 Ver detalhes da requisição/resposta
                       </summary>
-                      <div className="mt-2 space-y-2">
-                        <div>
-                          <p className="text-xs font-medium mb-1">Dados da Requisição:</p>
-                          <pre className="text-xs bg-muted p-2 rounded max-h-32 overflow-auto">
-                            {JSON.stringify(log.requestData, null, 2)}
-                          </pre>
+                      <div className="mt-3 space-y-4 border-t pt-3">
+                        {/* Request Details */}
+                        <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                              📤 Dados da Requisição
+                            </span>
+                            {log.requestData && (
+                              <Badge variant="outline" className="text-xs text-blue-600">
+                                {Object.keys(log.requestData).length} campos
+                              </Badge>
+                            )}
+                          </div>
+                          {log.requestData ? (
+                            <div className="space-y-2">
+                              {/* Mostrar campos principais em formato legível */}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                                {Object.entries(log.requestData).slice(0, 6).map(([key, value]) => (
+                                  <div key={key} className="bg-white dark:bg-gray-900 rounded p-2">
+                                    <span className="font-medium text-blue-700 dark:text-blue-300">
+                                      {key}:
+                                    </span>
+                                    <p className="text-gray-700 dark:text-gray-300 break-all mt-1">
+                                      {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                              {/* JSON completo em details aninhado */}
+                              <details className="mt-2">
+                                <summary className="cursor-pointer text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200">
+                                  Ver JSON completo da requisição
+                                </summary>
+                                <pre className="text-xs bg-white dark:bg-gray-900 p-3 rounded mt-2 max-h-40 overflow-auto border whitespace-pre-wrap break-all">
+                                  {JSON.stringify(log.requestData, null, 2)}
+                                </pre>
+                              </details>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Sem dados de requisição</p>
+                          )}
                         </div>
-                        <div>
-                          <p className="text-xs font-medium mb-1">Resposta da API:</p>
-                          <pre className="text-xs bg-muted p-2 rounded max-h-32 overflow-auto">
-                            {JSON.stringify(log.responseData, null, 2)}
-                          </pre>
+                        
+                        {/* Response Details */}
+                        <div className="bg-green-50 dark:bg-green-950/20 rounded-lg p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-xs font-medium text-green-700 dark:text-green-300">
+                              📥 Resposta da API
+                            </span>
+                            <Badge variant="outline" className={`text-xs ${
+                              log.responseStatus.startsWith('2') 
+                                ? 'text-green-600 border-green-300' 
+                                : 'text-red-600 border-red-300'
+                            }`}>
+                              Status: {log.responseStatus}
+                            </Badge>
+                            <Badge variant="outline" className="text-xs text-gray-600">
+                              {log.executionTime}ms
+                            </Badge>
+                          </div>
+                          {log.responseData ? (
+                            <div className="space-y-2">
+                              {/* Informações de status e tempo */}
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs mb-3">
+                                <div className="bg-white dark:bg-gray-900 rounded p-2">
+                                  <span className="font-medium text-green-700 dark:text-green-300">
+                                    Status HTTP:
+                                  </span>
+                                  <p className={`mt-1 font-mono ${
+                                    log.responseStatus.startsWith('2') 
+                                      ? 'text-green-600' 
+                                      : 'text-red-600'
+                                  }`}>
+                                    {log.responseStatus}
+                                  </p>
+                                </div>
+                                <div className="bg-white dark:bg-gray-900 rounded p-2">
+                                  <span className="font-medium text-green-700 dark:text-green-300">
+                                    Tempo de resposta:
+                                  </span>
+                                  <p className="text-gray-700 dark:text-gray-300 mt-1 font-mono">
+                                    {log.executionTime}ms
+                                  </p>
+                                </div>
+                                <div className="bg-white dark:bg-gray-900 rounded p-2">
+                                  <span className="font-medium text-green-700 dark:text-green-300">
+                                    Tamanho:
+                                  </span>
+                                  <p className="text-gray-700 dark:text-gray-300 mt-1 font-mono">
+                                    {JSON.stringify(log.responseData).length} chars
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              {/* Preview dos dados principais */}
+                              {typeof log.responseData === 'object' && log.responseData !== null && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                                  {Object.entries(log.responseData).slice(0, 4).map(([key, value]) => (
+                                    <div key={key} className="bg-white dark:bg-gray-900 rounded p-2">
+                                      <span className="font-medium text-green-700 dark:text-green-300">
+                                        {key}:
+                                      </span>
+                                      <p className="text-gray-700 dark:text-gray-300 break-all mt-1">
+                                        {typeof value === 'object' 
+                                          ? `[${Array.isArray(value) ? 'Array' : 'Object'}]` 
+                                          : String(value).substring(0, 100) + (String(value).length > 100 ? '...' : '')
+                                        }
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              
+                              {/* JSON completo em details aninhado */}
+                              <details className="mt-2">
+                                <summary className="cursor-pointer text-xs text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200">
+                                  Ver JSON completo da resposta
+                                </summary>
+                                <pre className="text-xs bg-white dark:bg-gray-900 p-3 rounded mt-2 max-h-40 overflow-auto border whitespace-pre-wrap break-all">
+                                  {JSON.stringify(log.responseData, null, 2)}
+                                </pre>
+                              </details>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Sem dados de resposta</p>
+                          )}
+                        </div>
+                        
+                        {/* Metadata adicional */}
+                        <div className="bg-gray-50 dark:bg-gray-950/20 rounded-lg p-3">
+                          <span className="text-xs font-medium text-gray-700 dark:text-gray-300 block mb-2">
+                            ℹ️ Informações Adicionais
+                          </span>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                            <div className="bg-white dark:bg-gray-900 rounded p-2">
+                              <span className="font-medium text-gray-700 dark:text-gray-300">
+                                Timestamp:
+                              </span>
+                              <p className="text-gray-600 dark:text-gray-400 mt-1 font-mono">
+                                {format(new Date(log.createdAt), "dd/MM/yyyy HH:mm:ss", { locale: ptBR })}
+                              </p>
+                            </div>
+                            {log.userPhone && (
+                              <div className="bg-white dark:bg-gray-900 rounded p-2">
+                                <span className="font-medium text-gray-700 dark:text-gray-300">
+                                  Usuário:
+                                </span>
+                                <p className="text-blue-600 dark:text-blue-400 mt-1 font-mono break-all">
+                                  {log.userPhone}
+                                </p>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </details>
