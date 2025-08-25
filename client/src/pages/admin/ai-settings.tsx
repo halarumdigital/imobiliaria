@@ -17,8 +17,19 @@ export default function AiSettings() {
   const [formData, setFormData] = useState<Partial<AiConfiguration>>({});
   const [showApiKey, setShowApiKey] = useState(false);
   const [testPrompt, setTestPrompt] = useState("");
-  const [availableModels, setAvailableModels] = useState<Array<{id: string, owned_by: string, created: number}>>([]);
+  const [availableModels, setAvailableModels] = useState<Array<{id: string, owned_by: string, created: number}>>(() => {
+    // Load saved models from localStorage on component mount
+    const savedModels = localStorage.getItem('openai-available-models');
+    const models = savedModels ? JSON.parse(savedModels) : [];
+    console.log("🔧 [FRONTEND] Loading models from localStorage:", models.length, "models");
+    return models;
+  });
   const [isLoadingModels, setIsLoadingModels] = useState(false);
+
+  // Watch for changes in availableModels
+  useEffect(() => {
+    console.log("🔧 [FRONTEND] Available models changed:", availableModels.length, "models");
+  }, [availableModels]);
 
   const { data: config, isLoading, error } = useQuery<AiConfiguration>({
     queryKey: ["/api/ai-config"],
@@ -118,6 +129,8 @@ export default function AiSettings() {
       if (response.models) {
         console.log(`✅ [FRONTEND] Successfully loaded ${response.models.length} models`);
         setAvailableModels(response.models);
+        // Save models to localStorage for persistence
+        localStorage.setItem('openai-available-models', JSON.stringify(response.models));
         toast({
           title: "Sucesso",
           description: `${response.models.length} modelos carregados da OpenAI`,
@@ -125,6 +138,8 @@ export default function AiSettings() {
       } else if (response.fallbackModels) {
         console.log("🔄 [FRONTEND] Using fallback models from response");
         setAvailableModels(response.fallbackModels);
+        // Save fallback models to localStorage
+        localStorage.setItem('openai-available-models', JSON.stringify(response.fallbackModels));
         toast({
           title: "Modelos padrão carregados",
           description: "Usando modelos padrão. Verifique sua chave da API",
@@ -145,6 +160,8 @@ export default function AiSettings() {
       if (error.response?.data?.fallbackModels) {
         console.log("🔄 [FRONTEND] Using fallback models from error response");
         setAvailableModels(error.response.data.fallbackModels);
+        // Save fallback models to localStorage
+        localStorage.setItem('openai-available-models', JSON.stringify(error.response.data.fallbackModels));
       }
       toast({
         title: "Erro ao carregar modelos",
