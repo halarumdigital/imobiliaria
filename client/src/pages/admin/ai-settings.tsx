@@ -10,16 +10,33 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { apiGet, apiPost } from "@/lib/api";
 import { AiConfiguration } from "@/types";
-import { Eye, EyeOff, Play } from "lucide-react";
+import { Eye, EyeOff, Play, List, RefreshCw } from "lucide-react";
+
+interface OpenAIModel {
+  id: string;
+  created: number;
+  owned_by: string;
+}
+
+interface ModelsResponse {
+  models: OpenAIModel[];
+}
 
 export default function AiSettings() {
   const { toast } = useToast();
   const [formData, setFormData] = useState<Partial<AiConfiguration>>({});
   const [showApiKey, setShowApiKey] = useState(false);
   const [testPrompt, setTestPrompt] = useState("");
+  const [showModelsList, setShowModelsList] = useState(false);
 
   const { data: config, isLoading, error } = useQuery<AiConfiguration>({
     queryKey: ["/api/ai-config"],
+  });
+
+  const { data: modelsData, isLoading: isLoadingModels, refetch: refetchModels } = useQuery<ModelsResponse>({
+    queryKey: ["/api/ai-config/models"],
+    enabled: showModelsList,
+    retry: 1,
   });
 
   useEffect(() => {
@@ -89,6 +106,13 @@ export default function AiSettings() {
       return;
     }
     testMutation.mutate(testPrompt);
+  };
+
+  const handleListModels = () => {
+    setShowModelsList(!showModelsList);
+    if (!showModelsList) {
+      refetchModels();
+    }
   };
 
   if (isLoading) {
@@ -223,6 +247,15 @@ export default function AiSettings() {
           </div>
 
           <div className="flex justify-end space-x-3">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={handleListModels}
+              className="flex items-center gap-2"
+            >
+              <List className="w-4 h-4" />
+              {showModelsList ? "Ocultar Modelos" : "Listar Modelos OpenAI"}
+            </Button>
             <Button type="button" variant="outline">
               Cancelar
             </Button>
@@ -231,6 +264,71 @@ export default function AiSettings() {
             </Button>
           </div>
         </form>
+
+        {showModelsList && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <List className="w-5 h-5" />
+                Modelos Disponíveis da OpenAI
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => refetchModels()}
+                  disabled={isLoadingModels}
+                  className="ml-auto"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isLoadingModels ? 'animate-spin' : ''}`} />
+                  Atualizar
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoadingModels ? (
+                <div className="flex items-center justify-center py-8">
+                  <RefreshCw className="w-6 h-6 animate-spin mr-2" />
+                  Carregando modelos...
+                </div>
+              ) : modelsData?.models ? (
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Total de {modelsData.models.length} modelos encontrados:
+                  </p>
+                  <div className="grid gap-2 max-h-96 overflow-y-auto">
+                    {modelsData.models
+                      .filter((model: any) => model.id.includes('gpt'))
+                      .sort((a: any, b: any) => a.id.localeCompare(b.id))
+                      .map((model: any) => (
+                        <div key={model.id} className="p-3 border rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h4 className="font-medium">{model.id}</h4>
+                              <p className="text-sm text-muted-foreground">
+                                Criado: {new Date(model.created * 1000).toLocaleDateString('pt-BR')}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Proprietário: {model.owned_by}
+                              </p>
+                            </div>
+                            {formData.modelo === model.id && (
+                              <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                                Em uso
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  Não foi possível carregar os modelos. Verifique sua chave da API OpenAI.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </CardContent>
     </Card>
   );

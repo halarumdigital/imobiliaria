@@ -80,4 +80,13 @@ export class OpenAiService {
     );
     return response.content;
   }
+
+  async listAvailableModels(): Promise<any[]> {
+    try {
+      const response = await this.openai.models.list();
+      return response.data;
+    } catch (error) {
+      throw new Error(`OpenAI API Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
 }

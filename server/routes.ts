@@ -591,6 +591,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/ai-config/models", authenticate, requireAdmin, async (req, res) => {
+    try {
+      const config = await storage.getAiConfiguration();
+      
+      if (!config) {
+        return res.status(404).json({ error: "Configuração de IA não encontrada" });
+      }
+
+      if (!config.apiKey) {
+        return res.status(400).json({ error: "Chave da API OpenAI não configurada" });
+      }
+
+      const openAiService = new OpenAiService(config.apiKey);
+      const models = await openAiService.listAvailableModels();
+      
+      res.json({ models });
+    } catch (error) {
+      console.error("List AI models error:", error);
+      res.status(500).json({ 
+        error: "Erro ao listar modelos da OpenAI",
+        details: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
   // API settings for VistaHost integration (Admin only)
   app.get("/api/api-settings", authenticate, requireAdmin, async (req: AuthRequest, res) => {
     try {
