@@ -234,36 +234,47 @@ ${request.conversationHistory && request.conversationHistory.length > 0
       const conversationContext = await this.extractConversationContext(request);
       console.log(`📋 [CONTEXT] Informações extraídas da conversa:`, conversationContext);
 
-      // SEMPRE verificar se temos todas as informações ANTES de qualquer tentativa de busca
-      if (!conversationContext.nome || !conversationContext.telefone || 
-          !conversationContext.tipoImovel || !conversationContext.finalidade || 
-          !conversationContext.cidade) {
-        console.log(`📋 [CONTEXT] Informações faltando - PARANDO BUSCA e iniciando coleta:`, {
-          nome: !!conversationContext.nome,
-          telefone: !!conversationContext.telefone,
-          tipoImovel: !!conversationContext.tipoImovel,
-          finalidade: !!conversationContext.finalidade,
-          cidade: !!conversationContext.cidade
-        });
+      // NOVA LÓGICA: Verificar se temos informações suficientes OU se é uma consulta direta
+      const hasBasicInfo = conversationContext.nome && conversationContext.telefone;
+      const isDirectPropertyQuery = this.isDirectPropertyQuery(request.message);
+      
+      console.log(`🔍 [CONTEXT] Análise de contexto:`, {
+        hasBasicInfo,
+        isDirectPropertyQuery,
+        nome: !!conversationContext.nome,
+        telefone: !!conversationContext.telefone,
+        tipoImovel: !!conversationContext.tipoImovel,
+        finalidade: !!conversationContext.finalidade,
+        cidade: !!conversationContext.cidade
+      });
+
+      // CORREÇÃO: Se é uma consulta direta sobre imóveis, prosseguir SEMPRE com valores padrão
+      if (isDirectPropertyQuery) {
+        console.log(`🚀 [CONTEXT] Consulta direta detectada - prosseguindo com busca usando valores padrão`);
         
-        // SEMPRE retornar a mensagem de coleta, NUNCA deixar passar
-        if (!conversationContext.nome) {
-          return "Ótimo! Vou ajudá-lo a encontrar o imóvel perfeito. Para começar, qual é o seu nome?";
-        } else if (!conversationContext.telefone) {
-          return `Prazer, ${conversationContext.nome}! Agora preciso do seu telefone para contato.`;
-        } else if (!conversationContext.tipoImovel) {
-          return "Excelente! Que tipo de imóvel você está procurando? (casa, apartamento, terreno, etc)";
-        } else if (!conversationContext.finalidade) {
-          return "Perfeito! Você deseja comprar ou alugar este imóvel?";
-        } else if (!conversationContext.cidade) {
-          return "Ótimo! Em qual cidade você está procurando o imóvel?";
-        }
-        
-        // Este return garante que NUNCA continuaremos sem as informações
-        return "Vou precisar de algumas informações para encontrar o imóvel ideal para você. Qual é o seu nome?";
+        // Usar valores padrão para informações faltantes
+        if (!conversationContext.nome) conversationContext.nome = 'Cliente';
+        if (!conversationContext.telefone) conversationContext.telefone = '11999999999';
+        if (!conversationContext.tipoImovel) conversationContext.tipoImovel = 'apartamento';
+        if (!conversationContext.finalidade) conversationContext.finalidade = 'compra';
+        if (!conversationContext.cidade) conversationContext.cidade = 'São Paulo';
+      }
+      // Se não é consulta direta, seguir fluxo normal de coleta de dados
+      else if (!conversationContext.nome) {
+        return "Ótimo! Vou ajudá-lo a encontrar o imóvel perfeito. Para começar, qual é o seu nome?";
+      } else if (!conversationContext.telefone) {
+        return `Prazer, ${conversationContext.nome}! Agora preciso do seu telefone para contato.`;
+      }
+      // Se temos informações básicas mas faltam detalhes específicos, usar valores padrão
+      else if (!conversationContext.tipoImovel || !conversationContext.finalidade || !conversationContext.cidade) {
+        console.log(`📋 [CONTEXT] Informações básicas OK, usando valores padrão para busca ampla`);
+        // Usar valores padrão para permitir busca
+        if (!conversationContext.tipoImovel) conversationContext.tipoImovel = 'apartamento';
+        if (!conversationContext.finalidade) conversationContext.finalidade = 'compra';
+        if (!conversationContext.cidade) conversationContext.cidade = 'São Paulo';
       }
       
-      console.log(`✅ [CONTEXT] Todas as informações coletadas, AGORA sim fazendo busca`);
+      console.log(`✅ [CONTEXT] Prosseguindo com busca - contexto final:`, conversationContext);
 
       // Extract filters from the message using AI
       const filters = await this.extractPropertyFilters(request.message);
@@ -431,6 +442,26 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
       console.error("❌ Erro na busca de imóveis:", error);
       return "Desculpe, ocorreu um erro ao buscar os imóveis. Tente novamente mais tarde.";
     }
+  }
+
+  /**
+   * Checks if the message is a direct property query that should proceed with search
+   */
+  private isDirectPropertyQuery(message: string): boolean {
+    const directQueryKeywords = [
+      'apartamento', 'casa', 'imóvel', 'imovel', 'propriedade', 'terreno',
+      'comprar', 'vender', 'alugar', 'aluguel', 'venda',
+      'quartos', 'dormitórios', 'garagem', 'vagas',
+      'disponível', 'disponíveis', 'procuro', 'quero'
+    ];
+    
+    const messageLower = message.toLowerCase();
+    const hasDirectKeywords = directQueryKeywords.some(keyword => 
+      messageLower.includes(keyword)
+    );
+    
+    console.log(`🔍 [DIRECT-QUERY] Verificando consulta direta: "${message}" -> ${hasDirectKeywords}`);
+    return hasDirectKeywords;
   }
 
   /**

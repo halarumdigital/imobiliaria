@@ -62,41 +62,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { AiResponseService } = await import("./aiResponseService");
       const aiResponseService = new AiResponseService("test-key");
       
-      // Simular request com palavra "apartamento"
+      // Pegar parâmetros da query para testes flexíveis
+      const message = req.query.message as string || "apartamento";
+      const historyParam = req.query.history as string;
+      
+      let conversationHistory = [];
+      if (historyParam) {
+        try {
+          conversationHistory = JSON.parse(decodeURIComponent(historyParam));
+        } catch (e) {
+          console.log("🧪 [TEST] Erro ao parsear histórico, usando vazio");
+        }
+      }
+      
+      // Simular request com mensagem e histórico fornecidos
       const testRequest = {
-        message: "apartamento",
-        userMessage: "apartamento",
+        message: message,
+        userMessage: message,
         agentId: "test-agent",
-        agentPrompt: "Você é um assistente imobiliário",
+        agentPrompt: `Você é um assistente imobiliário especializado em ajudar clientes a encontrar imóveis. 
+
+FLUXO OBRIGATÓRIO:
+1. SEMPRE pergunte o nome do cliente primeiro
+2. Depois pergunte o telefone 
+3. Em seguida pergunte sobre o tipo de imóvel desejado (casa, apartamento, etc)
+4. Pergunte sobre a finalidade (compra ou aluguel)
+5. Pergunte sobre a cidade de interesse
+6. SOMENTE DEPOIS de ter TODAS essas informações, faça a busca de imóveis
+
+Seja cordial e profissional. Colete uma informação por vez.`,
         temperatura: 0.7,
         modelo: "gpt-4o",
         numeroTokens: 1000,
         agentType: "main" as const,
         companyId: "a9a2f3e1-6e37-43d4-b411-d7fb999f93e2",
-        conversationHistory: []
+        conversationHistory: conversationHistory
       };
       
       console.log("🧪 [TEST] Request simulado:", JSON.stringify(testRequest, null, 2));
       
-      // Testar diretamente handlePropertySearch
-      const privateMethod = (aiResponseService as any).handlePropertySearch;
-      if (privateMethod) {
-        console.log("🧪 [TEST] Chamando handlePropertySearch diretamente...");
-        const result = await privateMethod.call(aiResponseService, testRequest);
-        console.log("🧪 [TEST] Resultado:", result);
-        
-        return res.json({
-          success: true,
-          testType: "handlePropertySearch",
-          result: result,
-          hasResult: !!result
-        });
-      } else {
-        return res.json({
-          success: false,
-          error: "handlePropertySearch method not found"
-        });
-      }
+      // Usar generateResponse completo em vez de handlePropertySearch apenas
+      const result = await aiResponseService.generateResponse(testRequest);
+      console.log("🧪 [TEST] Resultado:", result);
+      
+      return res.json({
+        success: true,
+        testType: "generateResponse",
+        result: result,
+        hasResult: !!result,
+        conversationLength: conversationHistory.length
+      });
       
     } catch (error) {
       console.error("❌ [TEST] Erro no teste:", error);
