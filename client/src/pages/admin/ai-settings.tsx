@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,8 +44,12 @@ export default function AiSettings() {
     console.log("AI Config loaded:", config);
     if (config) {
       setFormData(config);
+      // Carrega automaticamente os modelos se há uma chave API válida
+      if (config.apiKey && availableModels.length === 0) {
+        refreshModelsForDropdown();
+      }
     }
-  }, [config]);
+  }, [config, availableModels.length, refreshModelsForDropdown]);
 
   useEffect(() => {
     if (error) {
@@ -116,17 +120,22 @@ export default function AiSettings() {
     }
   };
 
-  const refreshModelsForDropdown = async () => {
+  const refreshModelsForDropdown = useCallback(async () => {
     try {
       const response = await apiGet("/ai-config/models");
       if (response.models) {
+        // Modelos padrão já presentes no dropdown
+        const defaultModels = ['gpt-3.5-turbo', 'gpt-4', 'gpt-4o', 'gpt-4-turbo', 'gpt-4o-mini'];
+        
         const gptModels = response.models
           .filter((model: OpenAIModel) => model.id.includes('gpt'))
+          .filter((model: OpenAIModel) => !defaultModels.includes(model.id)) // Remove duplicatas
           .sort((a: OpenAIModel, b: OpenAIModel) => a.id.localeCompare(b.id));
+        
         setAvailableModels(gptModels);
         toast({
           title: "Modelos atualizados",
-          description: `${gptModels.length} modelos da OpenAI carregados com sucesso`,
+          description: `${gptModels.length} modelos adicionais da OpenAI carregados`,
         });
       }
     } catch (error) {
@@ -136,7 +145,7 @@ export default function AiSettings() {
         variant: "destructive",
       });
     }
-  };
+  }, [toast]);
 
   if (isLoading) {
     return <div>Carregando...</div>;
