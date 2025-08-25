@@ -18,99 +18,304 @@ import { ObjectUploader } from "@/components/ObjectUploader";
 import { Bot, Plus, Edit, Trash2, FileText, Upload, TestTube2, Send, BarChart3, MessageCircle, User, RefreshCw } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
-// Component for JSON visualization
-function JSONViewer({ data }: { data: any }) {
-  if (!data) {
-    return <span className="text-xs text-muted-foreground italic">Dados não disponíveis</span>;
-  }
+// Component for Agent Usage History
+function AgentUsageHistory() {
+  const { toast } = useToast();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showApiLogs, setShowApiLogs] = useState(false);
+  
+  const { data: usageStats = [], refetch } = useQuery({
+    queryKey: ["/api/agents/usage-stats"],
+    select: (data: any[]) => data.sort((a, b) => b.messageCount - a.messageCount)
+  });
 
-  const renderValue = (value: any, key?: string, depth = 0): React.ReactNode => {
-    // Limitar profundidade para evitar conteúdo muito extenso
-    if (depth > 2) {
-      return <span className="text-muted-foreground italic">...</span>;
-    }
-    
-    if (value === null) {
-      return <span className="text-gray-500">null</span>;
-    }
-    
-    if (typeof value === "string") {
-      const truncated = value.length > 50 ? `${value.substring(0, 50)}...` : value;
-      return <span className="text-green-600 dark:text-green-400">"{truncated}"</span>;
-    }
-    
-    if (typeof value === "number") {
-      return <span className="text-blue-600 dark:text-blue-400">{value}</span>;
-    }
-    
-    if (typeof value === "boolean") {
-      return <span className="text-purple-600 dark:text-purple-400">{value.toString()}</span>;
-    }
-    
-    if (Array.isArray(value)) {
-      if (value.length === 0) {
-        return <span className="text-gray-500">[]</span>;
+  const { data: apiLogs = [], refetch: refetchApiLogs } = useQuery({
+    queryKey: ["/api/api-call-logs"],
+    queryFn: () => apiGet("/api-call-logs?limit=50"),
+    enabled: showApiLogs
+  });
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await queryClient.invalidateQueries({ queryKey: ["/api/agents/usage-stats"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/api-call-logs"] });
+      await refetch();
+      if (showApiLogs) {
+        await refetchApiLogs();
       }
-      
-      if (value.length > 2) {
-        return (
-          <span className="text-gray-500">
-            [<span className="text-muted-foreground italic"> {value.length} itens</span>]
-          </span>
-        );
-      }
-      
-      return (
-        <span className="text-gray-500">
-          [{value.slice(0, 2).map((item, index) => (
-            <span key={index}>
-              {index > 0 && ", "}
-              {renderValue(item, undefined, depth + 1)}
-            </span>
-          ))}
-          {value.length > 2 && <span className="text-muted-foreground italic">, ...</span>}]
-        </span>
-      );
+      toast({
+        title: "Estatísticas atualizadas",
+        description: "Os dados foram recarregados com sucesso",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao atualizar",
+        description: "Não foi possível atualizar as estatísticas",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshing(false);
     }
-    
-    if (typeof value === "object") {
-      const keys = Object.keys(value);
-      
-      if (keys.length === 0) {
-        return <span className="text-gray-500">{}</span>;
-      }
-      
-      if (keys.length > 3) {
-        return (
-          <span className="text-gray-500">
-            {`{ `}<span className="text-muted-foreground italic">{keys.length} propriedades</span>{` }`}
-          </span>
-        );
-      }
-      
-      return (
-        <span className="text-gray-500">
-          {"{ "}
-          {keys.slice(0, 3).map((k, index) => (
-            <span key={k}>
-              {index > 0 && ", "}
-              <span className="text-orange-600 dark:text-orange-400">"{k}"</span>
-              <span className="text-gray-500">: </span>
-              {renderValue(value[k], k, depth + 1)}
-            </span>
-          ))}
-          {keys.length > 3 && <span className="text-muted-foreground italic">, ...</span>}
-          {" }"}
-        </span>
-      );
-    }
-    
-    return <span>{String(value)}</span>;
   };
 
   return (
-    <div className="font-mono text-xs leading-relaxed">
-      {renderValue(data)}
+    <div className="space-y-6">
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-lg font-semibold">📊 Estatísticas de Uso dos Agentes</h3>
+          <Button 
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            variant="outline" 
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {isRefreshing ? 'Atualizando...' : 'Atualizar'}
+          </Button>
+        </div>
+        <p className="text-sm text-muted-foreground mb-4">
+          Veja qual agente (principal ou secundário) foi usado em cada conversa
+        </p>
+        
+        {usageStats.length === 0 ? (
+          <div className="text-center py-8">
+            <BarChart3 className="w-12 h-12 mx-auto text-muted-foreground mb-2" />
+            <p className="text-muted-foreground">Nenhuma conversa encontrada ainda</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            {usageStats.map((stat: any, index: number) => (
+              <Card key={stat.agentId} className="p-4">
+                <div className="flex items-center space-x-3 mb-3">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                    stat.agentType === 'secondary' ? 'bg-blue-100 dark:bg-blue-900' : 'bg-purple-100 dark:bg-purple-900'
+                  }`}>
+                    {stat.agentType === 'secondary' ? 
+                      <Bot className="text-blue-600 dark:text-blue-400" /> : 
+                      <Bot className="text-purple-600 dark:text-purple-400" />
+                    }
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-medium flex items-center gap-2">
+                      {stat.agentName}
+                      {stat.agentType === 'secondary' && (
+                        <Badge variant="outline" className="text-xs">
+                          Secundário
+                        </Badge>
+                      )}
+                    </h4>
+                    {stat.specialization && (
+                      <p className="text-xs text-blue-600 dark:text-blue-400">
+                        📋 {stat.specialization}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-1">
+                      <MessageCircle className="w-4 h-4" />
+                      Mensagens
+                    </span>
+                    <span className="font-medium">{stat.messageCount}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-1">
+                      <User className="w-4 h-4" />
+                      Conversas
+                    </span>
+                    <span className="font-medium">{stat.conversationCount}</span>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div>
+        <h3 className="text-lg font-semibold mb-2">🤖 Histórico de Acionamentos</h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          Lista de quando e qual agente foi acionado
+        </p>
+        
+        {/* Lista simples de acionamentos */}
+        <div className="space-y-2 max-h-96 overflow-y-auto">
+          {usageStats.length === 0 ? (
+            <div className="text-center py-8">
+              <Bot className="w-12 h-12 mx-auto text-muted-foreground mb-2" />
+              <p className="text-muted-foreground">Nenhum acionamento encontrado</p>
+            </div>
+          ) : (
+            usageStats.map((stat: any) => (
+              <Card key={stat.agentId} className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                      stat.agentType === 'secondary' ? 'bg-blue-100 dark:bg-blue-900' : 'bg-purple-100 dark:bg-purple-900'
+                    }`}>
+                      <Bot className={`w-4 h-4 ${
+                        stat.agentType === 'secondary' ? 'text-blue-600 dark:text-blue-400' : 'text-purple-600 dark:text-purple-400'
+                      }`} />
+                    </div>
+                    <div>
+                      <p className="font-medium">{stat.agentName}</p>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={stat.agentType === 'secondary' ? "default" : "secondary"} className={`text-xs ${
+                          stat.agentType === 'secondary' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
+                        }`}>
+                          {stat.agentType === 'secondary' ? 'Secundário' : 'Principal'}
+                        </Badge>
+                        {stat.specialization && (
+                          <span className="text-xs text-muted-foreground">• {stat.specialization}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-medium">{stat.messageCount} acionamentos</p>
+                    <p className="text-xs text-muted-foreground">
+                      {stat.lastUsed ? format(new Date(stat.lastUsed), "dd/MM HH:mm", { locale: ptBR }) : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* API Call Logs Section */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-lg font-semibold">🔌 Histórico de Chamadas API</h3>
+          <div className="flex gap-2">
+            <Button 
+              onClick={async () => {
+                try {
+                  await apiPost("/test-api-log", {});
+                  toast({
+                    title: "Log de teste criado",
+                    description: "Um log de API de exemplo foi adicionado",
+                  });
+                  queryClient.invalidateQueries({ queryKey: ["/api/api-call-logs"] });
+                  refetchApiLogs();
+                } catch (error) {
+                  toast({
+                    title: "Erro",
+                    description: "Não foi possível criar o log de teste",
+                    variant: "destructive",
+                  });
+                }
+              }}
+              variant="outline" 
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              🧪 Teste
+            </Button>
+            <Button 
+              onClick={() => {
+                setShowApiLogs(!showApiLogs);
+                if (!showApiLogs) {
+                  queryClient.invalidateQueries({ queryKey: ["/api/api-call-logs"] });
+                }
+              }}
+              variant="outline" 
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              {showApiLogs ? 'Ocultar' : 'Mostrar'} Logs de API
+            </Button>
+          </div>
+        </div>
+        
+        {showApiLogs && (
+          <>
+            <p className="text-sm text-muted-foreground mb-4">
+              Histórico completo de todas as chamadas para APIs externas (VistaHost, etc.)
+            </p>
+            
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {apiLogs.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="w-12 h-12 mx-auto text-muted-foreground mb-2 bg-gray-100 rounded-lg flex items-center justify-center">
+                    🔌
+                  </div>
+                  <p className="text-muted-foreground">Nenhuma chamada de API encontrada</p>
+                </div>
+              ) : (
+                apiLogs.map((log: any) => (
+                  <Card key={log.id} className="p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                      <div className="flex items-start space-x-3">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                          log.responseStatus.startsWith('2') ? 'bg-green-100 dark:bg-green-900' : 'bg-red-100 dark:bg-red-900'
+                        }`}>
+                          <span className={`text-xs font-bold ${
+                            log.responseStatus.startsWith('2') ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                          }`}>
+                            {log.responseStatus.startsWith('2') ? '✓' : '✗'}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2">
+                            <p className="font-medium text-sm truncate">{log.apiType}</p>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <Badge variant="outline" className="text-xs">
+                                {log.responseStatus}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {log.executionTime}ms
+                              </span>
+                            </div>
+                          </div>
+                          <p className="text-xs text-muted-foreground break-words">
+                            {log.endpoint}
+                          </p>
+                          {log.userPhone && (
+                            <p className="text-xs text-blue-600 dark:text-blue-400 truncate">
+                              📱 {log.userPhone}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right text-xs text-muted-foreground sm:ml-4 sm:whitespace-nowrap">
+                        <p>{format(new Date(log.createdAt), "dd/MM/yyyy", { locale: ptBR })}</p>
+                        <p>{format(new Date(log.createdAt), "HH:mm:ss", { locale: ptBR })}</p>
+                      </div>
+                    </div>
+                    
+                    {/* Request/Response Details - Collapsible */}
+                    <details className="mt-3">
+                      <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+                        Ver detalhes da requisição/resposta
+                      </summary>
+                      <div className="mt-2 space-y-2">
+                        <div>
+                          <p className="text-xs font-medium mb-1">Dados da Requisição:</p>
+                          <pre className="text-xs bg-muted p-2 rounded max-h-32 overflow-auto">
+                            {JSON.stringify(log.requestData, null, 2)}
+                          </pre>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium mb-1">Resposta da API:</p>
+                          <pre className="text-xs bg-muted p-2 rounded max-h-32 overflow-auto">
+                            {JSON.stringify(log.responseData, null, 2)}
+                          </pre>
+                        </div>
+                      </div>
+                    </details>
+                  </Card>
+                ))
+              )}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -479,6 +684,7 @@ export default function AiAgents() {
               {editingAgent ? "Editar Agente" : "Criar Agente"}
             </TabsTrigger>
             <TabsTrigger value="link">Vincular à Instância</TabsTrigger>
+            <TabsTrigger value="usage">Histórico de Uso</TabsTrigger>
           </TabsList>
 
           {/* Agents List Tab */}
@@ -1116,6 +1322,11 @@ export default function AiAgents() {
                 </div>
               </div>
             </div>
+          </TabsContent>
+
+          {/* Agent Usage History Tab */}
+          <TabsContent value="usage">
+            <AgentUsageHistory />
           </TabsContent>
         </Tabs>
       </CardContent>

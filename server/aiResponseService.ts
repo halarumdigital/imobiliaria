@@ -104,13 +104,21 @@ export class AiResponseService {
   private async generateDirectResponse(request: AiResponseRequest): Promise<string> {
     // Check for property search integration first
     console.log(`🏢 [DIRECT-RESPONSE] CompanyId presente: ${!!request.companyId}, valor: ${request.companyId}`);
+    console.log(`🏢 [DIRECT-RESPONSE] Mensagem: "${request.message}"`);
+    console.log(`🏢 [DIRECT-RESPONSE] AgentId: ${request.agentId}`);
+    
     if (request.companyId) {
-      console.log(`🏢 [DIRECT-RESPONSE] Chamando handlePropertySearch...`);
+      console.log(`🏢 [DIRECT-RESPONSE] ✅ CompanyId existe, chamando handlePropertySearch...`);
       const propertyResponse = await this.handlePropertySearch(request);
-      console.log(`🏢 [DIRECT-RESPONSE] PropertyResponse resultado: ${propertyResponse ? 'RESPONSE GERADA' : 'NULL'}`);
+      console.log(`🏢 [DIRECT-RESPONSE] PropertyResponse resultado: ${propertyResponse ? 'RESPONSE GERADA (tamanho: ' + propertyResponse.length + ')' : 'NULL'}`);
       if (propertyResponse) {
+        console.log(`🏢 [DIRECT-RESPONSE] ✅ Retornando resposta do handlePropertySearch`);
         return propertyResponse;
+      } else {
+        console.log(`🏢 [DIRECT-RESPONSE] ⚠️ handlePropertySearch retornou NULL, continuando com resposta normal`);
       }
+    } else {
+      console.log(`🏢 [DIRECT-RESPONSE] ❌ CompanyId não existe, pulando handlePropertySearch`);
     }
 
     // Build the enhanced prompt combining agent prompt + training content
@@ -246,20 +254,34 @@ ${request.conversationHistory && request.conversationHistory.length > 0
           cidade: !!conversationContext.cidade
         });
         
+        console.log(`📋 [CONTEXT] Valores atuais:`, {
+          nome: conversationContext.nome,
+          telefone: conversationContext.telefone,
+          tipoImovel: conversationContext.tipoImovel,
+          finalidade: conversationContext.finalidade,
+          cidade: conversationContext.cidade
+        });
+        
         // SEMPRE retornar a mensagem de coleta, NUNCA deixar passar
         if (!conversationContext.nome) {
+          console.log(`📋 [CONTEXT] ❌ Faltando NOME - retornando pergunta`);
           return "Ótimo! Vou ajudá-lo a encontrar o imóvel perfeito. Para começar, qual é o seu nome?";
         } else if (!conversationContext.telefone) {
+          console.log(`📋 [CONTEXT] ❌ Faltando TELEFONE - retornando pergunta`);
           return `Prazer, ${conversationContext.nome}! Agora preciso do seu telefone para contato.`;
         } else if (!conversationContext.tipoImovel) {
+          console.log(`📋 [CONTEXT] ❌ Faltando TIPO IMÓVEL - retornando pergunta`);
           return "Excelente! Que tipo de imóvel você está procurando? (casa, apartamento, terreno, etc)";
         } else if (!conversationContext.finalidade) {
+          console.log(`📋 [CONTEXT] ❌ Faltando FINALIDADE - retornando pergunta`);
           return "Perfeito! Você deseja comprar ou alugar este imóvel?";
         } else if (!conversationContext.cidade) {
+          console.log(`📋 [CONTEXT] ❌ Faltando CIDADE - retornando pergunta`);
           return "Ótimo! Em qual cidade você está procurando o imóvel?";
         }
         
         // Este return garante que NUNCA continuaremos sem as informações
+        console.log(`📋 [CONTEXT] ❌ Fallback - retornando pergunta de nome`);
         return "Vou precisar de algumas informações para encontrar o imóvel ideal para você. Qual é o seu nome?";
       }
       
@@ -561,7 +583,7 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
    * Extrai informações manualmente usando padrões e expressões regulares
    */
   private extractContextManually(text: string): { nome: string | null; telefone: string | null; tipoImovel: string | null; finalidade: string | null; cidade: string | null; pagina: number } {
-    console.log(`🔍 [MANUAL-EXTRACT] Iniciando extração manual de: "${text.substring(0, 100)}..."`);
+    console.log(`🔍 [MANUAL-EXTRACT] Iniciando extração manual de: "${text.substring(0, 200)}..."`);
     
     const context = {
       nome: null as string | null,
@@ -573,35 +595,46 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
     };
 
     try {
-      // Extrair nome - procurar por padrões comuns
+      // Extrair nome - procurar por padrões comuns E nomes simples
       const nomePatterns = [
-        /(?:meu nome é|sou|chamo-me|eu sou)\s+([A-Z][a-z]+)/i,
-        /([A-Z][a-z]+)(?:,\s*|:\s*|\s+)?(?:sou|quero|gostaria|procuro)/i,
-        /(?:nome|chamo-se)\s*[:\-]?\s*([A-Z][a-z]+)/i
+        /(?:meu nome é|sou|chamo-me|eu sou)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/i,
+        /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)(?:,\s*|:\s*|\s+)?(?:sou|quero|gostaria|procuro)/i,
+        /(?:nome|chamo-se|me chamo)\s*[:\-]?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/i,
+        // Padrão mais simples: qualquer palavra começando com maiúscula sozinha
+        /\b([A-Z][a-z]{2,}(?:\s+[A-Z][a-z]+)?)\b/
       ];
       
       for (const pattern of nomePatterns) {
         const match = text.match(pattern);
-        if (match && match[1]) {
-          context.nome = match[1].trim();
-          console.log(`🔍 [MANUAL-EXTRACT] Nome encontrado: "${context.nome}"`);
-          break;
+        if (match && match[1] && match[1].length > 2) {
+          // Verificar se não é uma palavra comum
+          const possibleNome = match[1].trim();
+          const commonWords = ['Procuro', 'Quero', 'Busco', 'Apartamento', 'Casa', 'Comprar', 'Alugar', 'Paulo', 'Janeiro'];
+          if (!commonWords.includes(possibleNome)) {
+            context.nome = possibleNome;
+            console.log(`🔍 [MANUAL-EXTRACT] Nome encontrado: "${context.nome}"`);
+            break;
+          }
         }
       }
 
-      // Extrair telefone - padrões brasileiros
+      // Extrair telefone - padrões brasileiros mais flexíveis
       const telefonePatterns = [
-        /(\d{2}\s?\d{4,5}\-?\d{4})/, // (11) 99999-9999 ou 11999999999
+        /(\(\d{2}\)\s?\d{4,5}\-?\d{4})/, // (11) 99999-9999
+        /(\d{2}\s?\d{4,5}\-?\d{4})/, // 11 99999-9999 ou 11999999999
         /(\d{4,5}\-?\d{4})/, // 99999-9999
-        /(\d{10,11})/ // 11999999999 ou 9999999999
+        /(\d{8,11})/ // 99999999 até 11999999999
       ];
       
       for (const pattern of telefonePatterns) {
         const match = text.match(pattern);
         if (match && match[1]) {
-          context.telefone = match[1].replace(/\D/g, ''); // Remover não dígitos
-          console.log(`🔍 [MANUAL-EXTRACT] Telefone encontrado: "${context.telefone}"`);
-          break;
+          const cleanPhone = match[1].replace(/\D/g, ''); // Remover não dígitos
+          if (cleanPhone.length >= 8 && cleanPhone.length <= 11) {
+            context.telefone = cleanPhone;
+            console.log(`🔍 [MANUAL-EXTRACT] Telefone encontrado: "${context.telefone}"`);
+            break;
+          }
         }
       }
 
@@ -630,19 +663,29 @@ Após a configuração, você poderá buscar imóveis com fotos! 🏠📸`;
         console.log(`🔍 [MANUAL-EXTRACT] Finalidade encontrada: "${context.finalidade}"`);
       }
 
-      // Extrair cidade
+      // Extrair cidade - padrões mais flexíveis
       const cidadePatterns = [
-        /(?:cidade|em)\s+([A-Z][a-záàâãéèêíìîóòôõúùûç\s]+)/i,
+        /(?:cidade|em|para|de)\s+([A-Z][a-záàâãéèêíìîóòôõúùûç\s]+)/i,
         /([A-Z][a-záàâãéèêíìîóòôõúùûç]+)(?:,\s*[A-Z]{2})?\s*$/,
-        /(?:porto alegre|são paulo|rio de janeiro|belo horizonte|brasília|salvador|fortaleza|curitiba|manaus|recife|belém|goiânia)/i
+        /(?:porto alegre|são paulo|rio de janeiro|belo horizonte|brasília|salvador|fortaleza|curitiba|manaus|recife|belém|goiânia|campinas|santos|sorocaba|ribeirão preto|osasco|santo andré|mauá|diadema|carapicuíba|piracicaba|bauru|franca|limeira|suzano|taubaté|jundiaí|americana)/i,
+        // Detectar qualquer palavra que pareça ser uma cidade (começando com maiúscula)
+        /\b([A-Z][a-záàâãéèêíìîóòôõúùûç]{3,}(?:\s+[A-Z][a-záàâãéèêíìîóòôõúùûç]+)?)\b/g
       ];
       
       for (const pattern of cidadePatterns) {
-        const match = text.match(pattern);
-        if (match && match[1]) {
-          context.cidade = match[1].trim();
-          console.log(`🔍 [MANUAL-EXTRACT] Cidade encontrada: "${context.cidade}"`);
-          break;
+        const matches = text.match(pattern);
+        if (matches) {
+          // Para padrões globais, pegar a última correspondência
+          const cidade = pattern.global ? matches[matches.length - 1] : matches[1] || matches[0];
+          if (cidade && cidade.length > 3) {
+            // Verificar se não é uma palavra comum que não seja cidade
+            const excludeWords = ['Procuro', 'Quero', 'Busco', 'Apartamento', 'Casa', 'Comprar', 'Alugar', 'Imóvel', 'Telefone', 'Nome'];
+            if (!excludeWords.includes(cidade)) {
+              context.cidade = cidade.trim();
+              console.log(`🔍 [MANUAL-EXTRACT] Cidade encontrada: "${context.cidade}"`);
+              break;
+            }
+          }
         }
       }
 
