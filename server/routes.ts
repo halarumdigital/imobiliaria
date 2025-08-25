@@ -1626,12 +1626,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       try {
-        // Test the API connection by making a simple request
-        const testResponse = await fetch(`${settings.apiUrl}/properties?limit=1`, {
+        // Test the API connection by making a simple request to VistaHost API
+        // Using the correct endpoint and parameters according to VistaHost documentation
+        const testUrl = `${settings.apiUrl}/imoveis/listar?key=${settings.apiToken}&pesquisa=${encodeURIComponent(JSON.stringify({
+          fields: ["Codigo", "Cidade", "Bairro"],
+          paginacao: { pagina: 1, quantidade: 1 }
+        }))}`;
+        
+        const testResponse = await fetch(testUrl, {
           method: "GET",
           headers: {
-            "Authorization": `Bearer ${settings.apiToken}`,
-            "Content-Type": "application/json"
+            "Accept": "application/json"
           }
         });
 
