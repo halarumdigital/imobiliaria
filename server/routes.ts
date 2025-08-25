@@ -699,29 +699,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Test connection to the API
+      // Test connection to the API using a real endpoint
       try {
-        const testUrl = `${settings.apiUrl}/test`;
+        // Use the actual API endpoint with minimal parameters to test connection
+        const testData = {
+          fields: ['Codigo'],
+          paginacao: { pagina: 1, quantidade: 1 }
+        };
+        
+        const testUrl = `${settings.apiUrl}/imoveis/listar?key=${settings.apiToken}&pesquisa=${encodeURIComponent(JSON.stringify(testData))}`;
+        
         const response = await fetch(testUrl, {
           method: 'GET',
           headers: {
-            'Content-Type': 'application/json',
-            'key': settings.apiToken
-          },
-          // timeout: 10000 // Not supported in standard fetch
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
         });
 
         const result = {
           success: response.ok,
           message: response.ok ? 
             "Conexão com a API estabelecida com sucesso!" : 
-            `Erro na conexão: HTTP ${response.status}`,
+            `Erro na conexão: HTTP ${response.status} - ${response.statusText}`,
           details: {
             status: response.status,
             statusText: response.statusText,
-            url: testUrl
+            url: testUrl.replace(settings.apiToken, '***'),
+            responseHeaders: Object.fromEntries(response.headers.entries())
           }
         };
+
+        // Try to read response body for more details
+        if (!response.ok) {
+          try {
+            const responseText = await response.text();
+            result.details.responseBody = responseText;
+          } catch (e) {
+            // Ignore if can't read response body
+          }
+        }
 
         res.json(result);
       } catch (testError) {
