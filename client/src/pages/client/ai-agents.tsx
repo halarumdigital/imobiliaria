@@ -250,8 +250,8 @@ function AgentUsageHistory() {
               ) : (
                 apiLogs.map((log: any) => (
                   <Card key={log.id} className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start space-x-3 flex-1">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                      <div className="flex items-start space-x-3">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
                           log.responseStatus.startsWith('2') ? 'bg-green-100 dark:bg-green-900' : 'bg-red-100 dark:bg-red-900'
                         }`}>
@@ -261,27 +261,29 @@ function AgentUsageHistory() {
                             {log.responseStatus.startsWith('2') ? '✓' : '✗'}
                           </span>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2">
                             <p className="font-medium text-sm truncate">{log.apiType}</p>
-                            <Badge variant="outline" className="text-xs">
-                              {log.responseStatus}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground">
-                              {log.executionTime}ms
-                            </span>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <Badge variant="outline" className="text-xs">
+                                {log.responseStatus}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {log.executionTime}ms
+                              </span>
+                            </div>
                           </div>
-                          <p className="text-xs text-muted-foreground truncate mb-1">
+                          <p className="text-xs text-muted-foreground break-words">
                             {log.endpoint}
                           </p>
                           {log.userPhone && (
-                            <p className="text-xs text-blue-600 dark:text-blue-400">
+                            <p className="text-xs text-blue-600 dark:text-blue-400 truncate">
                               📱 {log.userPhone}
                             </p>
                           )}
                         </div>
                       </div>
-                      <div className="text-right text-xs text-muted-foreground ml-4">
+                      <div className="text-right text-xs text-muted-foreground sm:ml-4 sm:whitespace-nowrap">
                         <p>{format(new Date(log.createdAt), "dd/MM/yyyy", { locale: ptBR })}</p>
                         <p>{format(new Date(log.createdAt), "HH:mm:ss", { locale: ptBR })}</p>
                       </div>
