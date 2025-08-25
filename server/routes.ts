@@ -650,6 +650,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Client API settings routes
+  app.get("/api/client/api-settings", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+      
+      const settings = await storage.getApiSettings(req.user.companyId);
+      res.json(settings);
+    } catch (error) {
+      console.error("Get client API settings error:", error);
+      res.status(500).json({ error: "Erro ao buscar configurações da API" });
+    }
+  });
+
+  app.put("/api/client/api-settings", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+      
+      const settingsData = insertApiSettingsSchema.parse(req.body);
+      const settings = await storage.saveApiSettings(
+        req.user.companyId,
+        settingsData.apiUrl,
+        settingsData.apiToken
+      );
+      res.json(settings);
+    } catch (error) {
+      console.error("Save client API settings error:", error);
+      res.status(500).json({ error: "Erro ao salvar configurações da API" });
+    }
+  });
+
+  app.get("/api/client/test-api-settings", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+
+      const settings = await storage.getApiSettings(req.user.companyId);
+      if (!settings) {
+        return res.json({
+          success: false,
+          message: "Configurações da API não encontradas. Configure as credenciais primeiro.",
+          details: null
+        });
+      }
+
+      // Test connection to the API
+      try {
+        const testUrl = `${settings.apiUrl}/test`;
+        const response = await fetch(testUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'key': settings.apiToken
+          },
+          // timeout: 10000 // Not supported in standard fetch
+        });
+
+        const result = {
+          success: response.ok,
+          message: response.ok ? 
+            "Conexão com a API estabelecida com sucesso!" : 
+            `Erro na conexão: HTTP ${response.status}`,
+          details: {
+            status: response.status,
+            statusText: response.statusText,
+            url: testUrl
+          }
+        };
+
+        res.json(result);
+      } catch (testError) {
+        res.json({
+          success: false,
+          message: "Falha ao conectar com a API. Verifique a URL e token.",
+          details: {
+            error: testError instanceof Error ? testError.message : "Erro desconhecido",
+            url: settings.apiUrl
+          }
+        });
+      }
+    } catch (error) {
+      console.error("Test client API settings error:", error);
+      res.status(500).json({ error: "Erro ao testar configurações da API" });
+    }
+  });
+
   // Companies (Admin only)
   app.get("/api/companies", authenticate, requireAdmin, async (req, res) => {
     try {
