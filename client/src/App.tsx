@@ -26,6 +26,7 @@ import TestAI from "@/pages/client/test-ai";
 import Conversations from "@/pages/client/conversations";
 import WhatsAppDisparo from "@/pages/client/whatsapp-disparo";
 import WhatsAppListaTransmissao from "@/pages/client/whatsapp-lista-transmissao";
+import WhatsAppProxy from "@/pages/client/whatsapp-proxy";
 
 interface ProtectedRouteProps {
   component: React.ComponentType;
@@ -185,6 +186,14 @@ function Router() {
           requiredRole="client"
           title="Lista de transmissão"
           subtitle="Gerenciar listas de contatos para disparo"
+        />
+      </Route>
+      <Route path="/client/whatsapp/proxy">
+        <ProtectedRoute 
+          component={WhatsAppProxy}
+          requiredRole="client"
+          title="Proxies WebShare"
+          subtitle="Visualizar proxies disponíveis"
         />
       </Route>
 

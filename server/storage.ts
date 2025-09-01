@@ -534,8 +534,8 @@ export class MySQLStorage implements IStorage {
     } else {
       const id = randomUUID();
       await this.connection.execute(
-        'INSERT INTO global_configurations (id, logo, favicon, cores_primaria, cores_secundaria, cores_fundo, nome_sistema, nome_rodape, nome_aba_navegador) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [id, config.logo, config.favicon, config.cores_primaria, config.cores_secundaria, config.cores_fundo, config.nome_sistema, config.nome_rodape, config.nome_aba_navegador]
+        'INSERT INTO global_configurations (id, logo, favicon, cores_primaria, cores_secundaria, cores_fundo, nome_sistema, nome_rodape, nome_aba_navegador, webshare_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [id, config.logo, config.favicon, config.cores_primaria, config.cores_secundaria, config.cores_fundo, config.nome_sistema, config.nome_rodape, config.nome_aba_navegador, config.webshare_token]
       );
       return this.getGlobalConfiguration() as Promise<GlobalConfiguration>;
     }
@@ -545,18 +545,39 @@ export class MySQLStorage implements IStorage {
   async getEvolutionApiConfiguration(): Promise<EvolutionApiConfiguration | undefined> {
     if (!this.connection) throw new Error('No database connection');
     
+    console.log('🔍 [DEBUG] Getting Evolution API configuration from database...');
     const [rows] = await this.connection.execute('SELECT * FROM evolution_api_configurations LIMIT 1') as any;
+    console.log(`🔍 [DEBUG] Evolution API config query returned ${rows.length} rows`);
+    
     const rawData = rows[0];
-    if (!rawData) return undefined;
+    if (!rawData) {
+      console.log('❌ [DEBUG] No Evolution API configuration found in database');
+      return undefined;
+    }
+    
+    console.log('✅ [DEBUG] Evolution API config found:', {
+      id: rawData.id,
+      evolution_url: rawData.evolution_url ? 'SET' : 'NULL',
+      evolution_token: rawData.evolution_token ? 'SET' : 'NULL'
+    });
     
     // Mapeamento dos campos do banco para o frontend
-    return {
+    const mappedConfig = {
       id: rawData.id,
       evolutionURL: rawData.evolution_url,
       evolutionToken: rawData.evolution_token,
       urlGlobalSistema: rawData.url_global_sistema,
       updatedAt: rawData.updated_at,
     } as EvolutionApiConfiguration;
+    
+    console.log('🔧 [DEBUG] Mapped Evolution API config:', {
+      evolutionURL: mappedConfig.evolutionURL ? 'SET' : 'NULL',
+      evolutionToken: mappedConfig.evolutionToken ? 'SET' : 'NULL',
+      baseURL: mappedConfig.evolutionURL,
+      token: mappedConfig.evolutionToken
+    });
+    
+    return mappedConfig;
   }
 
   async saveEvolutionApiConfiguration(config: InsertEvolutionApiConfiguration): Promise<EvolutionApiConfiguration> {

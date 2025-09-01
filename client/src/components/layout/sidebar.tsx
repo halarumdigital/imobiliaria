@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
   Building, Settings, Waypoints, Bot, Users, 
   LayoutDashboard, User, MessageSquare, 
-  MessageCircle, LogOut, ChevronDown, ChevronRight, Send, List
+  MessageCircle, LogOut, ChevronDown, ChevronRight, Send, List, Globe
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GlobalConfiguration } from "@/types";
@@ -39,6 +39,7 @@ const clientNavItems: NavItem[] = [
       { href: "/client/conversations", label: "Conversas", icon: <MessageCircle className="w-4 h-4" /> },
       { href: "/client/whatsapp/disparo", label: "Disparo", icon: <Send className="w-4 h-4" /> },
       { href: "/client/whatsapp/lista-transmissao", label: "Lista de transmissão", icon: <List className="w-4 h-4" /> },
+      { href: "/client/whatsapp/proxy", label: "Proxy", icon: <Globe className="w-4 h-4" /> },
     ]
   },
   { href: "/client/ai-agents", label: "Agentes IA", icon: <Bot className="w-5 h-5" /> },

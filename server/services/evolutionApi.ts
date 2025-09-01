@@ -193,7 +193,107 @@ export class EvolutionApiService {
   }
 
   async getMessages(instanceName: string): Promise<any> {
-    return this.makeRequest(`/chat/findMessages/${instanceName}`);
+    return this.makeRequest(`/chat/findMessages/${instanceName}`, 'POST', {
+      where: {}
+    });
+  }
+
+  async getChats(instanceName: string): Promise<any> {
+    console.log(`🔍 [Evolution API] Calling findChats for instance: ${instanceName}`);
+    try {
+      // Try POST with empty where clause first (as per Evolution API v2 docs)
+      console.log(`📞 Trying POST request to /chat/findChats/${instanceName}`);
+      let result = await this.makeRequest(`/chat/findChats/${instanceName}`, 'POST', {
+        where: {}
+      });
+      return result;
+    } catch (postError) {
+      console.log(`⚠️ POST request failed, trying GET request`);
+      try {
+        // Fallback to GET request if POST fails
+        let result = await this.makeRequest(`/chat/findChats/${instanceName}`, 'GET');
+        return result;
+      } catch (getError) {
+        console.error(`❌ [Evolution API] Both POST and GET findChats failed`);
+        throw getError;
+      }
+    }
+  }
+
+  async getChatMessages(instanceName: string, remoteJid?: string): Promise<any> {
+    console.log(`🔍 [Evolution API] Calling findMessages for instance: ${instanceName}, remoteJid: ${remoteJid}`);
+    try {
+      const endpoint = `/chat/findMessages/${instanceName}`;
+      
+      // Ensure remoteJid has the correct format
+      let formattedJid = remoteJid;
+      if (remoteJid && !remoteJid.includes('@')) {
+        // Add @s.whatsapp.net if it's missing
+        formattedJid = `${remoteJid}@s.whatsapp.net`;
+        console.log(`📱 [Evolution API] Formatted remoteJid: ${formattedJid}`);
+      }
+      
+      // Try different where clause structures based on Evolution API v2 docs
+      const payload = formattedJid ? {
+        where: {
+          key: {
+            remoteJid: formattedJid
+          }
+        },
+        limit: 50 // Add limit to get more messages
+      } : {
+        where: {},
+        limit: 50
+      };
+      
+      console.log(`📤 [Evolution API] Sending payload:`, JSON.stringify(payload, null, 2));
+      
+      const result = await this.makeRequest(endpoint, 'POST', payload);
+      
+      console.log(`📥 [Evolution API] Received ${Array.isArray(result) ? result.length : 'non-array'} messages`);
+      if (!Array.isArray(result) && result) {
+        console.log(`📥 [Evolution API] Response structure:`, Object.keys(result));
+      }
+      
+      return result;
+    } catch (error) {
+      console.error(`❌ [Evolution API] findMessages failed:`, error);
+      
+      // Try alternative approach with just remoteJid in where clause
+      if (formattedJid) {
+        console.log(`🔄 [Evolution API] Trying alternative where clause structure`);
+        try {
+          const altPayload = {
+            where: {
+              remoteJid: formattedJid
+            },
+            limit: 50
+          };
+          console.log(`📤 [Evolution API] Alternative payload:`, JSON.stringify(altPayload, null, 2));
+          const altResult = await this.makeRequest(endpoint, 'POST', altPayload);
+          return altResult;
+        } catch (altError) {
+          console.error(`❌ [Evolution API] Alternative approach also failed:`, altError);
+        }
+      }
+      
+      throw error;
+    }
+  }
+
+  // Alternative method to get all messages (which might include chat info)
+  async getAllMessages(instanceName: string): Promise<any> {
+    console.log(`🔍 [Evolution API] Calling getAllMessages for instance: ${instanceName}`);
+    // POST request with empty where clause to get all messages
+    return this.makeRequest(`/chat/findMessages/${instanceName}`, 'POST', {
+      where: {}
+    });
+  }
+
+  // Get instance info which might include chat data
+  async getInstanceInfo(instanceName: string): Promise<any> {
+    console.log(`🔍 [Evolution API] Calling getInstanceInfo for instance: ${instanceName}`);
+    return this.makeRequest(`/instance/fetchInstances?instanceName=${instanceName}`);
   }
 
   async setSettings(instanceName: string, settings: any): Promise<any> {

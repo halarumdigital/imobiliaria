@@ -14,7 +14,17 @@
       "Read(\\/**)",
       "Bash(rg:*)",
       "Bash(npm run:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(taskkill:*)",
+      "Read(C:\\Users\\Gilliard\\Desktop\\print/**)",
+      "WebFetch(domain:apidocs.webshare.io)",
+      "Bash(PORT=5002 npm run dev)",
+      "Read(C:\\Users\\Gilliard\\Desktop\\print/**)",
+      "Bash(PORT=3000 npm start)",
+      "Read(C:\\Users\\Gilliard\\Desktop\\print/**)",
+      "Read(C:\\Users\\Gilliard\\Desktop\\print/**)",
+      "Read(C:\\Users\\Gilliard\\Desktop\\print/**)",
+      "Read(C:\\Users\\Gilliard\\Desktop\\print/**)"
     ],
     "deny": [],
     "ask": []

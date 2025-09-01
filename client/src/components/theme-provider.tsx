@@ -14,13 +14,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState<GlobalConfiguration | null>(null);
 
   const { data: globalConfig } = useQuery({
-    queryKey: ["/global-config"],
-    queryFn: () => fetch("/api/global-config", {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("token")}`
-      }
-    }).then(res => res.json()),
-    enabled: !!localStorage.getItem("token"), // Load theme for authenticated users
+    queryKey: ["/global-config/public"],
+    queryFn: () => fetch("/api/global-config/public").then(res => res.json()),
+    enabled: true, // Load theme for all users (public endpoint)
   });
 
   useEffect(() => {

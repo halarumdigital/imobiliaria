@@ -577,9 +577,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             qrcode: true
           });
 
-          // Update instance with Evolution data
+          // Update instance with Evolution data and save instance-specific token
           await storage.updateWhatsappInstance(instance.id, {
-            evolutionInstanceId: evolutionResponse.instance?.instanceName || instance.id
+            evolutionInstanceId: evolutionResponse.instance?.instanceName || instance.id,
+            evolutionToken: evolutionResponse.hash?.apikey || evolutionResponse.apikey
           });
         }
       } catch (evolutionError) {
@@ -772,9 +773,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           console.log("✅ Fresh instance created:", evolutionResponse);
           
-          // Update database with new Evolution instance ID
+          // Update database with new Evolution instance ID and token
           await storage.updateWhatsappInstance(id, {
-            evolutionInstanceId: newInstanceName
+            evolutionInstanceId: newInstanceName,
+            evolutionToken: evolutionResponse.hash?.apikey || evolutionResponse.apikey
           });
           
           // Step 5: Get QR Code from fresh instance
@@ -1738,12 +1740,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         instanceName
       });
 
-      // Salvar instância no banco de dados local
+      // Salvar instância no banco de dados local com o token da instância
       const instanceData = {
         name, // Nome original sem timestamp 
         phone,
         companyId: req.user.companyId,
         evolutionInstanceId: name.replace(/\s+/g, '_').toLowerCase(), // Mesmo nome sem timestamp
+        evolutionToken: evolutionResponse.hash?.apikey || evolutionResponse.apikey,
         status: 'disconnected' as const
       };
       
@@ -1810,7 +1813,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Configurar webhook automaticamente quando vincular agente IA
       try {
         const globalConfig = await storage.getGlobalConfig();
-        const evolutionConfig = await storage.getEvolutionApiConfig();
+        const evolutionConfig = await storage.getEvolutionApiConfiguration();
         
         if (globalConfig?.urlGlobalSistema && evolutionConfig && instance.evolutionInstanceId) {
           const evolutionService = new EvolutionApiService({
@@ -1879,6 +1882,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Unlink agent error:", error);
       res.status(500).json({ error: "Erro ao remover vinculação" });
+    }
+  });
+
+  // Get WebShare proxies
+  app.get("/api/whatsapp/proxy/list", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      console.log("🌐 Buscando proxies WebShare...");
+      
+      // Get global configuration to retrieve WebShare token
+      const globalConfig = await storage.getGlobalConfiguration();
+      if (!globalConfig?.webshare_token) {
+        console.log("❌ Token WebShare não configurado");
+        return res.status(400).json({ error: "Token WebShare não configurado no sistema" });
+      }
+
+      // Get query parameters for WebShare API
+      const { 
+        mode = 'direct',
+        page = 1, 
+        page_size = 25,
+        country_code__in,
+        search,
+        ordering 
+      } = req.query;
+
+      // Build WebShare API URL
+      const params = new URLSearchParams({
+        mode: mode as string,
+        page: page.toString(),
+        page_size: page_size.toString(),
+      });
+
+      if (country_code__in) params.append('country_code__in', country_code__in as string);
+      if (search) params.append('search', search as string);
+      if (ordering) params.append('ordering', ordering as string);
+
+      const webshareUrl = `https://proxy.webshare.io/api/v2/proxy/list/?${params.toString()}`;
+      
+      console.log("📡 Consultando WebShare API:", webshareUrl);
+
+      // Make request to WebShare API
+      const response = await fetch(webshareUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Token ${globalConfig.webshare_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        console.error(`❌ Erro WebShare API: ${response.status} ${response.statusText}`);
+        const errorText = await response.text();
+        console.error("Erro detalhes:", errorText);
+        return res.status(response.status).json({ 
+          error: "Erro ao consultar WebShare API",
+          details: errorText
+        });
+      }
+
+      const proxies = await response.json();
+      console.log(`✅ ${proxies.results?.length || 0} proxies obtidos`);
+
+      res.json(proxies);
+    } catch (error) {
+      console.error("Get WebShare proxies error:", error);
+      res.status(500).json({ error: "Erro ao buscar proxies" });
     }
   });
 
@@ -2079,6 +2148,547 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Create message error:", error);
       res.status(500).json({ error: "Erro ao criar mensagem" });
+    }
+  });
+
+  // Fetch conversations directly from Evolution API
+  app.get("/api/conversations/evolution/:instanceId", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { instanceId } = req.params;
+      console.log(`🔍 [DEBUG] Fetching Evolution chats for instance: ${instanceId}`);
+      
+      // Get instance details to access Evolution API
+      const instance = await storage.getWhatsappInstance(instanceId);
+      if (!instance) {
+        console.log(`❌ [ERROR] Instance not found: ${instanceId}`);
+        return res.status(404).json({ error: "Instância não encontrada" });
+      }
+
+      console.log(`✅ [DEBUG] Instance found: ${instance.name}, companyId: ${instance.companyId}`);
+
+      // Check if instance belongs to user's company
+      if (instance.companyId !== req.user?.companyId) {
+        console.log(`❌ [ERROR] Access denied for company ${req.user?.companyId}, instance belongs to ${instance.companyId}`);
+        return res.status(403).json({ error: "Acesso negado" });
+      }
+
+      // Get Evolution API configuration
+      const config = await storage.getEvolutionApiConfiguration();
+      if (!config) {
+        console.log(`❌ [ERROR] Evolution API config not found`);
+        return res.status(400).json({ 
+          error: "Configuração da Evolution API não encontrada", 
+          details: "Acesse a área Admin para configurar a Evolution API primeiro" 
+        });
+      }
+
+      console.log(`🔧 [DEBUG] Evolution API Config: ${config.evolutionURL}`);
+      
+      // Use instance token if available, otherwise fallback to global token
+      const tokenToUse = instance.evolutionToken || config.evolutionToken;
+      console.log(`🔐 [DEBUG] Using token: ${tokenToUse ? 'Instance-specific token' : 'Global token'}`);
+
+      const evolutionApi = new EvolutionApiService({
+        baseURL: config.evolutionURL,
+        token: tokenToUse
+      });
+
+      console.log(`📞 [DEBUG] Trying multiple approaches to get conversations...`);
+
+      let conversations = [];
+      let evolutionChats = null;
+
+      // Use evolutionInstanceId if available, otherwise fallback to instance name
+      const instanceNameToUse = instance.evolutionInstanceId || instance.name.replace(/\s+/g, '_').toLowerCase();
+      console.log(`🔧 [DEBUG] Using instance name: ${instanceNameToUse}`);
+
+      try {
+        // Approach 1: Try to get chats directly
+        console.log(`📞 [DEBUG] Approach 1: Calling getChats`);
+        evolutionChats = await evolutionApi.getChats(instanceNameToUse);
+        console.log(`📊 [DEBUG] getChats response:`, {
+          type: typeof evolutionChats,
+          isArray: Array.isArray(evolutionChats),
+          keys: evolutionChats ? Object.keys(evolutionChats) : 'no keys'
+        });
+      } catch (error) {
+        console.log(`⚠️ [DEBUG] getChats failed:`, error.message);
+      }
+
+      if (!evolutionChats || (Array.isArray(evolutionChats) && evolutionChats.length === 0)) {
+        try {
+          // Approach 2: Try to get all messages (which might include chat info)
+          console.log(`📞 [DEBUG] Approach 2: Calling getAllMessages`);
+          const allMessages = await evolutionApi.getAllMessages(instanceNameToUse);
+          console.log(`📊 [DEBUG] getAllMessages response:`, {
+            type: typeof allMessages,
+            isArray: Array.isArray(allMessages),
+            keys: allMessages ? Object.keys(allMessages) : 'no keys'
+          });
+          
+          // Extract unique chats from messages
+          if (allMessages && Array.isArray(allMessages)) {
+            const uniqueChats = new Map();
+            allMessages.forEach((message: any) => {
+              const chatId = message.key?.remoteJid || message.remoteJid || message.chatId || message.from;
+              if (chatId) {
+                const existingChat = uniqueChats.get(chatId);
+                // Update with the most recent pushName or keep existing
+                const pushName = message.pushName || existingChat?.pushName || existingChat?.name;
+                
+                uniqueChats.set(chatId, {
+                  id: chatId,
+                  remoteJid: chatId,
+                  pushName: pushName,
+                  name: pushName,
+                  lastMessage: { text: message.message?.conversation || message.text || existingChat?.lastMessage?.text || 'Mensagem' },
+                  unreadCount: existingChat?.unreadCount || 0
+                });
+              }
+            });
+            evolutionChats = Array.from(uniqueChats.values());
+            console.log(`📊 [DEBUG] Extracted ${evolutionChats.length} unique chats from messages`);
+          } else if (allMessages && allMessages.messages && allMessages.messages.records && Array.isArray(allMessages.messages.records)) {
+            // Handle paginated response from Evolution API v2
+            const uniqueChats = new Map();
+            allMessages.messages.records.forEach((message: any) => {
+              const chatId = message.key?.remoteJid || message.remoteJid || message.chatId || message.from;
+              if (chatId) {
+                const existingChat = uniqueChats.get(chatId);
+                const pushName = message.pushName || existingChat?.pushName || existingChat?.name;
+                
+                uniqueChats.set(chatId, {
+                  id: chatId,
+                  remoteJid: chatId,
+                  pushName: pushName,
+                  name: pushName,
+                  lastMessage: { text: message.message?.conversation || message.text || existingChat?.lastMessage?.text || 'Mensagem' },
+                  unreadCount: existingChat?.unreadCount || 0
+                });
+              }
+            });
+            evolutionChats = Array.from(uniqueChats.values());
+            console.log(`📊 [DEBUG] Extracted ${evolutionChats.length} unique chats from paginated messages`);
+          } else if (allMessages && allMessages.data && Array.isArray(allMessages.data)) {
+            const uniqueChats = new Map();
+            allMessages.data.forEach((message: any) => {
+              const chatId = message.key?.remoteJid || message.remoteJid || message.chatId || message.from;
+              if (chatId) {
+                const existingChat = uniqueChats.get(chatId);
+                const pushName = message.pushName || existingChat?.pushName || existingChat?.name;
+                
+                uniqueChats.set(chatId, {
+                  id: chatId,
+                  remoteJid: chatId,
+                  pushName: pushName,
+                  name: pushName,
+                  lastMessage: { text: message.message?.conversation || message.text || existingChat?.lastMessage?.text || 'Mensagem' },
+                  unreadCount: existingChat?.unreadCount || 0
+                });
+              }
+            });
+            evolutionChats = Array.from(uniqueChats.values());
+            console.log(`📊 [DEBUG] Extracted ${evolutionChats.length} unique chats from messages data`);
+          }
+        } catch (error) {
+          console.log(`⚠️ [DEBUG] getAllMessages failed:`, error.message);
+        }
+      }
+
+      // Transform Evolution API response to our conversation format
+      if (Array.isArray(evolutionChats)) {
+        conversations = evolutionChats;
+      } else if (evolutionChats && evolutionChats.data && Array.isArray(evolutionChats.data)) {
+        conversations = evolutionChats.data;
+      } else if (evolutionChats && evolutionChats.chats && Array.isArray(evolutionChats.chats)) {
+        conversations = evolutionChats.chats;
+      } else if (evolutionChats && typeof evolutionChats === 'object') {
+        // Check for different possible response structures
+        const possibleKeys = ['result', 'results', 'items', 'messages', 'conversations'];
+        for (const key of possibleKeys) {
+          if (evolutionChats[key] && Array.isArray(evolutionChats[key])) {
+            conversations = evolutionChats[key];
+            console.log(`📊 [DEBUG] Found conversations in key: ${key}`);
+            break;
+          }
+        }
+        
+        // If still no conversations found and evolutionChats has keys, log them
+        if (conversations.length === 0 && Object.keys(evolutionChats).length > 0) {
+          console.log(`⚠️ [DEBUG] Unknown response structure. Keys found:`, Object.keys(evolutionChats));
+          // Try to return the raw object as an array
+          conversations = [evolutionChats];
+        }
+      }
+
+      console.log(`✅ [DEBUG] Final conversations array:`, {
+        length: conversations.length,
+        firstItem: conversations[0] ? Object.keys(conversations[0]) : 'no items',
+        sample: conversations.slice(0, 2)
+      });
+      
+      // Return empty array if no conversations found
+      res.json(conversations || []);
+    } catch (error) {
+      console.error("❌ [ERROR] Get Evolution conversations error:", error);
+      console.error("Error stack:", error.stack);
+      res.status(500).json({ 
+        error: "Erro ao buscar conversas da Evolution API",
+        details: error.message 
+      });
+    }
+  });
+
+  // TEST DEBUG endpoint for Evolution API integration
+  app.get("/api/conversations/evolution/:instanceId/test", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { instanceId } = req.params;
+      console.log(`🧪 [TEST DEBUG] Starting Evolution API debug test for instance: ${instanceId}`);
+      
+      const debugResults: any = {
+        step1_instanceLookup: null,
+        step2_configLookup: null,
+        step3_evolutionApiInit: null,
+        step4_findChatsCall: null,
+        step5_rawResponse: null,
+        errors: []
+      };
+
+      // Step 1: Get instance details
+      console.log(`🧪 [TEST DEBUG] Step 1: Looking up instance details...`);
+      const instance = await storage.getWhatsappInstance(instanceId);
+      if (!instance) {
+        const error = `Instance not found: ${instanceId}`;
+        console.log(`❌ [TEST DEBUG] ${error}`);
+        debugResults.errors.push(error);
+        return res.status(404).json({ 
+          error: "Instância não encontrada",
+          debugResults 
+        });
+      }
+
+      debugResults.step1_instanceLookup = {
+        found: true,
+        instanceId: instance.id,
+        instanceName: instance.name,
+        evolutionInstanceId: instance.evolutionInstanceId,
+        companyId: instance.companyId,
+        status: instance.status
+      };
+      console.log(`✅ [TEST DEBUG] Step 1 SUCCESS: Instance found`, debugResults.step1_instanceLookup);
+
+      // Check company access
+      if (instance.companyId !== req.user?.companyId) {
+        const error = `Access denied for company ${req.user?.companyId}, instance belongs to ${instance.companyId}`;
+        console.log(`❌ [TEST DEBUG] ${error}`);
+        debugResults.errors.push(error);
+        return res.status(403).json({ 
+          error: "Acesso negado",
+          debugResults 
+        });
+      }
+
+      // Step 2: Get Evolution API configuration
+      console.log(`🧪 [TEST DEBUG] Step 2: Getting Evolution API configuration...`);
+      const config = await storage.getEvolutionApiConfiguration();
+      if (!config) {
+        const error = "Evolution API configuration not found";
+        console.log(`❌ [TEST DEBUG] ${error}`);
+        debugResults.errors.push(error);
+        return res.status(400).json({ 
+          error: "Configuração da Evolution API não encontrada",
+          debugResults
+        });
+      }
+
+      debugResults.step2_configLookup = {
+        found: true,
+        evolutionURL: config.evolutionURL,
+        hasToken: !!config.evolutionToken,
+        tokenLength: config.evolutionToken?.length || 0
+      };
+      console.log(`✅ [TEST DEBUG] Step 2 SUCCESS: Evolution API config found`, debugResults.step2_configLookup);
+
+      // Step 3: Initialize Evolution API service
+      console.log(`🧪 [TEST DEBUG] Step 3: Initializing Evolution API service...`);
+      const evolutionApi = new EvolutionApiService({
+        baseURL: config.evolutionURL,
+        token: config.evolutionToken
+      });
+
+      debugResults.step3_evolutionApiInit = {
+        success: true,
+        baseURL: config.evolutionURL,
+        tokenProvided: !!config.evolutionToken
+      };
+      console.log(`✅ [TEST DEBUG] Step 3 SUCCESS: Evolution API service initialized`, debugResults.step3_evolutionApiInit);
+
+      // Step 4: Determine instance name to use
+      const instanceNameToUse = instance.evolutionInstanceId || instance.name.replace(/\s+/g, '_').toLowerCase();
+      console.log(`🧪 [TEST DEBUG] Step 4: Using instance name for Evolution API call: ${instanceNameToUse}`);
+      
+      debugResults.step4_findChatsCall = {
+        originalInstanceName: instance.name,
+        evolutionInstanceId: instance.evolutionInstanceId,
+        finalInstanceName: instanceNameToUse
+      };
+
+      // Step 5: Make direct call to Evolution API findChats
+      console.log(`🧪 [TEST DEBUG] Step 5: Making direct call to Evolution API findChats...`);
+      try {
+        const rawResponse = await evolutionApi.getChats(instanceNameToUse);
+        
+        debugResults.step5_rawResponse = {
+          success: true,
+          responseType: typeof rawResponse,
+          isArray: Array.isArray(rawResponse),
+          hasData: !!rawResponse,
+          keys: rawResponse ? Object.keys(rawResponse) : [],
+          length: Array.isArray(rawResponse) ? rawResponse.length : (rawResponse?.length || 'N/A'),
+          sample: Array.isArray(rawResponse) ? rawResponse.slice(0, 2) : rawResponse
+        };
+        
+        console.log(`✅ [TEST DEBUG] Step 5 SUCCESS: Raw Evolution API response:`, debugResults.step5_rawResponse);
+        console.log(`📊 [TEST DEBUG] Full raw response structure:`, JSON.stringify(rawResponse, null, 2));
+        
+        // Return complete debug information
+        res.json({
+          success: true,
+          message: "Evolution API debug test completed successfully",
+          debugResults,
+          fullRawResponse: rawResponse
+        });
+        
+      } catch (evolutionError: any) {
+        const error = `Evolution API findChats failed: ${evolutionError.message}`;
+        console.log(`❌ [TEST DEBUG] Step 5 FAILED: ${error}`);
+        console.error(`❌ [TEST DEBUG] Evolution API error details:`, evolutionError);
+        
+        debugResults.step5_rawResponse = {
+          success: false,
+          error: evolutionError.message,
+          stack: evolutionError.stack
+        };
+        debugResults.errors.push(error);
+        
+        res.status(500).json({
+          success: false,
+          error: "Evolution API call failed",
+          debugResults
+        });
+      }
+      
+    } catch (error: any) {
+      console.error("❌ [TEST DEBUG] General error during debug test:", error);
+      console.error("❌ [TEST DEBUG] Error stack:", error.stack);
+      res.status(500).json({ 
+        success: false,
+        error: "Erro durante teste de debug da Evolution API",
+        details: error.message,
+        debugResults: debugResults || {}
+      });
+    }
+  });
+
+  // Test endpoint to debug Evolution API messages
+  app.get("/api/conversations/evolution/:instanceId/:chatId/test-messages", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { instanceId, chatId } = req.params;
+      
+      // Get instance details
+      const instance = await storage.getWhatsappInstance(instanceId);
+      if (!instance) {
+        return res.status(404).json({ error: "Instância não encontrada" });
+      }
+
+      // Get Evolution API configuration
+      const config = await storage.getEvolutionApiConfiguration();
+      if (!config) {
+        return res.status(400).json({ error: "Configuração da Evolution API não encontrada" });
+      }
+
+      const tokenToUse = instance.evolutionToken || config.evolutionToken;
+      const instanceNameToUse = instance.evolutionInstanceId || instance.name.replace(/\s+/g, '_').toLowerCase();
+      
+      console.log(`🧪 [TEST] Testing messages for instance: ${instanceNameToUse}, chatId: ${chatId}`);
+      
+      const testResults = {
+        instanceName: instanceNameToUse,
+        chatId: chatId,
+        tests: []
+      };
+
+      // Test 1: Try with original chatId
+      try {
+        const test1 = await fetch(`${config.evolutionURL}/chat/findMessages/${instanceNameToUse}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': tokenToUse
+          },
+          body: JSON.stringify({
+            where: {
+              key: {
+                remoteJid: chatId
+              }
+            },
+            limit: 10
+          })
+        });
+        const result1 = await test1.json();
+        testResults.tests.push({
+          name: "Test 1: Original chatId with key.remoteJid",
+          status: test1.status,
+          response: result1
+        });
+      } catch (e) {
+        testResults.tests.push({
+          name: "Test 1: Original chatId with key.remoteJid",
+          error: e.message
+        });
+      }
+
+      // Test 2: Try with direct remoteJid
+      try {
+        const test2 = await fetch(`${config.evolutionURL}/chat/findMessages/${instanceNameToUse}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': tokenToUse
+          },
+          body: JSON.stringify({
+            where: {
+              remoteJid: chatId
+            },
+            limit: 10
+          })
+        });
+        const result2 = await test2.json();
+        testResults.tests.push({
+          name: "Test 2: Original chatId with direct remoteJid",
+          status: test2.status,
+          response: result2
+        });
+      } catch (e) {
+        testResults.tests.push({
+          name: "Test 2: Original chatId with direct remoteJid",
+          error: e.message
+        });
+      }
+
+      // Test 3: Try without where clause (get all messages)
+      try {
+        const test3 = await fetch(`${config.evolutionURL}/chat/findMessages/${instanceNameToUse}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': tokenToUse
+          },
+          body: JSON.stringify({
+            where: {},
+            limit: 10
+          })
+        });
+        const result3 = await test3.json();
+        testResults.tests.push({
+          name: "Test 3: Get all messages (empty where)",
+          status: test3.status,
+          response: result3,
+          sampleMessage: Array.isArray(result3) && result3.length > 0 ? result3[0] : null
+        });
+      } catch (e) {
+        testResults.tests.push({
+          name: "Test 3: Get all messages (empty where)",
+          error: e.message
+        });
+      }
+
+      res.json(testResults);
+    } catch (error) {
+      console.error("Test messages error:", error);
+      res.status(500).json({ error: "Erro no teste", details: error.message });
+    }
+  });
+
+  // Fetch specific chat messages from Evolution API
+  app.get("/api/conversations/evolution/:instanceId/:chatId/messages", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { instanceId, chatId } = req.params;
+      
+      // Get instance details to access Evolution API
+      const instance = await storage.getWhatsappInstance(instanceId);
+      if (!instance) {
+        return res.status(404).json({ error: "Instância não encontrada" });
+      }
+
+      // Check if instance belongs to user's company
+      if (instance.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Acesso negado" });
+      }
+
+      // Get Evolution API configuration
+      const config = await storage.getEvolutionApiConfiguration();
+      if (!config) {
+        console.log(`❌ [ERROR] Evolution API configuration not found`);
+        return res.status(400).json({ 
+          error: "Configuração da Evolution API não encontrada", 
+          details: "Acesse a área Admin para configurar a Evolution API primeiro" 
+        });
+      }
+
+      // Use instance token if available, otherwise fallback to global token
+      const tokenToUse = instance.evolutionToken || config.evolutionToken;
+      console.log(`🔐 [DEBUG] Using token: ${tokenToUse ? 'Instance-specific token' : 'Global token'} for messages`);
+
+      const evolutionApi = new EvolutionApiService({
+        baseURL: config.evolutionURL,
+        token: tokenToUse
+      });
+
+      // Use evolutionInstanceId if available, otherwise fallback to instance name
+      const instanceNameToUse = instance.evolutionInstanceId || instance.name.replace(/\s+/g, '_').toLowerCase();
+      console.log(`🔧 [DEBUG] Using instance name: ${instanceNameToUse} for chat: ${chatId}`);
+      console.log(`📱 [DEBUG] Full chatId/remoteJid: "${chatId}"`);
+
+      // Fetch messages from specific chat
+      const chatMessagesResponse = await evolutionApi.getChatMessages(instanceNameToUse, chatId);
+      console.log(`📨 [DEBUG] Raw response from Evolution API:`, JSON.stringify(chatMessagesResponse, null, 2).substring(0, 500));
+      
+      // Ensure response is always an array
+      let chatMessages = [];
+      if (Array.isArray(chatMessagesResponse)) {
+        chatMessages = chatMessagesResponse;
+      } else if (chatMessagesResponse && chatMessagesResponse.messages && chatMessagesResponse.messages.records && Array.isArray(chatMessagesResponse.messages.records)) {
+        // Evolution API v2 paginated response format
+        chatMessages = chatMessagesResponse.messages.records;
+        console.log(`📊 [DEBUG] Found ${chatMessages.length} messages in messages.records (page ${chatMessagesResponse.messages.currentPage}/${chatMessagesResponse.messages.pages})`);
+      } else if (chatMessagesResponse && chatMessagesResponse.data && Array.isArray(chatMessagesResponse.data)) {
+        chatMessages = chatMessagesResponse.data;
+      } else if (chatMessagesResponse && chatMessagesResponse.messages && Array.isArray(chatMessagesResponse.messages)) {
+        chatMessages = chatMessagesResponse.messages;
+      } else if (chatMessagesResponse && chatMessagesResponse.result && Array.isArray(chatMessagesResponse.result)) {
+        chatMessages = chatMessagesResponse.result;
+      } else if (chatMessagesResponse && chatMessagesResponse.records && Array.isArray(chatMessagesResponse.records)) {
+        chatMessages = chatMessagesResponse.records;
+      } else if (chatMessagesResponse && typeof chatMessagesResponse === 'object') {
+        // Log the structure to understand what we're getting
+        console.log(`⚠️ [DEBUG] Unknown message response structure. Keys:`, Object.keys(chatMessagesResponse));
+        // Try to find array in the response
+        const possibleKeys = ['items', 'rows', 'content'];
+        for (const key of possibleKeys) {
+          if (chatMessagesResponse[key] && Array.isArray(chatMessagesResponse[key])) {
+            chatMessages = chatMessagesResponse[key];
+            console.log(`📊 [DEBUG] Found messages in key: ${key}`);
+            break;
+          }
+        }
+      }
+      
+      console.log(`✅ [DEBUG] Returning ${chatMessages.length} messages for chat ${chatId}`);
+      res.json(chatMessages);
+    } catch (error) {
+      console.error("Get Evolution chat messages error:", error);
+      res.status(500).json({ error: "Erro ao buscar mensagens do chat da Evolution API" });
     }
   });
 

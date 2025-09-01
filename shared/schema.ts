@@ -38,6 +38,7 @@ export const globalConfigurations = mysqlTable("global_configurations", {
   nome_sistema: varchar("nome_sistema", { length: 255 }).default("Sistema Multi-Empresa"),
   nome_rodape: varchar("nome_rodape", { length: 255 }).default("© 2024 Multi-Empresa System"),
   nome_aba_navegador: varchar("nome_aba_navegador", { length: 255 }).default("Multi-Empresa Dashboard"),
+  webshare_token: text("webshare_token"),
   updated_at: timestamp("updated_at").defaultNow().onUpdateNow(),
 });
 
@@ -65,6 +66,7 @@ export const whatsappInstances = mysqlTable("whatsapp_instances", {
   name: varchar("name", { length: 255 }).notNull(),
   phone: varchar("phone", { length: 20 }),
   evolutionInstanceId: varchar("evolution_instance_id", { length: 255 }),
+  evolutionToken: varchar("evolution_token", { length: 500 }), // Token específico da instância
   status: varchar("status", { length: 20 }).default("disconnected"), // 'connected' | 'disconnected'
   qrCode: text("qr_code"),
   aiAgentId: varchar("ai_agent_id", { length: 36 }),
@@ -112,7 +114,7 @@ export const messages = mysqlTable("messages", {
   messageType: varchar("message_type", { length: 20 }).default("text"), // 'text' | 'image' | 'document'
   evolutionMessageId: varchar("evolution_message_id", { length: 255 }),
   mediaUrl: text("media_url"), // URL to download the image from Evolution API
-  mediaBase64: text("media_base64", { mode: "longtext" }), // Base64 encoded image data
+  mediaBase64: text("media_base64"), // Base64 encoded image data
   caption: text("caption"), // Image caption/description from user
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -147,7 +149,7 @@ export const scheduledMessages = mysqlTable("scheduled_messages", {
   messages: json("messages"), // Array of multiple text messages (for text type only)
   useMultipleMessages: boolean("use_multiple_messages").default(false), // Whether to send multiple text messages
   fileName: varchar("file_name", { length: 255 }), // For media messages
-  fileBase64: text("file_base64", { mode: "longtext" }), // Base64 encoded file for media messages
+  fileBase64: text("file_base64"), // Base64 encoded file for media messages
   scheduledDateTime: timestamp("scheduled_date_time").notNull(),
   intervalMin: int("interval_min").default(60), // Minimum interval between messages in seconds
   intervalMax: int("interval_max").default(120), // Maximum interval between messages in seconds
@@ -192,6 +194,7 @@ export const insertGlobalConfigSchema = createInsertSchema(globalConfigurations)
   nome_sistema: true,
   nome_rodape: true,
   nome_aba_navegador: true,
+  webshare_token: true,
 });
 
 export const insertEvolutionConfigSchema = createInsertSchema(evolutionApiConfigurations).pick({

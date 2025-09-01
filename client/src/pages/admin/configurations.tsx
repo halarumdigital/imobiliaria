@@ -288,6 +288,28 @@ export default function Configurations() {
             </div>
           </div>
 
+          {/* Proxy Configuration */}
+          <div className="space-y-4">
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-medium mb-4">Configurações de Proxy</h3>
+              <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
+                <div>
+                  <Label htmlFor="webshareToken">Token WebShare.io</Label>
+                  <Input
+                    id="webshareToken"
+                    type="password"
+                    value={formData.webshare_token || ""}
+                    onChange={(e) => handleInputChange("webshare_token", e.target.value)}
+                    placeholder="Insira o token do serviço WebShare.io"
+                  />
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Token de acesso para o serviço de proxy WebShare.io
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="flex justify-end space-x-3">
             <Button type="button" variant="outline">
               Cancelar

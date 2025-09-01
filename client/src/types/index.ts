@@ -35,6 +35,7 @@ export interface GlobalConfiguration {
   nome_sistema: string;
   nome_rodape: string;
   nome_aba_navegador: string;
+  webshare_token?: string;
   updated_at: string;
 }
 
@@ -62,6 +63,7 @@ export interface WhatsappInstance {
   name: string;
   phone?: string;
   evolutionInstanceId?: string;
+  evolutionToken?: string;
   status: string;
   qrCode?: string;
   aiAgentId?: string;
