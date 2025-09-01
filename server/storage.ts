@@ -3,7 +3,9 @@ import {
   User, InsertUser, Company, InsertCompany, GlobalConfiguration, 
   InsertGlobalConfiguration, EvolutionApiConfiguration, InsertEvolutionApiConfiguration,
   AiConfiguration, InsertAiConfiguration, WhatsappInstance, InsertWhatsappInstance,
-  AiAgent, InsertAiAgent, Conversation, InsertConversation, Message, InsertMessage
+  AiAgent, InsertAiAgent, Conversation, InsertConversation, Message, InsertMessage,
+  ContactList, InsertContactList, ContactListItem, InsertContactListItem,
+  ScheduledMessage, InsertScheduledMessage
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -60,6 +62,26 @@ export interface IStorage {
   // Messages
   getMessagesByConversation(conversationId: string): Promise<Message[]>;
   createMessage(message: InsertMessage): Promise<Message>;
+  
+  // Contact Lists
+  getContactList(id: string): Promise<ContactList | undefined>;
+  getContactListsByCompany(companyId: string): Promise<ContactList[]>;
+  createContactList(list: InsertContactList): Promise<ContactList>;
+  updateContactList(id: string, updates: Partial<ContactList>): Promise<ContactList>;
+  deleteContactList(id: string): Promise<void>;
+  
+  // Contact List Items
+  getContactListItems(contactListId: string): Promise<ContactListItem[]>;
+  createContactListItem(item: InsertContactListItem): Promise<ContactListItem>;
+  deleteContactListItems(contactListId: string): Promise<void>;
+  
+  // Scheduled Messages
+  getScheduledMessage(id: string): Promise<ScheduledMessage | undefined>;
+  getScheduledMessagesByCompany(companyId: string): Promise<ScheduledMessage[]>;
+  getPendingScheduledMessages(): Promise<ScheduledMessage[]>;
+  createScheduledMessage(message: InsertScheduledMessage): Promise<ScheduledMessage>;
+  updateScheduledMessage(id: string, updates: Partial<ScheduledMessage>): Promise<ScheduledMessage>;
+  deleteScheduledMessage(id: string): Promise<void>;
 }
 
 export class MySQLStorage implements IStorage {
@@ -220,6 +242,54 @@ export class MySQLStorage implements IStorage {
         message_type VARCHAR(20) DEFAULT 'text',
         evolution_message_id VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )`,
+      
+      `CREATE TABLE IF NOT EXISTS contact_lists (
+        id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+        company_id VARCHAR(36) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        total_contacts INT DEFAULT 0,
+        valid_contacts INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )`,
+      
+      `CREATE TABLE IF NOT EXISTS contact_list_items (
+        id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+        contact_list_id VARCHAR(36) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        phone VARCHAR(20) NOT NULL,
+        valid BOOLEAN DEFAULT true,
+        error TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (contact_list_id) REFERENCES contact_lists(id) ON DELETE CASCADE
+      )`,
+
+      `CREATE TABLE IF NOT EXISTS scheduled_messages (
+        id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+        company_id VARCHAR(36) NOT NULL,
+        contact_list_id VARCHAR(36) NOT NULL,
+        instance_ids JSON NOT NULL,
+        message_type VARCHAR(20) NOT NULL,
+        message_content TEXT NOT NULL,
+        messages JSON,
+        use_multiple_messages BOOLEAN DEFAULT FALSE,
+        file_name VARCHAR(255),
+        file_base64 LONGTEXT,
+        scheduled_date_time TIMESTAMP NOT NULL,
+        interval_min INT DEFAULT 60,
+        interval_max INT DEFAULT 120,
+        use_multiple_instances BOOLEAN DEFAULT FALSE,
+        randomize_instances BOOLEAN DEFAULT TRUE,
+        status VARCHAR(20) DEFAULT 'scheduled',
+        total_messages INT DEFAULT 0,
+        sent_messages INT DEFAULT 0,
+        failed_messages INT DEFAULT 0,
+        started_at TIMESTAMP NULL,
+        completed_at TIMESTAMP NULL,
+        error_message TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )`
     ];
 
@@ -581,7 +651,10 @@ export class MySQLStorage implements IStorage {
     
     // Convert snake_case to camelCase
     return {
-      ...row,
+      id: row.id,
+      name: row.name,
+      phone: row.phone,
+      status: row.status, // Explicitly map status field
       companyId: row.company_id,
       evolutionInstanceId: row.evolution_instance_id,
       qrCode: row.qr_code,
@@ -601,7 +674,10 @@ export class MySQLStorage implements IStorage {
     
     // Convert snake_case to camelCase for all rows
     return (rows as any[]).map(row => ({
-      ...row,
+      id: row.id,
+      name: row.name,
+      phone: row.phone,
+      status: row.status, // Explicitly map status field
       companyId: row.company_id,
       evolutionInstanceId: row.evolution_instance_id,
       qrCode: row.qr_code,
@@ -946,6 +1022,294 @@ export class MySQLStorage implements IStorage {
       caption: rawRow.caption,
       createdAt: rawRow.created_at
     } as Message;
+  }
+
+  // Contact Lists methods
+  async getContactList(id: string): Promise<ContactList | undefined> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM contact_lists WHERE id = ?',
+      [id]
+    );
+    const row = (rows as any[])[0];
+    if (!row) return undefined;
+    
+    return {
+      ...row,
+      companyId: row.company_id,
+      totalContacts: row.total_contacts,
+      validContacts: row.valid_contacts,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    } as ContactList;
+  }
+
+  async getContactListsByCompany(companyId: string): Promise<ContactList[]> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM contact_lists WHERE company_id = ? ORDER BY created_at DESC',
+      [companyId]
+    );
+    
+    return (rows as any[]).map(row => ({
+      ...row,
+      companyId: row.company_id,
+      totalContacts: row.total_contacts,
+      validContacts: row.valid_contacts,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    })) as ContactList[];
+  }
+
+  async createContactList(list: InsertContactList): Promise<ContactList> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const id = randomUUID();
+    await this.connection.execute(
+      'INSERT INTO contact_lists (id, company_id, name, total_contacts, valid_contacts) VALUES (?, ?, ?, ?, ?)',
+      [id, list.companyId, list.name, list.totalContacts || 0, list.validContacts || 0]
+    );
+    
+    return this.getContactList(id) as Promise<ContactList>;
+  }
+
+  async updateContactList(id: string, updates: Partial<ContactList>): Promise<ContactList> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const fieldMapping: Record<string, string> = {
+      companyId: 'company_id',
+      totalContacts: 'total_contacts',
+      validContacts: 'valid_contacts',
+      createdAt: 'created_at',
+      updatedAt: 'updated_at'
+    };
+    
+    const fields = Object.keys(updates).filter(key => updates[key as keyof ContactList] !== undefined);
+    const values = fields.map(key => updates[key as keyof ContactList]);
+    
+    if (fields.length > 0) {
+      const setClause = fields.map(field => `${fieldMapping[field] || field} = ?`).join(', ');
+      await this.connection.execute(
+        `UPDATE contact_lists SET ${setClause} WHERE id = ?`,
+        [...values, id]
+      );
+    }
+    
+    return this.getContactList(id) as Promise<ContactList>;
+  }
+
+  async deleteContactList(id: string): Promise<void> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    // Items will be deleted automatically due to CASCADE foreign key
+    await this.connection.execute('DELETE FROM contact_lists WHERE id = ?', [id]);
+  }
+
+  // Contact List Items methods
+  async getContactListItems(contactListId: string): Promise<ContactListItem[]> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM contact_list_items WHERE contact_list_id = ? ORDER BY created_at ASC',
+      [contactListId]
+    );
+    
+    return (rows as any[]).map(row => ({
+      ...row,
+      contactListId: row.contact_list_id,
+      createdAt: row.created_at
+    })) as ContactListItem[];
+  }
+
+  async createContactListItem(item: InsertContactListItem): Promise<ContactListItem> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const id = randomUUID();
+    await this.connection.execute(
+      'INSERT INTO contact_list_items (id, contact_list_id, name, phone, valid, error) VALUES (?, ?, ?, ?, ?, ?)',
+      [id, item.contactListId, item.name, item.phone, item.valid ?? true, item.error || null]
+    );
+    
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM contact_list_items WHERE id = ?',
+      [id]
+    );
+    
+    const row = (rows as any[])[0];
+    return {
+      ...row,
+      contactListId: row.contact_list_id,
+      createdAt: row.created_at
+    } as ContactListItem;
+  }
+
+  async deleteContactListItems(contactListId: string): Promise<void> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    await this.connection.execute('DELETE FROM contact_list_items WHERE contact_list_id = ?', [contactListId]);
+  }
+
+  // Scheduled Messages Methods
+  async getScheduledMessage(id: string): Promise<ScheduledMessage | undefined> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM scheduled_messages WHERE id = ?',
+      [id]
+    );
+    
+    const messages = rows as any[];
+    if (messages.length === 0) return undefined;
+    
+    const message = messages[0];
+    return {
+      ...message,
+      instanceIds: JSON.parse(message.instance_ids || '[]'),
+      messages: message.messages ? JSON.parse(message.messages) : null,
+      useMultipleMessages: !!message.use_multiple_messages,
+      useMultipleInstances: !!message.use_multiple_instances,
+      randomizeInstances: !!message.randomize_instances,
+    };
+  }
+
+  async getScheduledMessagesByCompany(companyId: string): Promise<ScheduledMessage[]> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM scheduled_messages WHERE company_id = ? ORDER BY created_at DESC',
+      [companyId]
+    );
+    
+    const messages = rows as any[];
+    return messages.map(message => ({
+      ...message,
+      instanceIds: JSON.parse(message.instance_ids || '[]'),
+      messages: message.messages ? JSON.parse(message.messages) : null,
+      useMultipleMessages: !!message.use_multiple_messages,
+      useMultipleInstances: !!message.use_multiple_instances,
+      randomizeInstances: !!message.randomize_instances,
+    }));
+  }
+
+  async getPendingScheduledMessages(): Promise<ScheduledMessage[]> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM scheduled_messages WHERE status = "scheduled" AND scheduled_date_time <= NOW() ORDER BY scheduled_date_time ASC',
+      []
+    );
+    
+    const messages = rows as any[];
+    return messages.map(message => ({
+      ...message,
+      instanceIds: JSON.parse(message.instance_ids || '[]'),
+      messages: message.messages ? JSON.parse(message.messages) : null,
+      useMultipleMessages: !!message.use_multiple_messages,
+      useMultipleInstances: !!message.use_multiple_instances,
+      randomizeInstances: !!message.randomize_instances,
+    }));
+  }
+
+  async createScheduledMessage(message: InsertScheduledMessage): Promise<ScheduledMessage> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const id = randomUUID();
+    
+    await this.connection.execute(
+      `INSERT INTO scheduled_messages (
+        id, company_id, contact_list_id, instance_ids, message_type, message_content, 
+        messages, use_multiple_messages, file_name, file_base64, scheduled_date_time, 
+        interval_min, interval_max, use_multiple_instances, randomize_instances, 
+        total_messages, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        message.companyId,
+        message.contactListId,
+        JSON.stringify(message.instanceIds),
+        message.messageType,
+        message.messageContent,
+        message.messages ? JSON.stringify(message.messages) : null,
+        message.useMultipleMessages ? 1 : 0,
+        message.fileName || null,
+        message.fileBase64 || null,
+        message.scheduledDateTime,
+        message.intervalMin,
+        message.intervalMax,
+        message.useMultipleInstances ? 1 : 0,
+        message.randomizeInstances ? 1 : 0,
+        message.totalMessages,
+        'scheduled'
+      ]
+    );
+    
+    const createdMessage = await this.getScheduledMessage(id);
+    if (!createdMessage) throw new Error('Failed to create scheduled message');
+    
+    return createdMessage;
+  }
+
+  async updateScheduledMessage(id: string, updates: Partial<ScheduledMessage>): Promise<ScheduledMessage> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const setParts: string[] = [];
+    const values: any[] = [];
+    
+    if (updates.status !== undefined) {
+      setParts.push('status = ?');
+      values.push(updates.status);
+    }
+    
+    if (updates.sentMessages !== undefined) {
+      setParts.push('sent_messages = ?');
+      values.push(updates.sentMessages);
+    }
+    
+    if (updates.failedMessages !== undefined) {
+      setParts.push('failed_messages = ?');
+      values.push(updates.failedMessages);
+    }
+    
+    if (updates.startedAt !== undefined) {
+      setParts.push('started_at = ?');
+      values.push(updates.startedAt);
+    }
+    
+    if (updates.completedAt !== undefined) {
+      setParts.push('completed_at = ?');
+      values.push(updates.completedAt);
+    }
+    
+    if (updates.errorMessage !== undefined) {
+      setParts.push('error_message = ?');
+      values.push(updates.errorMessage);
+    }
+    
+    if (setParts.length === 0) {
+      const message = await this.getScheduledMessage(id);
+      if (!message) throw new Error('Scheduled message not found');
+      return message;
+    }
+    
+    values.push(id);
+    
+    await this.connection.execute(
+      `UPDATE scheduled_messages SET ${setParts.join(', ')}, updated_at = NOW() WHERE id = ?`,
+      values
+    );
+    
+    const updatedMessage = await this.getScheduledMessage(id);
+    if (!updatedMessage) throw new Error('Failed to update scheduled message');
+    
+    return updatedMessage;
+  }
+
+  async deleteScheduledMessage(id: string): Promise<void> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    await this.connection.execute('DELETE FROM scheduled_messages WHERE id = ?', [id]);
   }
 }
 

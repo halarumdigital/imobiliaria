@@ -22,7 +22,8 @@ import { whatsappWebhookService } from "./services/whatsappWebhook";
 import { 
   insertUserSchema, insertCompanySchema, insertGlobalConfigSchema, 
   insertEvolutionConfigSchema, insertAiConfigSchema, insertWhatsappInstanceSchema,
-  insertAiAgentSchema, insertConversationSchema, insertMessageSchema 
+  insertAiAgentSchema, insertConversationSchema, insertMessageSchema,
+  insertContactListSchema, insertContactListItemSchema, insertScheduledMessageSchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -483,13 +484,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const instances = await storage.getWhatsappInstancesByCompany(req.user.companyId);
       
-      // Debug: Verificar o que está sendo retornado para o frontend
-      console.log("📋 Instances being returned to frontend:");
-      instances.forEach(instance => {
-        console.log(`  - ID: ${instance.id}, Name: ${instance.name}, EvolutionID: ${instance.evolutionInstanceId}`);
+      // Get Evolution API configuration to check real status
+      const evolutionConfig = await storage.getEvolutionApiConfiguration();
+      
+      // If we have Evolution API config, update the status of each instance
+      const updatedInstances = [];
+      
+      for (const instance of instances) {
+        let currentStatus = instance.status;
+        
+        // Only check status if we have Evolution config and instance has evolutionInstanceId
+        if (evolutionConfig && instance.evolutionInstanceId) {
+          try {
+            const statusUrl = `${evolutionConfig.evolutionURL}/instance/connectionState/${instance.evolutionInstanceId}`;
+            console.log(`🔍 Checking status for ${instance.name} at: ${statusUrl}`);
+            
+            const response = await fetch(statusUrl, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': evolutionConfig.evolutionToken,
+              },
+            });
+
+            if (response.ok) {
+              const statusData = await response.json();
+              console.log(`📡 Evolution API response for ${instance.name}:`, statusData);
+              
+              // Check if instance is connected based on Evolution API response
+              const evolutionState = statusData.instance?.state || statusData.state;
+              const isConnected = evolutionState === 'open' || evolutionState === 'connected';
+              const newStatus = isConnected ? 'connected' : 'disconnected';
+              
+              console.log(`🔄 Instance ${instance.name}: Evolution state="${evolutionState}", DB status="${instance.status}", New status="${newStatus}"`);
+              
+              // Update status in database if it changed
+              if (newStatus !== instance.status) {
+                console.log(`🔄 Updating ${instance.name} status from "${instance.status}" to "${newStatus}"`);
+                await storage.updateWhatsappInstance(instance.id, { status: newStatus });
+                currentStatus = newStatus;
+              }
+            } else {
+              console.log(`❌ Failed to check status for ${instance.name}: ${response.status}`);
+            }
+          } catch (error) {
+            console.error(`❌ Error checking status for ${instance.name}:`, error);
+          }
+        }
+        
+        updatedInstances.push({
+          ...instance,
+          status: currentStatus
+        });
+      }
+      
+      console.log("📋 Final instances being returned to frontend:");
+      updatedInstances.forEach(instance => {
+        console.log(`  - ID: ${instance.id}, Name: ${instance.name}, Status: ${instance.status}, EvolutionID: ${instance.evolutionInstanceId}`);
       });
       
-      res.json(instances);
+      res.json(updatedInstances);
     } catch (error) {
       console.error("Get WhatsApp instances error:", error);
       res.status(500).json({ error: "Erro ao buscar instâncias" });
@@ -887,6 +941,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const statusData = await response.json();
       console.log(`✅ Status obtido:`, statusData);
 
+      // Check if instance is connected based on Evolution API response
+      const evolutionState = statusData.instance?.state || statusData.state;
+      const isConnected = evolutionState === 'open' || evolutionState === 'connected';
+      const newStatus = isConnected ? 'connected' : 'disconnected';
+      
+      console.log(`🔄 Instance ${instance.name}: Evolution state="${evolutionState}", DB status="${instance.status}", New status="${newStatus}"`);
+      
+      // Update status in database if it changed
+      if (newStatus !== instance.status) {
+        console.log(`🔄 Updating ${instance.name} status from "${instance.status}" to "${newStatus}"`);
+        await storage.updateWhatsappInstance(instance.id, { status: newStatus });
+        // Update instance object for response
+        instance.status = newStatus;
+      }
+
       // Return the status data with additional instance info
       res.json({
         ...statusData,
@@ -894,7 +963,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ...statusData.instance,
           instanceName: instance.name,
           phone: instance.phone,
-          serverUrl: evolutionConfig.evolutionURL
+          serverUrl: evolutionConfig.evolutionURL,
+          dbStatus: instance.status // Include updated status from database
         }
       });
     } catch (error) {
@@ -2091,6 +2161,265 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Get client stats error:", error);
       res.status(500).json({ error: "Erro ao buscar estatísticas" });
+    }
+  });
+
+  // Contact Lists endpoints
+  app.get("/api/contact-lists", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+
+      const contactLists = await storage.getContactListsByCompany(req.user.companyId);
+      
+      // For each list, get the contact items to provide complete data
+      const listsWithContacts = await Promise.all(
+        contactLists.map(async (list) => {
+          const contacts = await storage.getContactListItems(list.id);
+          return {
+            ...list,
+            contacts: contacts.map(contact => ({
+              name: contact.name,
+              phone: contact.phone,
+              valid: contact.valid,
+              error: contact.error
+            }))
+          };
+        })
+      );
+
+      res.json(listsWithContacts);
+    } catch (error) {
+      console.error("Get contact lists error:", error);
+      res.status(500).json({ error: "Erro ao buscar listas de contatos" });
+    }
+  });
+
+  app.post("/api/contact-lists", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+
+      const { name, contacts } = req.body;
+      
+      if (!name || !contacts || !Array.isArray(contacts)) {
+        return res.status(400).json({ error: "Nome e lista de contatos são obrigatórios" });
+      }
+
+      // Calculate statistics
+      const totalContacts = contacts.length;
+      const validContacts = contacts.filter((c: any) => c.valid).length;
+
+      // Create the contact list
+      const listData = {
+        companyId: req.user.companyId,
+        name,
+        totalContacts,
+        validContacts
+      };
+
+      const contactList = await storage.createContactList(listData);
+
+      // Create contact list items
+      for (const contact of contacts) {
+        await storage.createContactListItem({
+          contactListId: contactList.id,
+          name: contact.name,
+          phone: contact.phone,
+          valid: contact.valid || false,
+          error: contact.error || null
+        });
+      }
+
+      // Get the complete list with contacts for response
+      const contactItems = await storage.getContactListItems(contactList.id);
+      const completeList = {
+        ...contactList,
+        contacts: contactItems.map(contact => ({
+          name: contact.name,
+          phone: contact.phone,
+          valid: contact.valid,
+          error: contact.error
+        }))
+      };
+
+      res.status(201).json(completeList);
+    } catch (error) {
+      console.error("Create contact list error:", error);
+      res.status(500).json({ error: "Erro ao criar lista de contatos" });
+    }
+  });
+
+  app.get("/api/contact-lists/:id", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const contactList = await storage.getContactList(id);
+
+      if (!contactList) {
+        return res.status(404).json({ error: "Lista de contatos não encontrada" });
+      }
+
+      // Check company access
+      if (req.user?.role !== 'admin' && contactList.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Acesso negado: lista não pertence à sua empresa" });
+      }
+
+      // Get contact items
+      const contacts = await storage.getContactListItems(contactList.id);
+      const completeList = {
+        ...contactList,
+        contacts: contacts.map(contact => ({
+          name: contact.name,
+          phone: contact.phone,
+          valid: contact.valid,
+          error: contact.error
+        }))
+      };
+
+      res.json(completeList);
+    } catch (error) {
+      console.error("Get contact list error:", error);
+      res.status(500).json({ error: "Erro ao buscar lista de contatos" });
+    }
+  });
+
+  app.delete("/api/contact-lists/:id", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const contactList = await storage.getContactList(id);
+
+      if (!contactList) {
+        return res.status(404).json({ error: "Lista de contatos não encontrada" });
+      }
+
+      // Check company access
+      if (req.user?.role !== 'admin' && contactList.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Acesso negado: lista não pertence à sua empresa" });
+      }
+
+      await storage.deleteContactList(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete contact list error:", error);
+      res.status(500).json({ error: "Erro ao excluir lista de contatos" });
+    }
+  });
+
+  // Scheduled Messages endpoints
+  app.post("/api/scheduled-messages", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+
+      const messageData = insertScheduledMessageSchema.parse({
+        ...req.body,
+        companyId: req.user.companyId
+      });
+
+      const scheduledMessage = await storage.createScheduledMessage(messageData);
+      
+      // If scheduled for immediate sending (within 1 minute), mark for processing
+      const now = new Date();
+      const scheduledTime = new Date(messageData.scheduledDateTime);
+      
+      if (scheduledTime <= new Date(now.getTime() + 60000)) { // 1 minute from now
+        await storage.updateScheduledMessage(scheduledMessage.id, { 
+          status: 'processing',
+          startedAt: new Date()
+        });
+      }
+
+      res.json(scheduledMessage);
+    } catch (error) {
+      console.error("Create scheduled message error:", error);
+      res.status(500).json({ error: "Erro ao criar agendamento" });
+    }
+  });
+
+  app.get("/api/scheduled-messages", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+
+      const scheduledMessages = await storage.getScheduledMessagesByCompany(req.user.companyId);
+      res.json(scheduledMessages);
+    } catch (error) {
+      console.error("Get scheduled messages error:", error);
+      res.status(500).json({ error: "Erro ao buscar agendamentos" });
+    }
+  });
+
+  app.get("/api/scheduled-messages/:id", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const scheduledMessage = await storage.getScheduledMessage(id);
+      
+      if (!scheduledMessage) {
+        return res.status(404).json({ error: "Agendamento não encontrado" });
+      }
+
+      // Check company access
+      if (req.user?.role !== 'admin' && scheduledMessage.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Acesso negado" });
+      }
+
+      res.json(scheduledMessage);
+    } catch (error) {
+      console.error("Get scheduled message error:", error);
+      res.status(500).json({ error: "Erro ao buscar agendamento" });
+    }
+  });
+
+  app.put("/api/scheduled-messages/:id", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const scheduledMessage = await storage.getScheduledMessage(id);
+      
+      if (!scheduledMessage) {
+        return res.status(404).json({ error: "Agendamento não encontrado" });
+      }
+
+      // Check company access
+      if (req.user?.role !== 'admin' && scheduledMessage.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Acesso negado" });
+      }
+
+      const updatedMessage = await storage.updateScheduledMessage(id, req.body);
+      res.json(updatedMessage);
+    } catch (error) {
+      console.error("Update scheduled message error:", error);
+      res.status(500).json({ error: "Erro ao atualizar agendamento" });
+    }
+  });
+
+  app.delete("/api/scheduled-messages/:id", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const scheduledMessage = await storage.getScheduledMessage(id);
+      
+      if (!scheduledMessage) {
+        return res.status(404).json({ error: "Agendamento não encontrado" });
+      }
+
+      // Check company access
+      if (req.user?.role !== 'admin' && scheduledMessage.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Acesso negado" });
+      }
+
+      // Only allow deletion if not completed
+      if (scheduledMessage.status === 'processing') {
+        return res.status(400).json({ error: "Não é possível excluir agendamento em processamento" });
+      }
+
+      await storage.deleteScheduledMessage(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete scheduled message error:", error);
+      res.status(500).json({ error: "Erro ao excluir agendamento" });
     }
   });
 

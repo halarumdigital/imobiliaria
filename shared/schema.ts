@@ -117,6 +117,53 @@ export const messages = mysqlTable("messages", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const contactLists = mysqlTable("contact_lists", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  companyId: varchar("company_id", { length: 36 }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  totalContacts: int("total_contacts").default(0),
+  validContacts: int("valid_contacts").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+export const contactListItems = mysqlTable("contact_list_items", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  contactListId: varchar("contact_list_id", { length: 36 }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  phone: varchar("phone", { length: 20 }).notNull(),
+  valid: boolean("valid").default(true),
+  error: text("error"), // Validation error message if invalid
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const scheduledMessages = mysqlTable("scheduled_messages", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  companyId: varchar("company_id", { length: 36 }).notNull(),
+  contactListId: varchar("contact_list_id", { length: 36 }).notNull(),
+  instanceIds: json("instance_ids").notNull(), // Array of whatsapp instance IDs
+  messageType: varchar("message_type", { length: 20 }).notNull(), // 'text' | 'audio' | 'image' | 'video'
+  messageContent: text("message_content").notNull(),
+  messages: json("messages"), // Array of multiple text messages (for text type only)
+  useMultipleMessages: boolean("use_multiple_messages").default(false), // Whether to send multiple text messages
+  fileName: varchar("file_name", { length: 255 }), // For media messages
+  fileBase64: text("file_base64", { mode: "longtext" }), // Base64 encoded file for media messages
+  scheduledDateTime: timestamp("scheduled_date_time").notNull(),
+  intervalMin: int("interval_min").default(60), // Minimum interval between messages in seconds
+  intervalMax: int("interval_max").default(120), // Maximum interval between messages in seconds
+  useMultipleInstances: boolean("use_multiple_instances").default(false),
+  randomizeInstances: boolean("randomize_instances").default(true),
+  status: varchar("status", { length: 20 }).default("scheduled"), // 'scheduled' | 'processing' | 'completed' | 'cancelled' | 'failed'
+  totalMessages: int("total_messages").default(0),
+  sentMessages: int("sent_messages").default(0),
+  failedMessages: int("failed_messages").default(0),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  errorMessage: text("error_message"), // Error details if failed
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
@@ -203,6 +250,39 @@ export const insertMessageSchema = createInsertSchema(messages).pick({
   caption: true,
 });
 
+export const insertContactListSchema = createInsertSchema(contactLists).pick({
+  companyId: true,
+  name: true,
+  totalContacts: true,
+  validContacts: true,
+});
+
+export const insertContactListItemSchema = createInsertSchema(contactListItems).pick({
+  contactListId: true,
+  name: true,
+  phone: true,
+  valid: true,
+  error: true,
+});
+
+export const insertScheduledMessageSchema = createInsertSchema(scheduledMessages).pick({
+  companyId: true,
+  contactListId: true,
+  instanceIds: true,
+  messageType: true,
+  messageContent: true,
+  messages: true,
+  useMultipleMessages: true,
+  fileName: true,
+  fileBase64: true,
+  scheduledDateTime: true,
+  intervalMin: true,
+  intervalMax: true,
+  useMultipleInstances: true,
+  randomizeInstances: true,
+  totalMessages: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -222,3 +302,9 @@ export type Conversation = typeof conversations.$inferSelect;
 export type InsertConversation = z.infer<typeof insertConversationSchema>;
 export type Message = typeof messages.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
+export type ContactList = typeof contactLists.$inferSelect;
+export type InsertContactList = z.infer<typeof insertContactListSchema>;
+export type ContactListItem = typeof contactListItems.$inferSelect;
+export type InsertContactListItem = z.infer<typeof insertContactListItemSchema>;
+export type ScheduledMessage = typeof scheduledMessages.$inferSelect;
+export type InsertScheduledMessage = z.infer<typeof insertScheduledMessageSchema>;

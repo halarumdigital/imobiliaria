@@ -4,6 +4,7 @@ dotenv.config();
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { scheduledMessageProcessor } from "./services/scheduledMessageProcessor";
 
 const app = express();
 app.use(express.json({ limit: '50mb' })); // Aumentar limite para imagens
@@ -126,6 +127,9 @@ app.use('/api/webhook', (req, res, next) => {
 
 (async () => {
   const server = await registerRoutes(app);
+  
+  // Iniciar o processador de mensagens agendadas
+  scheduledMessageProcessor.start();
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

@@ -25,6 +25,7 @@ import AiAgents from "@/pages/client/ai-agents";
 import TestAI from "@/pages/client/test-ai";
 import Conversations from "@/pages/client/conversations";
 import WhatsAppDisparo from "@/pages/client/whatsapp-disparo";
+import WhatsAppListaTransmissao from "@/pages/client/whatsapp-lista-transmissao";
 
 interface ProtectedRouteProps {
   component: React.ComponentType;
@@ -176,6 +177,14 @@ function Router() {
           requiredRole="client"
           title="Disparo WhatsApp"
           subtitle="Configurar e enviar mensagens em massa"
+        />
+      </Route>
+      <Route path="/client/whatsapp/lista-transmissao">
+        <ProtectedRoute 
+          component={WhatsAppListaTransmissao}
+          requiredRole="client"
+          title="Lista de transmissão"
+          subtitle="Gerenciar listas de contatos para disparo"
         />
       </Route>
 
