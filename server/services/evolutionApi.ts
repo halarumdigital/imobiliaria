@@ -104,6 +104,94 @@ export class EvolutionApiService {
     });
   }
 
+  async sendMedia(instanceName: string, number: string, mediaData: {
+    mediaBase64: string;
+    fileName: string;
+    mediaType: 'image' | 'audio' | 'video';
+    caption?: string;
+  }): Promise<any> {
+    console.log(`🎯 EvolutionApiService.sendMedia called with instance: ${instanceName}, number: ${number}, type: ${mediaData.mediaType}`);
+    
+    // Determinar o endpoint baseado no tipo de mídia
+    const endpoints = {
+      image: `/message/sendMedia/${instanceName}`,
+      audio: `/message/sendMedia/${instanceName}`,
+      video: `/message/sendMedia/${instanceName}`
+    };
+
+    // Determinar o MIME type baseado na extensão do arquivo
+    const mimeTypes = {
+      image: this.getMimeTypeFromFileName(mediaData.fileName, 'image'),
+      audio: this.getMimeTypeFromFileName(mediaData.fileName, 'audio'),
+      video: this.getMimeTypeFromFileName(mediaData.fileName, 'video')
+    };
+
+    const payload = {
+      number,
+      media: mediaData.mediaBase64,
+      fileName: mediaData.fileName,
+      caption: mediaData.caption || '',
+      mediatype: mediaData.mediaType,
+      mimetype: mimeTypes[mediaData.mediaType]
+    };
+
+    console.log(`📁 Media payload:`, {
+      number,
+      fileName: mediaData.fileName,
+      mediatype: mediaData.mediaType,
+      mimetype: mimeTypes[mediaData.mediaType],
+      caption: mediaData.caption || '',
+      mediaSize: `${Math.round(mediaData.mediaBase64.length * 0.75 / 1024)} KB` // Aproximação do tamanho
+    });
+
+    return this.makeRequest(endpoints[mediaData.mediaType], 'POST', payload);
+  }
+
+  private getMimeTypeFromFileName(fileName: string, mediaType: 'image' | 'audio' | 'video'): string {
+    const extension = fileName.split('.').pop()?.toLowerCase() || '';
+    
+    const mimeTypeMap: Record<string, string> = {
+      // Image types
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'webp': 'image/webp',
+      'bmp': 'image/bmp',
+      
+      // Audio types
+      'mp3': 'audio/mpeg',
+      'wav': 'audio/wav',
+      'ogg': 'audio/ogg',
+      'm4a': 'audio/mp4',
+      'aac': 'audio/aac',
+      'flac': 'audio/flac',
+      
+      // Video types
+      'mp4': 'video/mp4',
+      'avi': 'video/avi',
+      'mov': 'video/quicktime',
+      'wmv': 'video/x-ms-wmv',
+      'flv': 'video/x-flv',
+      'webm': 'video/webm',
+      'mkv': 'video/x-matroska'
+    };
+
+    const mimeType = mimeTypeMap[extension];
+    if (mimeType) {
+      return mimeType;
+    }
+
+    // Fallback para tipos padrão se extensão não for reconhecida
+    const fallbacks = {
+      image: 'image/jpeg',
+      audio: 'audio/mpeg',
+      video: 'video/mp4'
+    };
+
+    return fallbacks[mediaType];
+  }
+
   async getMessages(instanceName: string): Promise<any> {
     return this.makeRequest(`/chat/findMessages/${instanceName}`);
   }

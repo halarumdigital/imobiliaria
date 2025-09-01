@@ -1,5 +1,6 @@
 import { getStorage } from "../storage";
 import { ScheduledMessage } from "@shared/schema";
+import { EvolutionApiService } from "./evolutionApi";
 
 export class ScheduledMessageProcessor {
   private static instance: ScheduledMessageProcessor;
@@ -221,22 +222,86 @@ export class ScheduledMessageProcessor {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  // Placeholder para integração com serviço de envio do WhatsApp
+  // Envio real através da Evolution API
   private async sendMessage(instanceId: string, phone: string, scheduledMessage: ScheduledMessage): Promise<void> {
-    // TODO: Integrar com o serviço de WhatsApp real
-    console.log(`📱 [PLACEHOLDER] Sending ${scheduledMessage.messageType} message to ${phone} via instance ${instanceId}`);
+    const storage = getStorage();
     
-    // Simular envio (remover em produção)
-    await this.sleep(100);
-    
-    // Em produção, aqui você faria:
-    // 1. Buscar configuração da Evolution API
-    // 2. Preparar dados da mensagem (texto, mídia, etc.)
-    // 3. Fazer chamada para a API do WhatsApp
-    // 4. Tratar erros específicos
-    
-    if (Math.random() < 0.05) { // 5% chance de falha para teste
-      throw new Error("Simulated send failure");
+    try {
+      // 1. Buscar configuração da Evolution API
+      const evolutionConfig = await storage.getEvolutionApiConfiguration();
+      if (!evolutionConfig) {
+        throw new Error("Configuração da Evolution API não encontrada");
+      }
+
+      // 2. Buscar dados da instância WhatsApp para obter evolutionInstanceId
+      const whatsappInstance = await storage.getWhatsappInstance(instanceId);
+      if (!whatsappInstance) {
+        throw new Error(`Instância WhatsApp ${instanceId} não encontrada`);
+      }
+
+      if (!whatsappInstance.evolutionInstanceId) {
+        throw new Error(`Instância ${whatsappInstance.name} não possui evolutionInstanceId configurado`);
+      }
+
+      // 3. Criar serviço da Evolution API
+      const evolutionService = new EvolutionApiService({
+        baseURL: evolutionConfig.evolutionURL,
+        token: evolutionConfig.evolutionToken
+      });
+
+      // 4. Formatear número para padrão da Evolution API
+      const cleanPhone = phone.replace(/\D/g, '');
+      const formattedPhone = cleanPhone.startsWith('+') ? cleanPhone : `+${cleanPhone}`;
+
+      // 5. Enviar mensagem baseada no tipo
+      if (scheduledMessage.messageType === 'text') {
+        console.log(`📱 Sending TEXT message to ${phone} via ${whatsappInstance.evolutionInstanceId}`);
+        console.log(`💬 Message content: "${scheduledMessage.messageContent}"`);
+        
+        const result = await evolutionService.sendMessage(
+          whatsappInstance.evolutionInstanceId,
+          formattedPhone,
+          scheduledMessage.messageContent
+        );
+        
+        console.log(`✅ Text message sent successfully:`, result);
+        
+      } else if (['image', 'audio', 'video'].includes(scheduledMessage.messageType)) {
+        console.log(`📁 Sending ${scheduledMessage.messageType.toUpperCase()} message to ${phone} via ${whatsappInstance.evolutionInstanceId}`);
+        
+        // Verificar se o arquivo base64 está disponível
+        if (!scheduledMessage.fileBase64) {
+          throw new Error(`Arquivo base64 não encontrado para mensagem de ${scheduledMessage.messageType}`);
+        }
+
+        if (!scheduledMessage.fileName) {
+          throw new Error(`Nome do arquivo não encontrado para mensagem de ${scheduledMessage.messageType}`);
+        }
+
+        console.log(`📎 File details: ${scheduledMessage.fileName} (${Math.round(scheduledMessage.fileBase64.length * 0.75 / 1024)} KB)`);
+        
+        const mediaData = {
+          mediaBase64: scheduledMessage.fileBase64,
+          fileName: scheduledMessage.fileName,
+          mediaType: scheduledMessage.messageType as 'image' | 'audio' | 'video',
+          caption: scheduledMessage.messageContent || undefined // Use messageContent as caption for media
+        };
+
+        const result = await evolutionService.sendMedia(
+          whatsappInstance.evolutionInstanceId,
+          formattedPhone,
+          mediaData
+        );
+        
+        console.log(`✅ ${scheduledMessage.messageType} message sent successfully:`, result);
+        
+      } else {
+        throw new Error(`Tipo de mensagem ${scheduledMessage.messageType} não suportado`);
+      }
+
+    } catch (error) {
+      console.error(`❌ Error sending message to ${phone}:`, error);
+      throw error; // Re-throw para que o processador principal possa contar como falha
     }
   }
 }
