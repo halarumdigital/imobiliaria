@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
   Building, Settings, Waypoints, Bot, Users, 
   LayoutDashboard, User, MessageSquare, 
-  MessageCircle, LogOut, ChevronDown, ChevronRight, Send, List, Globe
+  MessageCircle, LogOut, ChevronDown, ChevronRight, Send, List, Globe, Phone, PhoneCall, Hash
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GlobalConfiguration } from "@/types";
@@ -26,6 +26,14 @@ const adminNavItems: NavItem[] = [
   { href: "/admin/evolution-api", label: "Evolution API", icon: <Waypoints className="w-5 h-5" /> },
   { href: "/admin/ai-settings", label: "IA Global", icon: <Bot className="w-5 h-5" /> },
   { href: "/admin/companies", label: "Empresas", icon: <Building className="w-5 h-5" /> },
+  { 
+    label: "Ligação", 
+    icon: <Phone className="w-5 h-5" />,
+    children: [
+      { href: "/admin/numeros", label: "Números", icon: <Hash className="w-4 h-4" /> },
+      { href: "/admin/agente", label: "Agente", icon: <Bot className="w-4 h-4" /> },
+    ]
+  },
 ];
 
 const clientNavItems: NavItem[] = [
@@ -42,8 +50,15 @@ const clientNavItems: NavItem[] = [
       { href: "/client/whatsapp/proxy", label: "Proxy", icon: <Globe className="w-4 h-4" /> },
     ]
   },
+  { 
+    label: "Ligação", 
+    icon: <Phone className="w-5 h-5" />,
+    children: [
+      { href: "/client/agente", label: "Agente", icon: <Phone className="w-4 h-4" /> },
+      { href: "/client/chamadas", label: "Chamadas", icon: <PhoneCall className="w-4 h-4" /> },
+    ]
+  },
   { href: "/client/ai-agents", label: "Agentes IA", icon: <Bot className="w-5 h-5" /> },
-  { href: "/client/test-ai", label: "Teste de IA", icon: <Bot className="w-5 h-5" /> },
 ];
 
 export function Sidebar() {

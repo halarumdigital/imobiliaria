@@ -291,7 +291,7 @@ export default function Configurations() {
           {/* Proxy Configuration */}
           <div className="space-y-4">
             <div className="border-t pt-6">
-              <h3 className="text-lg font-medium mb-4">Configurações de Proxy</h3>
+              <h3 className="text-lg font-medium mb-4">Configurações de Integração</h3>
               <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
                 <div>
                   <Label htmlFor="webshareToken">Token WebShare.io</Label>
@@ -304,6 +304,32 @@ export default function Configurations() {
                   />
                   <p className="text-sm text-muted-foreground mt-1">
                     Token de acesso para o serviço de proxy WebShare.io
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="vapiPublicKey">VAPI Public Key</Label>
+                  <Input
+                    id="vapiPublicKey"
+                    type="password"
+                    value={formData.vapi_public_key || ""}
+                    onChange={(e) => handleInputChange("vapi_public_key", e.target.value)}
+                    placeholder="Insira a chave pública do VAPI"
+                  />
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Chave pública para autenticação da VAPI
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="vapiPrivateKey">VAPI Private Key</Label>
+                  <Input
+                    id="vapiPrivateKey"
+                    type="password"
+                    value={formData.vapi_private_key || ""}
+                    onChange={(e) => handleInputChange("vapi_private_key", e.target.value)}
+                    placeholder="Insira a chave privada do VAPI"
+                  />
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Chave privada para autenticação da VAPI
                   </p>
                 </div>
               </div>

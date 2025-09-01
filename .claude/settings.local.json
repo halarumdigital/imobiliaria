@@ -24,6 +24,11 @@
       "Read(C:\\Users\\Gilliard\\Desktop\\print/**)",
       "Read(C:\\Users\\Gilliard\\Desktop\\print/**)",
       "Read(C:\\Users\\Gilliard\\Desktop\\print/**)",
+      "Read(C:\\Users\\Gilliard\\Desktop\\print/**)",
+      "Bash(npx drizzle-kit push:*)",
+      "WebFetch(domain:docs.vapi.ai)",
+      "WebFetch(domain:elevenlabs.io)",
+      "Read(C:\\Users\\Gilliard\\Desktop\\print/**)",
       "Read(C:\\Users\\Gilliard\\Desktop\\print/**)"
     ],
     "deny": [],

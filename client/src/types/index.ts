@@ -36,6 +36,8 @@ export interface GlobalConfiguration {
   nome_rodape: string;
   nome_aba_navegador: string;
   webshare_token?: string;
+  vapi_public_key?: string;
+  vapi_private_key?: string;
   updated_at: string;
 }
 
@@ -85,6 +87,48 @@ export interface AiAgent {
   parentAgentId?: string;
   specialization?: string;
   delegationKeywords?: string[];
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CallAgent {
+  id: string;
+  companyId: string;
+  name: string;
+  // OpenAI Transcriber settings
+  transcriberModel: string;
+  transcriberLanguage?: string;
+  // OpenAI Model settings
+  model: string;
+  temperature: number;
+  maxTokens: number;
+  topP?: number;
+  frequencyPenalty?: number;
+  presencePenalty?: number;
+  // ElevenLabs Voice settings
+  voiceId: string;
+  voiceModel: string;
+  stability: number;
+  similarityBoost: number;
+  style: number;
+  useSpeakerBoost: boolean;
+  // Call behavior settings
+  firstMessage?: string;
+  systemMessage?: string;
+  endCallMessage?: string;
+  maxDurationSeconds: number;
+  interruptible: boolean;
+  recordingEnabled: boolean;
+  responseDelaySeconds: number;
+  llmRequestDelaySeconds: number;
+  numWordsToInterruptAssistant?: number;
+  maxDurationSecondsBeforeInterrupt?: number;
+  backgroundSound?: string;
+  voicemailMessage?: string;
+  endCallPhrases?: string[];
+  endCallFunctionEnabled: boolean;
+  dialKeypadFunctionEnabled: boolean;
   status: string;
   createdAt: string;
   updatedAt: string;

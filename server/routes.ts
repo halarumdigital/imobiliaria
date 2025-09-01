@@ -22,8 +22,9 @@ import { whatsappWebhookService } from "./services/whatsappWebhook";
 import { 
   insertUserSchema, insertCompanySchema, insertGlobalConfigSchema, 
   insertEvolutionConfigSchema, insertAiConfigSchema, insertWhatsappInstanceSchema,
-  insertAiAgentSchema, insertConversationSchema, insertMessageSchema,
-  insertContactListSchema, insertContactListItemSchema, insertScheduledMessageSchema
+  insertAiAgentSchema, insertCallAgentSchema, insertConversationSchema, insertMessageSchema,
+  insertContactListSchema, insertContactListItemSchema, insertScheduledMessageSchema,
+  insertCallCampaignSchema, insertCallSchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -208,6 +209,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Save global config error:", error);
       res.status(500).json({ error: "Erro ao salvar configurações" });
+    }
+  });
+
+  // ElevenLabs API endpoints
+  app.get("/api/elevenlabs/voices", authenticate, requireAdmin, async (req, res) => {
+    try {
+      const storage = getStorage();
+      const globalConfig = await storage.getGlobalConfiguration();
+      
+      if (!globalConfig?.elevenlabs_api_key) {
+        return res.status(400).json({ error: "ElevenLabs API key not configured" });
+      }
+
+      // Parse query parameters for filtering
+      const { search, voice_type, category, language, gender, page_size = "50" } = req.query;
+      
+      // Build URL with search parameters
+      const params = new URLSearchParams();
+      params.append('page_size', page_size.toString());
+      params.append('sort', 'name');
+      params.append('include_total_count', 'true');
+      
+      if (search) params.append('search', search.toString());
+      if (voice_type) params.append('voice_type', voice_type.toString());
+      if (category) params.append('category', category.toString());
+
+      console.log("🎤 Buscando vozes ElevenLabs com filtros:", Object.fromEntries(params));
+
+      // Use v2 endpoint with advanced filtering
+      const response = await fetch(`https://api.elevenlabs.io/v2/voices?${params.toString()}`, {
+        headers: {
+          "xi-api-key": globalConfig.elevenlabs_api_key,
+          "Content-Type": "application/json"
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`ElevenLabs API error: ${response.status} ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log(`🎤 ElevenLabs retornou ${data.voices?.length || 0} vozes`);
+      
+      res.json({
+        voices: data.voices || [],
+        total_count: data.total_count || 0,
+        has_more: data.has_more || false
+      });
+    } catch (error) {
+      console.error("ElevenLabs voices error:", error);
+      res.status(500).json({ error: "Erro ao carregar vozes da ElevenLabs" });
+    }
+  });
+
+  app.post("/api/elevenlabs/text-to-speech", authenticate, requireAdmin, async (req, res) => {
+    console.log("🎵 [START] Text-to-speech request started");
+    try {
+      const { voice_id, text, model_id } = req.body;
+      console.log("🎵 [PARAMS] voice_id:", voice_id, "text length:", text?.length);
+      
+      if (!voice_id || !text) {
+        return res.status(400).json({ error: "voice_id and text are required" });
+      }
+
+      const storage = getStorage();
+      const globalConfig = await storage.getGlobalConfiguration();
+      console.log("🎵 [CONFIG] ElevenLabs API key exists:", !!globalConfig?.elevenlabs_api_key);
+      
+      if (!globalConfig?.elevenlabs_api_key) {
+        console.log("🎵 [ERROR] No ElevenLabs API key found");
+        return res.status(400).json({ error: "ElevenLabs API key not configured" });
+      }
+
+      const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice_id}`, {
+        method: "POST",
+        headers: {
+          "xi-api-key": globalConfig.elevenlabs_api_key,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          text: text,
+          model_id: model_id || "eleven_multilingual_v2",
+          voice_settings: {
+            stability: globalConfig.default_voice_stability ? parseFloat(globalConfig.default_voice_stability) : 0.5,
+            similarity_boost: globalConfig.default_voice_similarity_boost ? parseFloat(globalConfig.default_voice_similarity_boost) : 0.75,
+            style: globalConfig.default_voice_style ? parseFloat(globalConfig.default_voice_style) : 0.0,
+            use_speaker_boost: globalConfig.default_voice_use_speaker_boost || false
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("🎵 ElevenLabs API error:", response.status, errorText);
+        throw new Error(`ElevenLabs API error: ${response.status} ${errorText}`);
+      }
+
+      console.log("🎵 ElevenLabs response headers:", Object.fromEntries(response.headers.entries()));
+      console.log("🎵 ElevenLabs response status:", response.status);
+
+      // Get audio data and send as buffer
+      const audioBuffer = await response.arrayBuffer();
+      console.log("🎵 Audio buffer size:", audioBuffer.byteLength, "bytes");
+      
+      if (audioBuffer.byteLength === 0) {
+        throw new Error("Empty audio received from ElevenLabs API");
+      }
+      
+      res.setHeader('Content-Type', 'audio/mpeg');
+      res.setHeader('Content-Length', audioBuffer.byteLength.toString());
+      res.setHeader('Cache-Control', 'no-cache');
+      res.send(Buffer.from(audioBuffer));
+    } catch (error) {
+      console.error("ElevenLabs text-to-speech error:", error);
+      res.status(500).json({ error: "Erro ao gerar áudio com ElevenLabs" });
     }
   });
 
@@ -2107,6 +2224,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Call Agents (Voice Assistants)
+  app.get("/api/call-agents", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+
+      const agents = await storage.getCallAgentsByCompany(req.user.companyId);
+      res.json(agents);
+    } catch (error) {
+      console.error("Get call agents error:", error);
+      res.status(500).json({ error: "Erro ao buscar assistentes de voz" });
+    }
+  });
+
+  app.get("/api/call-agents/:id", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      
+      const agent = await storage.getCallAgent(id);
+      if (!agent) {
+        return res.status(404).json({ error: "Assistente não encontrado" });
+      }
+
+      // Check company access
+      if (req.user?.role !== 'admin' && agent.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Acesso negado: não é possível acessar dados de outra empresa" });
+      }
+
+      res.json(agent);
+    } catch (error) {
+      console.error("Get call agent error:", error);
+      res.status(500).json({ error: "Erro ao buscar assistente de voz" });
+    }
+  });
+
+  app.post("/api/call-agents", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+
+      const agentData = insertCallAgentSchema.parse({
+        ...req.body,
+        companyId: req.user.companyId
+      });
+
+      const agent = await storage.createCallAgent(agentData);
+      console.log("Call agent created:", agent);
+      res.status(201).json(agent);
+    } catch (error) {
+      console.error("Create call agent error:", error);
+      res.status(500).json({ error: "Erro ao criar assistente de voz" });
+    }
+  });
+
+  app.put("/api/call-agents/:id", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      
+      const agent = await storage.getCallAgent(id);
+      if (!agent) {
+        return res.status(404).json({ error: "Assistente não encontrado" });
+      }
+
+      // Check company access
+      if (req.user?.role !== 'admin' && agent.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Acesso negado: não é possível acessar dados de outra empresa" });
+      }
+
+      const updates = insertCallAgentSchema.partial().parse(req.body);
+      const updatedAgent = await storage.updateCallAgent(id, updates);
+      res.json(updatedAgent);
+    } catch (error) {
+      console.error("Update call agent error:", error);
+      res.status(500).json({ error: "Erro ao atualizar assistente de voz" });
+    }
+  });
+
+  app.delete("/api/call-agents/:id", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      
+      const agent = await storage.getCallAgent(id);
+      if (!agent) {
+        return res.status(404).json({ error: "Assistente não encontrado" });
+      }
+
+      // Check company access
+      if (req.user?.role !== 'admin' && agent.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Acesso negado: não é possível acessar dados de outra empresa" });
+      }
+
+      await storage.deleteCallAgent(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete call agent error:", error);
+      res.status(500).json({ error: "Erro ao deletar assistente de voz" });
+    }
+  });
+
   // Conversations
   app.get("/api/conversations", authenticate, requireClient, async (req: AuthRequest, res) => {
     try {
@@ -3030,6 +3248,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Delete scheduled message error:", error);
       res.status(500).json({ error: "Erro ao excluir agendamento" });
+    }
+  });
+
+  // Call Campaigns
+  app.get("/api/call-campaigns", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+
+      const campaigns = await storage.getCallCampaignsByCompany(req.user.companyId);
+      res.json(campaigns);
+    } catch (error) {
+      console.error('Error fetching call campaigns:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  });
+
+  app.get("/api/call-campaigns/:id", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const campaign = await storage.getCallCampaign(id);
+      
+      if (!campaign) {
+        return res.status(404).json({ error: "Campanha não encontrada" });
+      }
+
+      // Check company access
+      if (req.user?.role !== 'admin' && campaign.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Acesso negado" });
+      }
+
+      res.json(campaign);
+    } catch (error) {
+      console.error('Error fetching call campaign:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  });
+
+  app.post("/api/call-campaigns", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(400).json({ error: "Empresa é obrigatória" });
+      }
+
+      const campaignData = { ...req.body, companyId: req.user.companyId };
+      const newCampaign = await storage.createCallCampaign(campaignData);
+      res.status(201).json(newCampaign);
+    } catch (error) {
+      console.error('Error creating call campaign:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  });
+
+  // Calls
+  app.get("/api/calls", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+
+      const { campaignId } = req.query;
+      const calls = await storage.getCallsByCampaign(campaignId as string, req.user.companyId);
+      res.json(calls);
+    } catch (error) {
+      console.error('Error fetching calls:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   });
 
