@@ -7,15 +7,17 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
   Building, Settings, Waypoints, Bot, Users, 
   LayoutDashboard, User, MessageSquare, 
-  MessageCircle, LogOut 
+  MessageCircle, LogOut, ChevronDown, ChevronRight 
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GlobalConfiguration } from "@/types";
+import { useState } from "react";
 
 interface NavItem {
-  href: string;
+  href?: string;
   label: string;
   icon: React.ReactNode;
+  children?: NavItem[];
 }
 
 const adminNavItems: NavItem[] = [
@@ -29,16 +31,31 @@ const adminNavItems: NavItem[] = [
 const clientNavItems: NavItem[] = [
   { href: "/client", label: "Dashboard", icon: <LayoutDashboard className="w-5 h-5" /> },
   { href: "/client/profile", label: "Perfil", icon: <User className="w-5 h-5" /> },
-  { href: "/client/whatsapp", label: "WhatsApp", icon: <MessageSquare className="w-5 h-5" /> },
+  { 
+    label: "WhatsApp", 
+    icon: <MessageSquare className="w-5 h-5" />,
+    children: [
+      { href: "/client/whatsapp", label: "Instâncias", icon: <MessageSquare className="w-4 h-4" /> },
+      { href: "/client/conversations", label: "Conversas", icon: <MessageCircle className="w-4 h-4" /> },
+    ]
+  },
   { href: "/client/ai-agents", label: "Agentes IA", icon: <Bot className="w-5 h-5" /> },
   { href: "/client/test-ai", label: "Teste de IA", icon: <Bot className="w-5 h-5" /> },
-  { href: "/client/conversations", label: "Conversas", icon: <MessageCircle className="w-5 h-5" /> },
 ];
 
 export function Sidebar() {
   const { user, logout } = useAuth();
   const { config } = useTheme();
   const [location] = useLocation();
+  const [expandedMenus, setExpandedMenus] = useState<string[]>(['WhatsApp']); // WhatsApp expandido por padrão
+
+  const toggleMenu = (menuLabel: string) => {
+    setExpandedMenus(prev => 
+      prev.includes(menuLabel) 
+        ? prev.filter(label => label !== menuLabel)
+        : [...prev, menuLabel]
+    );
+  };
 
   const { data: globalConfig } = useQuery<Partial<GlobalConfiguration>>({
     queryKey: ["/global-config/public"],
@@ -76,24 +93,78 @@ export function Sidebar() {
 
       {/* Navigation Menu */}
       <nav className="flex-1 px-4 py-6 space-y-2">
-        
         {navItems.map((item) => {
-          const isActive = location === item.href;
-          return (
-            <Link key={item.href} href={item.href}>
-              <div
-                className={cn(
-                  "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors",
-                  isActive
-                    ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          if (item.children) {
+            const isExpanded = expandedMenus.includes(item.label);
+            const hasActiveChild = item.children.some(child => child.href === location);
+            
+            return (
+              <div key={item.label}>
+                {/* Parent Menu Item */}
+                <div
+                  onClick={() => toggleMenu(item.label)}
+                  className={cn(
+                    "flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer",
+                    hasActiveChild || isExpanded
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  )}
+                >
+                  <div className="flex items-center">
+                    {item.icon}
+                    <span className="ml-3">{item.label}</span>
+                  </div>
+                  {isExpanded ? (
+                    <ChevronDown className="w-4 h-4" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4" />
+                  )}
+                </div>
+                
+                {/* Submenu Items */}
+                {isExpanded && (
+                  <div className="ml-6 mt-1 space-y-1">
+                    {item.children.map((child) => {
+                      const isActive = location === child.href;
+                      return (
+                        <Link key={child.href} href={child.href!}>
+                          <div
+                            className={cn(
+                              "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors",
+                              isActive
+                                ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                            )}
+                          >
+                            {child.icon}
+                            <span className="ml-3">{child.label}</span>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
                 )}
-              >
-                {item.icon}
-                <span className="ml-3">{item.label}</span>
               </div>
-            </Link>
-          );
+            );
+          } else {
+            // Regular menu item without children
+            const isActive = location === item.href;
+            return (
+              <Link key={item.href} href={item.href!}>
+                <div
+                  className={cn(
+                    "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors",
+                    isActive
+                      ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  )}
+                >
+                  {item.icon}
+                  <span className="ml-3">{item.label}</span>
+                </div>
+              </Link>
+            );
+          }
         })}
       </nav>
 

@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(\\/**)",
+      "Bash(npm run check:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run dev:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
