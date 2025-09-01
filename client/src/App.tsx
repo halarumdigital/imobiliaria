@@ -24,6 +24,7 @@ import WhatsApp from "@/pages/client/whatsapp";
 import AiAgents from "@/pages/client/ai-agents";
 import TestAI from "@/pages/client/test-ai";
 import Conversations from "@/pages/client/conversations";
+import WhatsAppDisparo from "@/pages/client/whatsapp-disparo";
 
 interface ProtectedRouteProps {
   component: React.ComponentType;
@@ -167,6 +168,14 @@ function Router() {
           requiredRole="client"
           title="Conversas"
           subtitle="Histórico de conversas"
+        />
+      </Route>
+      <Route path="/client/whatsapp/disparo">
+        <ProtectedRoute 
+          component={WhatsAppDisparo}
+          requiredRole="client"
+          title="Disparo WhatsApp"
+          subtitle="Configurar e enviar mensagens em massa"
         />
       </Route>
 
