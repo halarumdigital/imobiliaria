@@ -3,9 +3,9 @@ import {
   User, InsertUser, Company, InsertCompany, GlobalConfiguration, 
   InsertGlobalConfiguration, EvolutionApiConfiguration, InsertEvolutionApiConfiguration,
   AiConfiguration, InsertAiConfiguration, WhatsappInstance, InsertWhatsappInstance,
-  AiAgent, InsertAiAgent, CallAgent, InsertCallAgent, Conversation, InsertConversation, 
-  Message, InsertMessage, ContactList, InsertContactList, ContactListItem, InsertContactListItem,
-  ScheduledMessage, InsertScheduledMessage, CallCampaign, InsertCallCampaign, Call, InsertCall
+  AiAgent, InsertAiAgent, Conversation, InsertConversation, Message, InsertMessage,
+  ContactList, InsertContactList, ContactListItem, InsertContactListItem,
+  ScheduledMessage, InsertScheduledMessage
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -53,13 +53,6 @@ export interface IStorage {
   updateAiAgent(id: string, updates: Partial<AiAgent>): Promise<AiAgent>;
   deleteAiAgent(id: string): Promise<void>;
   
-  // Call Agents (Voice Assistants)
-  getCallAgent(id: string): Promise<CallAgent | undefined>;
-  getCallAgentsByCompany(companyId: string): Promise<CallAgent[]>;
-  createCallAgent(agent: InsertCallAgent): Promise<CallAgent>;
-  updateCallAgent(id: string, updates: Partial<CallAgent>): Promise<CallAgent>;
-  deleteCallAgent(id: string): Promise<void>;
-  
   // Conversations
   getConversation(id: string): Promise<Conversation | undefined>;
   getConversationsByInstance(instanceId: string): Promise<Conversation[]>;
@@ -89,20 +82,6 @@ export interface IStorage {
   createScheduledMessage(message: InsertScheduledMessage): Promise<ScheduledMessage>;
   updateScheduledMessage(id: string, updates: Partial<ScheduledMessage>): Promise<ScheduledMessage>;
   deleteScheduledMessage(id: string): Promise<void>;
-  
-  // Call Campaigns
-  getCallCampaign(id: string): Promise<CallCampaign | undefined>;
-  getCallCampaignsByCompany(companyId: string): Promise<CallCampaign[]>;
-  createCallCampaign(campaign: InsertCallCampaign): Promise<CallCampaign>;
-  updateCallCampaign(id: string, updates: Partial<CallCampaign>): Promise<CallCampaign>;
-  deleteCallCampaign(id: string): Promise<void>;
-  
-  // Calls
-  getCall(id: string): Promise<Call | undefined>;
-  getCallsByCampaign(campaignId: string, companyId: string): Promise<Call[]>;
-  createCall(call: InsertCall): Promise<Call>;
-  updateCall(id: string, updates: Partial<Call>): Promise<Call>;
-  deleteCall(id: string): Promise<void>;
 }
 
 export class MySQLStorage implements IStorage {
@@ -555,8 +534,8 @@ export class MySQLStorage implements IStorage {
     } else {
       const id = randomUUID();
       await this.connection.execute(
-        'INSERT INTO global_configurations (id, logo, favicon, cores_primaria, cores_secundaria, cores_fundo, nome_sistema, nome_rodape, nome_aba_navegador, webshare_token, vapi_public_key, vapi_private_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [id, config.logo, config.favicon, config.cores_primaria, config.cores_secundaria, config.cores_fundo, config.nome_sistema, config.nome_rodape, config.nome_aba_navegador, config.webshare_token, config.vapi_public_key, config.vapi_private_key]
+        'INSERT INTO global_configurations (id, logo, favicon, cores_primaria, cores_secundaria, cores_fundo, nome_sistema, nome_rodape, nome_aba_navegador, webshare_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [id, config.logo, config.favicon, config.cores_primaria, config.cores_secundaria, config.cores_fundo, config.nome_sistema, config.nome_rodape, config.nome_aba_navegador, config.webshare_token]
       );
       return this.getGlobalConfiguration() as Promise<GlobalConfiguration>;
     }
@@ -1352,303 +1331,6 @@ export class MySQLStorage implements IStorage {
     if (!this.connection) throw new Error('No database connection');
     
     await this.connection.execute('DELETE FROM scheduled_messages WHERE id = ?', [id]);
-  }
-
-  // Call Agents methods
-  async getCallAgent(id: string): Promise<CallAgent | undefined> {
-    if (!this.connection) throw new Error('No database connection');
-    
-    const [rows] = await this.connection.execute(
-      `SELECT id, company_id as companyId, name, transcriber_model as transcriberModel, 
-       transcriber_language as transcriberLanguage, model, temperature, max_tokens as maxTokens,
-       top_p as topP, frequency_penalty as frequencyPenalty, presence_penalty as presencePenalty,
-       voice_id as voiceId, voice_model as voiceModel, stability, similarity_boost as similarityBoost,
-       style, use_speaker_boost as useSpeakerBoost, first_message as firstMessage,
-       system_message as systemMessage, end_call_message as endCallMessage,
-       max_duration_seconds as maxDurationSeconds, interruptible, recording_enabled as recordingEnabled,
-       response_delay_seconds as responseDelaySeconds, llm_request_delay_seconds as llmRequestDelaySeconds,
-       num_words_to_interrupt_assistant as numWordsToInterruptAssistant,
-       max_duration_seconds_before_interrupt as maxDurationSecondsBeforeInterrupt,
-       background_sound as backgroundSound, voicemail_message as voicemailMessage,
-       end_call_phrases as endCallPhrases, end_call_function_enabled as endCallFunctionEnabled,
-       dial_keypad_function_enabled as dialKeypadFunctionEnabled, status,
-       created_at as createdAt, updated_at as updatedAt
-       FROM call_agents WHERE id = ?`,
-      [id]
-    );
-    return (rows as CallAgent[])[0];
-  }
-
-  async getCallAgentsByCompany(companyId: string): Promise<CallAgent[]> {
-    if (!this.connection) throw new Error('No database connection');
-    
-    const [rows] = await this.connection.execute(
-      `SELECT id, company_id as companyId, name, transcriber_model as transcriberModel, 
-       transcriber_language as transcriberLanguage, model, temperature, max_tokens as maxTokens,
-       top_p as topP, frequency_penalty as frequencyPenalty, presence_penalty as presencePenalty,
-       voice_id as voiceId, voice_model as voiceModel, stability, similarity_boost as similarityBoost,
-       style, use_speaker_boost as useSpeakerBoost, first_message as firstMessage,
-       system_message as systemMessage, end_call_message as endCallMessage,
-       max_duration_seconds as maxDurationSeconds, interruptible, recording_enabled as recordingEnabled,
-       response_delay_seconds as responseDelaySeconds, llm_request_delay_seconds as llmRequestDelaySeconds,
-       num_words_to_interrupt_assistant as numWordsToInterruptAssistant,
-       max_duration_seconds_before_interrupt as maxDurationSecondsBeforeInterrupt,
-       background_sound as backgroundSound, voicemail_message as voicemailMessage,
-       end_call_phrases as endCallPhrases, end_call_function_enabled as endCallFunctionEnabled,
-       dial_keypad_function_enabled as dialKeypadFunctionEnabled, status,
-       created_at as createdAt, updated_at as updatedAt
-       FROM call_agents WHERE company_id = ? ORDER BY created_at DESC`,
-      [companyId]
-    );
-    return rows as CallAgent[];
-  }
-
-  async createCallAgent(agent: InsertCallAgent): Promise<CallAgent> {
-    if (!this.connection) throw new Error('No database connection');
-    
-    const id = randomUUID();
-    await this.connection.execute(
-      `INSERT INTO call_agents (
-        id, company_id, name, transcriber_model, transcriber_language,
-        model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty,
-        voice_id, voice_model, stability, similarity_boost, style, use_speaker_boost,
-        first_message, system_message, end_call_message, max_duration_seconds,
-        interruptible, recording_enabled, response_delay_seconds, llm_request_delay_seconds,
-        num_words_to_interrupt_assistant, max_duration_seconds_before_interrupt,
-        background_sound, voicemail_message, end_call_phrases,
-        end_call_function_enabled, dial_keypad_function_enabled, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        id, agent.companyId, agent.name, agent.transcriberModel || 'whisper-1', agent.transcriberLanguage || null,
-        agent.model || 'gpt-4o', agent.temperature || 0.7, agent.maxTokens || 500,
-        agent.topP || 1.0, agent.frequencyPenalty || 0.0, agent.presencePenalty || 0.0,
-        agent.voiceId, agent.voiceModel || 'eleven_multilingual_v2',
-        agent.stability || 0.5, agent.similarityBoost || 0.75, agent.style || 0.0, agent.useSpeakerBoost || false,
-        agent.firstMessage || null, agent.systemMessage || null, agent.endCallMessage || null,
-        agent.maxDurationSeconds || 600, agent.interruptible !== false, agent.recordingEnabled || false,
-        agent.responseDelaySeconds || 0.4, agent.llmRequestDelaySeconds || 0.1,
-        agent.numWordsToInterruptAssistant || null, agent.maxDurationSecondsBeforeInterrupt || null,
-        agent.backgroundSound || null, agent.voicemailMessage || null,
-        agent.endCallPhrases ? JSON.stringify(agent.endCallPhrases) : null,
-        agent.endCallFunctionEnabled || false, agent.dialKeypadFunctionEnabled || false,
-        agent.status || 'active'
-      ]
-    );
-    return this.getCallAgent(id) as Promise<CallAgent>;
-  }
-
-  async updateCallAgent(id: string, updates: Partial<CallAgent>): Promise<CallAgent> {
-    if (!this.connection) throw new Error('No database connection');
-    
-    const fields: string[] = [];
-    const values: any[] = [];
-    
-    if (updates.name !== undefined) {
-      fields.push('name = ?');
-      values.push(updates.name);
-    }
-    
-    if (updates.transcriberModel !== undefined) {
-      fields.push('transcriber_model = ?');
-      values.push(updates.transcriberModel);
-    }
-    
-    if (updates.transcriberLanguage !== undefined) {
-      fields.push('transcriber_language = ?');
-      values.push(updates.transcriberLanguage);
-    }
-    
-    if (updates.model !== undefined) {
-      fields.push('model = ?');
-      values.push(updates.model);
-    }
-    
-    if (updates.temperature !== undefined) {
-      fields.push('temperature = ?');
-      values.push(updates.temperature);
-    }
-    
-    if (updates.maxTokens !== undefined) {
-      fields.push('max_tokens = ?');
-      values.push(updates.maxTokens);
-    }
-    
-    if (updates.voiceId !== undefined) {
-      fields.push('voice_id = ?');
-      values.push(updates.voiceId);
-    }
-    
-    if (updates.status !== undefined) {
-      fields.push('status = ?');
-      values.push(updates.status);
-    }
-    
-    // Add more fields as needed...
-    
-    if (fields.length > 0) {
-      values.push(id);
-      await this.connection.execute(
-        `UPDATE call_agents SET ${fields.join(', ')}, updated_at = NOW() WHERE id = ?`,
-        values
-      );
-    }
-    
-    return this.getCallAgent(id) as Promise<CallAgent>;
-  }
-
-  async deleteCallAgent(id: string): Promise<void> {
-    if (!this.connection) throw new Error('No database connection');
-    
-    await this.connection.execute('DELETE FROM call_agents WHERE id = ?', [id]);
-  }
-
-  // Call Campaigns
-  async getCallCampaign(id: string): Promise<CallCampaign | undefined> {
-    if (!this.connection) throw new Error('No database connection');
-    
-    const [rows] = await this.connection.execute(
-      'SELECT * FROM call_campaigns WHERE id = ?',
-      [id]
-    );
-    
-    const campaigns = rows as CallCampaign[];
-    return campaigns[0];
-  }
-
-  async getCallCampaignsByCompany(companyId: string): Promise<CallCampaign[]> {
-    if (!this.connection) throw new Error('No database connection');
-    
-    const [rows] = await this.connection.execute(
-      'SELECT * FROM call_campaigns WHERE company_id = ? ORDER BY created_at DESC',
-      [companyId]
-    );
-    
-    return rows as CallCampaign[];
-  }
-
-  async createCallCampaign(campaign: InsertCallCampaign): Promise<CallCampaign> {
-    if (!this.connection) throw new Error('No database connection');
-    
-    const id = randomUUID();
-    await this.connection.execute(
-      `INSERT INTO call_campaigns (id, company_id, name, contact_list_id, contact_list_name, 
-       assistant_id, assistant_name, phone_number, status, total_contacts) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, campaign.companyId, campaign.name, campaign.contactListId, campaign.contactListName,
-       campaign.assistantId, campaign.assistantName, campaign.phoneNumber, 
-       campaign.status || 'draft', campaign.totalContacts || 0]
-    );
-    
-    return this.getCallCampaign(id) as Promise<CallCampaign>;
-  }
-
-  async updateCallCampaign(id: string, updates: Partial<CallCampaign>): Promise<CallCampaign> {
-    if (!this.connection) throw new Error('No database connection');
-    
-    const fields: string[] = [];
-    const values: any[] = [];
-    
-    Object.entries(updates).forEach(([key, value]) => {
-      if (value !== undefined && key !== 'id' && key !== 'createdAt') {
-        const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
-        fields.push(`${dbKey} = ?`);
-        values.push(value);
-      }
-    });
-    
-    if (fields.length > 0) {
-      values.push(id);
-      await this.connection.execute(
-        `UPDATE call_campaigns SET ${fields.join(', ')}, updated_at = NOW() WHERE id = ?`,
-        values
-      );
-    }
-    
-    return this.getCallCampaign(id) as Promise<CallCampaign>;
-  }
-
-  async deleteCallCampaign(id: string): Promise<void> {
-    if (!this.connection) throw new Error('No database connection');
-    
-    // Delete associated calls first
-    await this.connection.execute('DELETE FROM calls WHERE campaign_id = ?', [id]);
-    // Then delete the campaign
-    await this.connection.execute('DELETE FROM call_campaigns WHERE id = ?', [id]);
-  }
-
-  // Calls
-  async getCall(id: string): Promise<Call | undefined> {
-    if (!this.connection) throw new Error('No database connection');
-    
-    const [rows] = await this.connection.execute(
-      'SELECT * FROM calls WHERE id = ?',
-      [id]
-    );
-    
-    const calls = rows as Call[];
-    return calls[0];
-  }
-
-  async getCallsByCampaign(campaignId: string, companyId: string): Promise<Call[]> {
-    if (!this.connection) throw new Error('No database connection');
-    
-    let query = 'SELECT c.* FROM calls c JOIN call_campaigns cc ON c.campaign_id = cc.id WHERE cc.company_id = ?';
-    let params: any[] = [companyId];
-    
-    if (campaignId && campaignId !== 'all') {
-      query += ' AND c.campaign_id = ?';
-      params.push(campaignId);
-    }
-    
-    query += ' ORDER BY c.created_at DESC';
-    
-    const [rows] = await this.connection.execute(query, params);
-    return rows as Call[];
-  }
-
-  async createCall(call: InsertCall): Promise<Call> {
-    if (!this.connection) throw new Error('No database connection');
-    
-    const id = randomUUID();
-    await this.connection.execute(
-      `INSERT INTO calls (id, campaign_id, contact_id, contact_name, customer_number, 
-       status, assistant_name) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [id, call.campaignId, call.contactId, call.contactName, call.customerNumber,
-       call.status || 'queued', call.assistantName]
-    );
-    
-    return this.getCall(id) as Promise<Call>;
-  }
-
-  async updateCall(id: string, updates: Partial<Call>): Promise<Call> {
-    if (!this.connection) throw new Error('No database connection');
-    
-    const fields: string[] = [];
-    const values: any[] = [];
-    
-    Object.entries(updates).forEach(([key, value]) => {
-      if (value !== undefined && key !== 'id' && key !== 'createdAt') {
-        const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
-        fields.push(`${dbKey} = ?`);
-        values.push(typeof value === 'object' ? JSON.stringify(value) : value);
-      }
-    });
-    
-    if (fields.length > 0) {
-      values.push(id);
-      await this.connection.execute(
-        `UPDATE calls SET ${fields.join(', ')}, updated_at = NOW() WHERE id = ?`,
-        values
-      );
-    }
-    
-    return this.getCall(id) as Promise<Call>;
-  }
-
-  async deleteCall(id: string): Promise<void> {
-    if (!this.connection) throw new Error('No database connection');
-    
-    await this.connection.execute('DELETE FROM calls WHERE id = ?', [id]);
   }
 }
 
