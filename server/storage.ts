@@ -5,7 +5,7 @@ import {
   AiConfiguration, InsertAiConfiguration, WhatsappInstance, InsertWhatsappInstance,
   AiAgent, InsertAiAgent, Conversation, InsertConversation, Message, InsertMessage,
   ContactList, InsertContactList, ContactListItem, InsertContactListItem,
-  ScheduledMessage, InsertScheduledMessage
+  ScheduledMessage, InsertScheduledMessage, FunnelStage, InsertFunnelStage
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -86,6 +86,14 @@ export interface IStorage {
   
   // Additional methods for scheduled message processing
   getWhatsappInstancesByIds(ids: string[]): Promise<WhatsappInstance[]>;
+  
+  // Funnel Stages
+  getFunnelStage(id: string): Promise<FunnelStage | undefined>;
+  getFunnelStagesByCompany(companyId: string): Promise<FunnelStage[]>;
+  createFunnelStage(stage: InsertFunnelStage): Promise<FunnelStage>;
+  updateFunnelStage(id: string, updates: Partial<FunnelStage>): Promise<FunnelStage>;
+  deleteFunnelStage(id: string): Promise<void>;
+  reorderFunnelStage(id: string, direction: 'up' | 'down', companyId: string): Promise<{ success: boolean }>;
 }
 
 export class MySQLStorage implements IStorage {
@@ -1517,6 +1525,148 @@ export class MySQLStorage implements IStorage {
     })));
     
     return mappedInstances;
+  }
+
+  // Funnel Stages
+  async getFunnelStage(id: string): Promise<FunnelStage | undefined> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM funnel_stages WHERE id = ?',
+      [id]
+    );
+    
+    const stages = rows as any[];
+    if (stages.length === 0) return undefined;
+    
+    const stage = stages[0];
+    return {
+      ...stage,
+      companyId: stage.company_id,
+      isActive: Boolean(stage.is_active),
+      createdAt: stage.created_at,
+      updatedAt: stage.updated_at
+    } as FunnelStage;
+  }
+
+  async getFunnelStagesByCompany(companyId: string): Promise<FunnelStage[]> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM funnel_stages WHERE company_id = ? ORDER BY `order` ASC',
+      [companyId]
+    );
+    
+    const stages = rows as any[];
+    return stages.map(stage => ({
+      ...stage,
+      companyId: stage.company_id,
+      isActive: Boolean(stage.is_active),
+      createdAt: stage.created_at,
+      updatedAt: stage.updated_at
+    })) as FunnelStage[];
+  }
+
+  async createFunnelStage(stage: InsertFunnelStage): Promise<FunnelStage> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const id = randomUUID();
+    await this.connection.execute(
+      'INSERT INTO funnel_stages (id, company_id, name, description, color, `order`, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [id, stage.companyId, stage.name, stage.description || null, stage.color || '#3B82F6', stage.order || 1, stage.isActive !== false]
+    );
+    
+    const createdStage = await this.getFunnelStage(id);
+    if (!createdStage) throw new Error('Failed to create funnel stage');
+    return createdStage;
+  }
+
+  async updateFunnelStage(id: string, updates: Partial<FunnelStage>): Promise<FunnelStage> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const fieldMapping: Record<string, string> = {
+      companyId: 'company_id',
+      isActive: 'is_active',
+      createdAt: 'created_at',
+      updatedAt: 'updated_at'
+    };
+    
+    const fields = Object.keys(updates).filter(key => updates[key as keyof FunnelStage] !== undefined);
+    const values = fields.map(key => updates[key as keyof FunnelStage]);
+    
+    if (fields.length > 0) {
+      const setClause = fields.map(field => `${fieldMapping[field] || field} = ?`).join(', ');
+      await this.connection.execute(
+        `UPDATE funnel_stages SET ${setClause}, updated_at = NOW() WHERE id = ?`,
+        [...values, id]
+      );
+    }
+    
+    const updatedStage = await this.getFunnelStage(id);
+    if (!updatedStage) throw new Error('Failed to update funnel stage');
+    return updatedStage;
+  }
+
+  async deleteFunnelStage(id: string): Promise<void> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    await this.connection.execute('DELETE FROM funnel_stages WHERE id = ?', [id]);
+  }
+
+  async reorderFunnelStage(id: string, direction: 'up' | 'down', companyId: string): Promise<{ success: boolean }> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    // Get the current stage
+    const currentStage = await this.getFunnelStage(id);
+    if (!currentStage) {
+      throw new Error('Funnel stage not found');
+    }
+    
+    // Get all stages for this company ordered by order
+    const allStages = await this.getFunnelStagesByCompany(companyId);
+    const currentIndex = allStages.findIndex(stage => stage.id === id);
+    
+    if (currentIndex === -1) {
+      throw new Error('Stage not found in company stages');
+    }
+    
+    let swapIndex: number;
+    if (direction === 'up') {
+      swapIndex = currentIndex - 1;
+      if (swapIndex < 0) {
+        return { success: false }; // Already at the top
+      }
+    } else {
+      swapIndex = currentIndex + 1;
+      if (swapIndex >= allStages.length) {
+        return { success: false }; // Already at the bottom
+      }
+    }
+    
+    // Swap the order values
+    const currentOrder = allStages[currentIndex].order;
+    const swapOrder = allStages[swapIndex].order;
+    
+    await this.connection.beginTransaction();
+    
+    try {
+      // Update both stages' order
+      await this.connection.execute(
+        'UPDATE funnel_stages SET `order` = ? WHERE id = ?',
+        [swapOrder, currentStage.id]
+      );
+      
+      await this.connection.execute(
+        'UPDATE funnel_stages SET `order` = ? WHERE id = ?',
+        [currentOrder, allStages[swapIndex].id]
+      );
+      
+      await this.connection.commit();
+      return { success: true };
+    } catch (error) {
+      await this.connection.rollback();
+      throw error;
+    }
   }
 }
 

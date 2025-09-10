@@ -124,3 +124,15 @@ export interface ClientStats {
   aiAgents: number;
   todayConversations: number;
 }
+
+export interface FunnelStage {
+  id: string;
+  companyId: string;
+  name: string;
+  description?: string;
+  color: string;
+  order: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}

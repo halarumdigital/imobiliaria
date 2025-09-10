@@ -166,6 +166,18 @@ export const scheduledMessages = mysqlTable("scheduled_messages", {
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });
 
+export const funnelStages = mysqlTable("funnel_stages", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  companyId: varchar("company_id", { length: 36 }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  color: varchar("color", { length: 7 }).notNull().default("#3B82F6"),
+  order: int("order").notNull().default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
@@ -286,6 +298,15 @@ export const insertScheduledMessageSchema = createInsertSchema(scheduledMessages
   totalMessages: true,
 });
 
+export const insertFunnelStageSchema = createInsertSchema(funnelStages).pick({
+  companyId: true,
+  name: true,
+  description: true,
+  color: true,
+  order: true,
+  isActive: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -311,3 +332,5 @@ export type ContactListItem = typeof contactListItems.$inferSelect;
 export type InsertContactListItem = z.infer<typeof insertContactListItemSchema>;
 export type ScheduledMessage = typeof scheduledMessages.$inferSelect;
 export type InsertScheduledMessage = z.infer<typeof insertScheduledMessageSchema>;
+export type FunnelStage = typeof funnelStages.$inferSelect;
+export type InsertFunnelStage = z.infer<typeof insertFunnelStageSchema>;

@@ -27,7 +27,8 @@
       "Read(C:\\Users\\Gilliard\\Desktop\\print/**)",
       "Bash(claude mcp:*)",
       "Bash(mysql:*)",
-      "Read(//c/Users/Gilliard/Desktop/print/**)"
+      "Read(//c/Users/Gilliard/Desktop/print/**)",
+      "Bash(npx drizzle-kit push:*)"
     ],
     "deny": [],
     "ask": []
