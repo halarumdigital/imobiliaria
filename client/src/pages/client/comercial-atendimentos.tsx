@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,7 @@ export default function ComercialAtendimentos() {
   const [draggedCustomer, setDraggedCustomer] = useState<Customer | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [localCustomers, setLocalCustomers] = useState<Customer[]>([]);
   const [editForm, setEditForm] = useState({
     name: "",
     phone: "",
@@ -61,112 +62,27 @@ export default function ComercialAtendimentos() {
     queryFn: () => apiGet("/funnel-stages"),
   });
 
-  // Fetch customers (mocked for now - you'll need to implement the backend)
-  const { data: customers = [], isLoading: customersLoading } = useQuery<Customer[]>({
-    queryKey: ["/api/customers"],
-    queryFn: () => apiGet("/customers"),
-    // Mock data for demonstration - will be updated with real funnelStageIds
-    initialData: [],
-    enabled: funnelStages.length > 0, // Only fetch after stages are loaded
-  });
-
-  // Create mock customers with real stage IDs when stages are available
-  const mockCustomers: Customer[] = funnelStages.length > 0 ? [
-    {
-      id: "1",
-      name: "João Silva",
-      phone: "(11) 99999-9999",
-      email: "joao@empresa.com",
-      company: "Empresa ABC",
-      funnelStageId: funnelStages[0]?.id || "",
-      lastContact: "2024-01-15",
-      notes: "Cliente interessado em nossos serviços",
-      value: 5000,
-      source: "Website",
-      createdAt: "2024-01-10",
-      updatedAt: "2024-01-15"
-    },
-    {
-      id: "2", 
-      name: "Maria Santos",
-      phone: "(11) 88888-8888",
-      email: "maria@xyz.com",
-      company: "XYZ Ltda",
-      funnelStageId: funnelStages[1]?.id || funnelStages[0]?.id || "",
-      lastContact: "2024-01-14",
-      notes: "Aguardando orçamento",
-      value: 8000,
-      source: "Indicação",
-      createdAt: "2024-01-08",
-      updatedAt: "2024-01-14"
-    },
-    {
-      id: "3",
-      name: "Pedro Costa",
-      phone: "(11) 77777-7777",
-      email: "pedro@tech.com",
-      company: "Tech Solutions",
-      funnelStageId: funnelStages[0]?.id || "",
-      lastContact: "2024-01-16",
-      notes: "Primeira reunião agendada",
-      value: 12000,
-      source: "LinkedIn",
-      createdAt: "2024-01-12",
-      updatedAt: "2024-01-16"
+  // Inicializar clientes locais quando necessário
+  useEffect(() => {
+    if (funnelStages.length > 0 && localCustomers.length === 0) {
+      // Apenas inicializar com array vazio
+      setLocalCustomers([]);
     }
-  ] : [];
-
-  // Use mock data if no real data exists
-  const finalCustomers = customers.length > 0 ? customers : mockCustomers;
+  }, [funnelStages, localCustomers.length]);
 
   // Create Kanban columns based on funnel stages
   const kanbanColumns: KanbanColumn[] = funnelStages
     .filter(stage => stage.isActive)
     .map(stage => ({
       stage,
-      customers: finalCustomers.filter(customer => customer.funnelStageId === stage.id)
+      customers: localCustomers.filter(customer => customer.funnelStageId === stage.id)
     }));
 
   // Add customers without stage to first column
-  const customersWithoutStage = finalCustomers.filter(customer => !customer.funnelStageId);
+  const customersWithoutStage = localCustomers.filter(customer => !customer.funnelStageId);
   if (kanbanColumns.length > 0 && customersWithoutStage.length > 0) {
     kanbanColumns[0].customers = [...kanbanColumns[0].customers, ...customersWithoutStage];
   }
-
-  const moveCustomerMutation = useMutation({
-    mutationFn: async ({ customerId, newStageId }: { customerId: string; newStageId: string }) => {
-      // Simular movimento local até implementar a API
-      console.log(`Moving customer ${customerId} to stage ${newStageId}`);
-      
-      // Simular delay da API
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Por enquanto, apenas simula sucesso
-      return { success: true };
-    },
-    onSuccess: () => {
-      // Atualizar localmente os dados dos clientes
-      queryClient.setQueryData(["/api/customers"], (oldData: Customer[] | undefined) => {
-        if (!oldData || !draggedCustomer) return oldData;
-        
-        return oldData.map(customer => 
-          customer.id === draggedCustomer.id 
-            ? { ...customer, funnelStageId: draggedCustomer.funnelStageId }
-            : customer
-        );
-      });
-      
-      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
-    },
-    onError: (error) => {
-      console.error("Error moving customer:", error);
-      toast({
-        title: "Erro",
-        description: "Erro ao mover cliente. Funcionalidade em desenvolvimento.",
-        variant: "destructive",
-      });
-    },
-  });
 
   const editCustomerMutation = useMutation({
     mutationFn: async (updatedCustomer: Partial<Customer> & { id: string }) => {
@@ -179,18 +95,13 @@ export default function ComercialAtendimentos() {
       return { success: true, data: updatedCustomer };
     },
     onSuccess: (response, variables) => {
-      // Atualizar localmente os dados dos clientes
-      queryClient.setQueryData(["/api/customers"], (oldData: Customer[] | undefined) => {
-        if (!oldData) return oldData;
-        
-        return oldData.map(customer => 
-          customer.id === variables.id 
-            ? { ...customer, ...variables, updatedAt: new Date().toISOString() }
-            : customer
-        );
-      });
+      // Atualizar o estado local dos clientes
+      setLocalCustomers(prev => prev.map(customer => 
+        customer.id === variables.id 
+          ? { ...customer, ...variables, updatedAt: new Date().toISOString() }
+          : customer
+      ));
       
-      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
       setEditingCustomer(null);
       resetEditForm();
       
@@ -310,19 +221,12 @@ export default function ComercialAtendimentos() {
     setDragOverColumn(null);
     
     if (draggedCustomer && draggedCustomer.funnelStageId !== targetStageId) {
-      // Atualizar o estado local imediatamente para feedback visual
-      const updatedCustomer = { ...draggedCustomer, funnelStageId: targetStageId };
-      
-      // Atualizar o cache local primeiro para resposta imediata
-      queryClient.setQueryData(["/api/customers"], (oldData: Customer[] | undefined) => {
-        if (!oldData) return oldData;
-        
-        return oldData.map(customer => 
-          customer.id === draggedCustomer.id 
-            ? updatedCustomer
-            : customer
-        );
-      });
+      // Atualizar o estado local dos clientes
+      setLocalCustomers(prev => prev.map(customer => 
+        customer.id === draggedCustomer.id 
+          ? { ...customer, funnelStageId: targetStageId }
+          : customer
+      ));
       
       // Mostrar notificação de sucesso
       const targetStage = funnelStages.find(s => s.id === targetStageId);
@@ -331,11 +235,7 @@ export default function ComercialAtendimentos() {
         description: `${draggedCustomer.name} foi movido para ${targetStage?.name}`,
       });
       
-      // Fazer a chamada da API (simulada por enquanto)
-      moveCustomerMutation.mutate({
-        customerId: draggedCustomer.id,
-        newStageId: targetStageId
-      });
+      console.log(`Moving customer ${draggedCustomer.id} to stage ${targetStageId}`);
     }
     
     setDraggedCustomer(null);
