@@ -1,310 +1,331 @@
 import { getStorage } from "../storage";
-import { ScheduledMessage } from "@shared/schema";
 import { EvolutionApiService } from "./evolutionApi";
+import { ScheduledMessage } from "@shared/schema";
 
-export class ScheduledMessageProcessor {
-  private static instance: ScheduledMessageProcessor;
-  private isProcessing: boolean = false;
-  private intervalId: NodeJS.Timeout | null = null;
+class ScheduledMessageProcessor {
+  private processingInterval: NodeJS.Timeout | null = null;
+  private timeoutCheckInterval: NodeJS.Timeout | null = null;
+  private isProcessing = false;
+  private evolutionApiService: EvolutionApiService | null = null;
 
-  private constructor() {}
-
-  static getInstance(): ScheduledMessageProcessor {
-    if (!ScheduledMessageProcessor.instance) {
-      ScheduledMessageProcessor.instance = new ScheduledMessageProcessor();
-    }
-    return ScheduledMessageProcessor.instance;
-  }
-
-  // Iniciar o processador com verificação a cada minuto
-  start(): void {
-    if (this.intervalId) {
-      console.log("⚠️ Scheduled message processor already running");
-      return;
-    }
-
-    console.log("🚀 Starting scheduled message processor...");
+  start() {
+    console.log("🚀🚀🚀 SCHEDULED MESSAGE PROCESSOR STARTED AT", new Date().toISOString());
+    console.log("⏰ Will check for messages every 30 seconds");
+    console.log("🔍 Will check for stuck messages every 5 minutes");
     
-    // Processar imediatamente
-    this.processScheduledMessages();
-    
-    // Processar a cada minuto
-    this.intervalId = setInterval(() => {
+    // Check for pending messages every 30 seconds
+    this.processingInterval = setInterval(() => {
+      console.log("⏰ [Processor] Checking for scheduled messages at", new Date().toISOString());
       this.processScheduledMessages();
-    }, 60000); // 1 minuto
+    }, 30000); // 30 seconds
 
-    console.log("✅ Scheduled message processor started");
+    // Check for stuck messages every 5 minutes
+    this.timeoutCheckInterval = setInterval(() => {
+      console.log("🔍 [Processor] Checking for stuck messages at", new Date().toISOString());
+      this.checkStuckMessages();
+    }, 300000); // 5 minutes
+
+    // Process immediately on start
+    console.log("🏃 [Processor] Running initial check...");
+    this.processScheduledMessages();
+    this.checkStuckMessages();
   }
 
-  // Parar o processador
-  stop(): void {
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
-      console.log("🛑 Scheduled message processor stopped");
+  stop() {
+    if (this.processingInterval) {
+      clearInterval(this.processingInterval);
+      this.processingInterval = null;
+    }
+    if (this.timeoutCheckInterval) {
+      clearInterval(this.timeoutCheckInterval);
+      this.timeoutCheckInterval = null;
     }
   }
 
-  // Processar mensagens agendadas
-  private async processScheduledMessages(): Promise<void> {
+  private async checkStuckMessages() {
+    try {
+      const storage = getStorage();
+      
+      // Get all messages that have been processing for more than 30 minutes
+      const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+      
+      // This is a simplified version - you might need to add a method to storage
+      // to get messages by status and started time
+      const messages = await storage.getScheduledMessagesByStatus('processing');
+      
+      for (const message of messages) {
+        if (message.startedAt && new Date(message.startedAt) < thirtyMinutesAgo) {
+          console.log(`⚠️ Message ${message.id} stuck in processing for over 30 minutes, marking as failed`);
+          
+          await storage.updateScheduledMessage(message.id, {
+            status: 'failed',
+            completedAt: new Date(),
+            errorMessage: 'Processamento travado - timeout após 30 minutos'
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error checking stuck messages:", error);
+    }
+  }
+
+  private async processScheduledMessages() {
     if (this.isProcessing) {
-      console.log("⏳ Processor already running, skipping...");
+      console.log("⏳ Already processing messages, skipping this cycle");
       return;
     }
 
     this.isProcessing = true;
-    
+    console.log("🔎 [Processor] Searching for pending messages...");
+
     try {
       const storage = getStorage();
-      await storage.init();
-
-      // Buscar mensagens pendentes
+      await storage.init(); // Ensure storage is initialized
+      
       const pendingMessages = await storage.getPendingScheduledMessages();
-      
-      if (pendingMessages.length > 0) {
-        console.log(`📨 Processing ${pendingMessages.length} scheduled messages`);
-        
-        for (const message of pendingMessages) {
-          await this.processSingleMessage(message);
-        }
+      console.log(`📊 [Processor] Query returned ${pendingMessages.length} pending messages`);
+
+      if (pendingMessages.length === 0) {
+        console.log("😴 [Processor] No pending messages found");
+        return;
       }
-      
-    } catch (error: any) {
-      // Se a tabela não existe, não é um erro crítico - o sistema ainda está se inicializando
-      if (error.code === 'ER_NO_SUCH_TABLE' && error.sqlMessage?.includes('scheduled_messages')) {
-        console.log("⏳ Scheduled messages table not yet created - skipping processor run");
-      } else {
-        console.error("❌ Error processing scheduled messages:", error);
+
+      console.log(`📨 Found ${pendingMessages.length} messages to process:`, 
+        pendingMessages.map(m => ({ 
+          id: m.id, 
+          status: m.status, 
+          scheduledDateTime: m.scheduledDateTime 
+        }))
+      );
+
+      for (const message of pendingMessages) {
+        await this.processSingleMessage(message);
       }
+    } catch (error) {
+      console.error("Error processing scheduled messages:", error);
     } finally {
       this.isProcessing = false;
     }
   }
 
-  // Processar uma mensagem específica
-  private async processSingleMessage(scheduledMessage: ScheduledMessage): Promise<void> {
+  private async getEvolutionApiService(): Promise<EvolutionApiService> {
+    if (!this.evolutionApiService) {
+      const storage = getStorage();
+      const evolutionConfig = await storage.getEvolutionApiConfiguration();
+      
+      if (!evolutionConfig || !evolutionConfig.evolutionURL || !evolutionConfig.evolutionToken) {
+        throw new Error("Configuração da Evolution API não encontrada");
+      }
+      
+      this.evolutionApiService = new EvolutionApiService({
+        baseURL: evolutionConfig.evolutionURL,
+        token: evolutionConfig.evolutionToken
+      });
+    }
+    
+    return this.evolutionApiService;
+  }
+
+  private async processSingleMessage(message: ScheduledMessage) {
     const storage = getStorage();
     
     try {
-      console.log(`🎯 Processing scheduled message: ${scheduledMessage.id}`);
+      console.log(`📤 Processing message ${message.id}`);
       
-      // Marcar como em processamento
-      await storage.updateScheduledMessage(scheduledMessage.id, {
+      // Get Evolution API service
+      const evolutionApiService = await this.getEvolutionApiService();
+      
+      // Mark as processing
+      await storage.updateScheduledMessage(message.id, {
         status: 'processing',
         startedAt: new Date()
       });
 
-      // Buscar lista de contatos
-      const contactList = await storage.getContactList(scheduledMessage.contactListId);
+      // Get contact list
+      const contactList = await storage.getContactList(message.contactListId);
       if (!contactList) {
         throw new Error("Lista de contatos não encontrada");
       }
 
-      // Buscar contatos da lista
-      const contacts = await storage.getContactListItems(scheduledMessage.contactListId);
-      const validContacts = contacts.filter(contact => contact.valid);
+      // Get contact list items
+      const contacts = await storage.getContactListItems(message.contactListId);
+      console.log(`📋 Found ${contacts.length} total contacts for list ${message.contactListId}`);
+      
+      const validContacts = contacts.filter(c => c.valid);
+      console.log(`✅ ${validContacts.length} valid contacts to process`);
 
       if (validContacts.length === 0) {
-        throw new Error("Nenhum contato válido encontrado na lista");
+        throw new Error("Nenhum contato válido na lista");
       }
 
-      console.log(`📞 Sending to ${validContacts.length} contacts`);
+      // Get instances
+      const instances = await storage.getWhatsappInstancesByIds(message.instanceIds);
+      console.log(`📋 Retrieved ${instances.length} instances:`, instances.map(i => ({ 
+        id: i.id, 
+        name: i.name, 
+        status: i.status, 
+        evolutionId: i.evolutionId 
+      })));
+      
+      const connectedInstances = instances.filter(i => i.status === 'connected');
+      console.log(`🟢 ${connectedInstances.length} connected instances:`, connectedInstances.map(i => ({ 
+        id: i.id, 
+        name: i.name, 
+        evolutionId: i.evolutionId 
+      })));
 
-      // Processar envios
+      if (connectedInstances.length === 0) {
+        throw new Error("Nenhuma instância conectada disponível");
+      }
+
       let sentCount = 0;
       let failedCount = 0;
+      let currentInstanceIndex = 0;
 
-      // Determinar se são múltiplas mensagens de texto
-      const isMultipleTextMessages = scheduledMessage.messageType === 'text' && 
-                                   scheduledMessage.useMultipleMessages && 
-                                   scheduledMessage.messages && 
-                                   scheduledMessage.messages.length > 0;
-
-      const messagesToSend = isMultipleTextMessages 
-        ? scheduledMessage.messages 
-        : [scheduledMessage.messageContent];
-
-      console.log(`📨 Will send ${messagesToSend.length} message(s) to ${validContacts.length} contacts`);
-      if (isMultipleTextMessages) {
-        console.log(`📝 Multiple messages:`, messagesToSend);
-      }
-
+      console.log(`🚀 Starting to process ${validContacts.length} contacts...`);
+      
+      // Process each contact
       for (const contact of validContacts) {
+        console.log(`📱 Processing contact ${sentCount + 1}/${validContacts.length}: ${contact.phone}`);
         try {
-          // Selecionar instância (aleatório se múltiplas)
-          const instanceId = this.selectInstance(scheduledMessage);
+          // Select instance (random or round-robin)
+          let selectedInstance;
+          if (message.useMultipleInstances && message.randomizeInstances) {
+            const randomIndex = Math.floor(Math.random() * connectedInstances.length);
+            selectedInstance = connectedInstances[randomIndex];
+            console.log(`🎲 Selected random instance ${randomIndex}: ${selectedInstance.name} (${selectedInstance.evolutionId})`);
+          } else if (message.useMultipleInstances) {
+            const instanceIndex = currentInstanceIndex % connectedInstances.length;
+            selectedInstance = connectedInstances[instanceIndex];
+            console.log(`🔄 Selected round-robin instance ${instanceIndex}: ${selectedInstance.name} (${selectedInstance.evolutionId})`);
+            currentInstanceIndex++;
+          } else {
+            selectedInstance = connectedInstances[0];
+            console.log(`🎯 Selected single instance: ${selectedInstance.name} (${selectedInstance.evolutionId})`);
+          }
           
-          // Enviar cada mensagem separadamente
-          for (let i = 0; i < messagesToSend.length; i++) {
-            const messageContent = messagesToSend[i];
-            
-            console.log(`📱 Sending message ${i + 1}/${messagesToSend.length} to ${contact.name} (${contact.phone})`);
-            
-            // Criar objeto de mensagem para cada envio
-            const messageToSend = {
-              ...scheduledMessage,
-              messageContent,
-              // Para múltiplas mensagens, forçar como text simples
-              useMultipleMessages: false,
-              messages: undefined
-            };
-            
-            await this.sendMessage(instanceId, contact.phone, messageToSend);
-            
-            sentCount++;
-            console.log(`✅ Message ${i + 1}/${messagesToSend.length} sent to ${contact.name} (${contact.phone})`);
-
-            // Aguardar intervalo entre mensagens (exceto na última mensagem do contato)
-            const isLastMessage = (i === messagesToSend.length - 1);
-            const isLastContact = (validContacts.indexOf(contact) === validContacts.length - 1);
-            
-            if (!isLastMessage || !isLastContact) {
-              const interval = this.getRandomInterval(scheduledMessage.intervalMin, scheduledMessage.intervalMax);
-              console.log(`⏱️ Waiting ${interval / 1000}s before next message...`);
-              await this.sleep(interval);
-            }
+          if (!selectedInstance || !selectedInstance.evolutionId) {
+            console.error(`❌ Selected instance is invalid:`, selectedInstance);
+            throw new Error(`Instância selecionada é inválida: ${selectedInstance?.name || 'unknown'}`);
           }
 
-        } catch (error) {
+          // Format phone number (remove non-digits and add country code if needed)
+          let phoneNumber = contact.phone.replace(/\D/g, '');
+          if (!phoneNumber.startsWith('55')) {
+            phoneNumber = '55' + phoneNumber;
+          }
+
+          // Send message based on type
+          console.log(`📨 Sending ${message.messageType} message to ${phoneNumber} via instance ${selectedInstance.evolutionId}`);
+          
+          if (message.messageType === 'text') {
+            const messages = message.useMultipleMessages && message.messages 
+              ? message.messages 
+              : [message.messageContent];
+
+            console.log(`📝 Sending ${messages.length} text message(s)`);
+            
+            for (const textMessage of messages) {
+              console.log(`📤 Sending text: "${textMessage.substring(0, 50)}..."`);
+              await evolutionApiService.sendTextMessage(
+                selectedInstance.evolutionId,
+                phoneNumber,
+                textMessage
+              );
+              console.log(`✅ Text message sent successfully`);
+              
+              // Wait between messages
+              if (messages.length > 1) {
+                await this.delay(2000); // 2 seconds between multiple messages to same contact
+              }
+            }
+          } else if (message.messageType === 'image' && message.fileBase64) {
+            await evolutionApiService.sendImageMessage(
+              selectedInstance.evolutionId,
+              phoneNumber,
+              message.fileBase64,
+              message.messageContent // caption
+            );
+          } else if (message.messageType === 'audio' && message.fileBase64) {
+            await evolutionApiService.sendAudioMessage(
+              selectedInstance.evolutionId,
+              phoneNumber,
+              message.fileBase64
+            );
+          } else if (message.messageType === 'video' && message.fileBase64) {
+            await evolutionApiService.sendVideoMessage(
+              selectedInstance.evolutionId,
+              phoneNumber,
+              message.fileBase64,
+              message.messageContent // caption
+            );
+          }
+
+          sentCount++;
+          console.log(`✅ Sent message ${sentCount}/${validContacts.length} to ${contact.phone}`);
+
+          // Update progress
+          await storage.updateScheduledMessage(message.id, {
+            sentMessages: sentCount,
+            failedMessages: failedCount
+          });
+          console.log(`📊 Updated progress: ${sentCount} sent, ${failedCount} failed`);
+
+          // Random delay between contacts (skip delay for last contact)
+          if (sentCount + failedCount < validContacts.length) {
+            const delayMs = this.getRandomDelay(message.intervalMin, message.intervalMax);
+            console.log(`⏱️ Waiting ${delayMs}ms before next message`);
+            await this.delay(delayMs);
+          }
+
+        } catch (error: any) {
+          console.error(`❌ Failed to send to ${contact.phone}:`, error);
+          console.error(`❌ Error details:`, {
+            message: error.message,
+            stack: error.stack,
+            response: error.response
+          });
           failedCount++;
-          console.error(`❌ Failed to send messages to ${contact.name} (${contact.phone}):`, error);
+          
+          // Update failed count immediately
+          await storage.updateScheduledMessage(message.id, {
+            sentMessages: sentCount,
+            failedMessages: failedCount
+          });
         }
-
-        // Atualizar progresso periodicamente
-        await storage.updateScheduledMessage(scheduledMessage.id, {
-          sentMessages: sentCount,
-          failedMessages: failedCount
-        });
       }
 
-      // Marcar como concluído
-      await storage.updateScheduledMessage(scheduledMessage.id, {
+      // Mark as completed
+      console.log(`🎯 Marking message ${message.id} as completed...`);
+      await storage.updateScheduledMessage(message.id, {
         status: 'completed',
+        completedAt: new Date(),
         sentMessages: sentCount,
-        failedMessages: failedCount,
-        completedAt: new Date()
+        failedMessages: failedCount
       });
 
-      console.log(`✅ Completed scheduled message: ${scheduledMessage.id} - Sent: ${sentCount}, Failed: ${failedCount}`);
+      console.log(`✅ Message ${message.id} completed: ${sentCount} sent, ${failedCount} failed`);
 
-    } catch (error) {
-      console.error(`❌ Error processing message ${scheduledMessage.id}:`, error);
+    } catch (error: any) {
+      console.error(`❌ Failed to process message ${message.id}:`, error);
       
-      // Marcar como falhou
-      await storage.updateScheduledMessage(scheduledMessage.id, {
+      await storage.updateScheduledMessage(message.id, {
         status: 'failed',
-        errorMessage: error instanceof Error ? error.message : 'Unknown error',
-        completedAt: new Date()
+        completedAt: new Date(),
+        errorMessage: error.message || 'Erro desconhecido ao processar mensagem'
       });
     }
   }
 
-  // Selecionar instância para envio
-  private selectInstance(scheduledMessage: ScheduledMessage): string {
-    if (!scheduledMessage.useMultipleInstances || scheduledMessage.instanceIds.length === 1) {
-      return scheduledMessage.instanceIds[0];
-    }
-
-    // Seleção aleatória se múltiplas instâncias
-    const randomIndex = Math.floor(Math.random() * scheduledMessage.instanceIds.length);
-    return scheduledMessage.instanceIds[randomIndex];
+  private getRandomDelay(minSeconds: number, maxSeconds: number): number {
+    const min = minSeconds * 1000;
+    const max = maxSeconds * 1000;
+    return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
-  // Gerar intervalo aleatório entre min e max
-  private getRandomInterval(min: number, max: number): number {
-    const minMs = min * 1000;
-    const maxMs = max * 1000;
-    return Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
-  }
-
-  // Função para aguardar
-  private sleep(ms: number): Promise<void> {
+  private delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  // Envio real através da Evolution API
-  private async sendMessage(instanceId: string, phone: string, scheduledMessage: ScheduledMessage): Promise<void> {
-    const storage = getStorage();
-    
-    try {
-      // 1. Buscar configuração da Evolution API
-      const evolutionConfig = await storage.getEvolutionApiConfiguration();
-      if (!evolutionConfig) {
-        throw new Error("Configuração da Evolution API não encontrada");
-      }
-
-      // 2. Buscar dados da instância WhatsApp para obter evolutionInstanceId
-      const whatsappInstance = await storage.getWhatsappInstance(instanceId);
-      if (!whatsappInstance) {
-        throw new Error(`Instância WhatsApp ${instanceId} não encontrada`);
-      }
-
-      if (!whatsappInstance.evolutionInstanceId) {
-        throw new Error(`Instância ${whatsappInstance.name} não possui evolutionInstanceId configurado`);
-      }
-
-      // 3. Criar serviço da Evolution API
-      const evolutionService = new EvolutionApiService({
-        baseURL: evolutionConfig.evolutionURL,
-        token: evolutionConfig.evolutionToken
-      });
-
-      // 4. Formatear número para padrão da Evolution API
-      const cleanPhone = phone.replace(/\D/g, '');
-      const formattedPhone = cleanPhone.startsWith('+') ? cleanPhone : `+${cleanPhone}`;
-
-      // 5. Enviar mensagem baseada no tipo
-      if (scheduledMessage.messageType === 'text') {
-        console.log(`📱 Sending TEXT message to ${phone} via ${whatsappInstance.evolutionInstanceId}`);
-        console.log(`💬 Message content: "${scheduledMessage.messageContent}"`);
-        
-        const result = await evolutionService.sendMessage(
-          whatsappInstance.evolutionInstanceId,
-          formattedPhone,
-          scheduledMessage.messageContent
-        );
-        
-        console.log(`✅ Text message sent successfully:`, result);
-        
-      } else if (['image', 'audio', 'video'].includes(scheduledMessage.messageType)) {
-        console.log(`📁 Sending ${scheduledMessage.messageType.toUpperCase()} message to ${phone} via ${whatsappInstance.evolutionInstanceId}`);
-        
-        // Verificar se o arquivo base64 está disponível
-        if (!scheduledMessage.fileBase64) {
-          throw new Error(`Arquivo base64 não encontrado para mensagem de ${scheduledMessage.messageType}`);
-        }
-
-        if (!scheduledMessage.fileName) {
-          throw new Error(`Nome do arquivo não encontrado para mensagem de ${scheduledMessage.messageType}`);
-        }
-
-        console.log(`📎 File details: ${scheduledMessage.fileName} (${Math.round(scheduledMessage.fileBase64.length * 0.75 / 1024)} KB)`);
-        
-        const mediaData = {
-          mediaBase64: scheduledMessage.fileBase64,
-          fileName: scheduledMessage.fileName,
-          mediaType: scheduledMessage.messageType as 'image' | 'audio' | 'video',
-          caption: scheduledMessage.messageContent || undefined // Use messageContent as caption for media
-        };
-
-        const result = await evolutionService.sendMedia(
-          whatsappInstance.evolutionInstanceId,
-          formattedPhone,
-          mediaData
-        );
-        
-        console.log(`✅ ${scheduledMessage.messageType} message sent successfully:`, result);
-        
-      } else {
-        throw new Error(`Tipo de mensagem ${scheduledMessage.messageType} não suportado`);
-      }
-
-    } catch (error) {
-      console.error(`❌ Error sending message to ${phone}:`, error);
-      throw error; // Re-throw para que o processador principal possa contar como falha
-    }
   }
 }
 
-// Instância global do processador
-export const scheduledMessageProcessor = ScheduledMessageProcessor.getInstance();
+export const scheduledMessageProcessor = new ScheduledMessageProcessor();

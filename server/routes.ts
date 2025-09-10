@@ -2924,8 +2924,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Empresa não encontrada" });
       }
 
+      // Parse the scheduledDateTime - it may come as "YYYY-MM-DD HH:MM:SS" or ISO string
+      let scheduledDateTime: Date;
+      if (req.body.scheduledDateTime.includes('T')) {
+        // ISO format
+        scheduledDateTime = new Date(req.body.scheduledDateTime);
+      } else {
+        // MySQL format "YYYY-MM-DD HH:MM:SS" - treat as local time
+        // Don't use new Date() with replace as it adds timezone offset
+        // Instead, parse the components and create a local date
+        const [datePart, timePart] = req.body.scheduledDateTime.split(' ');
+        const [year, month, day] = datePart.split('-').map(Number);
+        const [hour, minute, second] = timePart.split(':').map(Number);
+        
+        // Create date in local timezone (server timezone)
+        scheduledDateTime = new Date(year, month - 1, day, hour, minute, second || 0);
+        
+        console.log(`📅 Parsed scheduled date: ${req.body.scheduledDateTime} -> ${scheduledDateTime.toISOString()}`);
+      }
+      
       const messageData = insertScheduledMessageSchema.parse({
         ...req.body,
+        scheduledDateTime,
         companyId: req.user.companyId
       });
 
@@ -3006,6 +3026,152 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/scheduled-messages/:id/force-process", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const storage = await getStorage();
+      const scheduledMessage = await storage.getScheduledMessage(id);
+      
+      if (!scheduledMessage) {
+        return res.status(404).json({ error: "Agendamento não encontrado" });
+      }
+
+      // Check company access
+      if (req.user?.role !== 'admin' && scheduledMessage.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Acesso negado" });
+      }
+
+      // Force process this message immediately
+      console.log(`🚀 [DEBUG] Force processing message ${id}`);
+      
+      // Import and use the processor
+      const { scheduledMessageProcessor } = await import('./services/scheduledMessageProcessor');
+      await (scheduledMessageProcessor as any).processSingleMessage(scheduledMessage);
+      
+      res.json({ success: true, message: 'Processamento forçado iniciado' });
+    } catch (error: any) {
+      console.error("Force process error:", error);
+      res.status(500).json({ error: error.message || "Erro ao forçar processamento" });
+    }
+  });
+
+  app.put("/api/scheduled-messages/:id/test-process", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const scheduledMessage = await storage.getScheduledMessage(id);
+      
+      if (!scheduledMessage) {
+        return res.status(404).json({ error: "Agendamento não encontrado" });
+      }
+
+      // Check company access
+      if (req.user?.role !== 'admin' && scheduledMessage.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Acesso negado" });
+      }
+
+      // Test getting the contact list
+      const contactList = await storage.getContactList(scheduledMessage.contactListId);
+      const contacts = await storage.getContactListItems(scheduledMessage.contactListId);
+      const validContacts = contacts.filter(c => c.valid);
+      
+      // Test getting instances
+      const instances = await storage.getWhatsappInstancesByIds(scheduledMessage.instanceIds);
+      const connectedInstances = instances.filter(i => i.status === 'connected');
+      
+      res.json({ 
+        success: true,
+        debug: {
+          scheduledMessage: {
+            id: scheduledMessage.id,
+            status: scheduledMessage.status,
+            scheduledDateTime: scheduledMessage.scheduledDateTime,
+            totalMessages: scheduledMessage.totalMessages
+          },
+          contactList: {
+            found: !!contactList,
+            name: contactList?.name,
+            totalContacts: contacts.length,
+            validContacts: validContacts.length
+          },
+          instances: {
+            requested: scheduledMessage.instanceIds,
+            found: instances.length,
+            connected: connectedInstances.length,
+            details: instances.map(i => ({ id: i.id, name: i.name, status: i.status }))
+          }
+        }
+      });
+    } catch (error: any) {
+      console.error("Test process error:", error);
+      res.status(500).json({ error: error.message || "Erro ao testar processamento" });
+    }
+  });
+
+  app.put("/api/scheduled-messages/:id/force-complete", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const scheduledMessage = await storage.getScheduledMessage(id);
+      
+      if (!scheduledMessage) {
+        return res.status(404).json({ error: "Agendamento não encontrado" });
+      }
+
+      // Check company access
+      if (req.user?.role !== 'admin' && scheduledMessage.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Acesso negado" });
+      }
+
+      // Force complete any stuck message
+      if (scheduledMessage.status === 'processing') {
+        await storage.updateScheduledMessage(id, {
+          status: 'completed',
+          completedAt: new Date(),
+          sentMessages: scheduledMessage.totalMessages,
+          failedMessages: 0
+        });
+        
+        res.json({ success: true, message: 'Disparo marcado como concluído' });
+      } else {
+        res.status(400).json({ error: 'Este disparo não está em processamento' });
+      }
+    } catch (error) {
+      console.error("Force complete scheduled message error:", error);
+      res.status(500).json({ error: "Erro ao concluir agendamento" });
+    }
+  });
+
+  app.put("/api/scheduled-messages/:id/cancel", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const scheduledMessage = await storage.getScheduledMessage(id);
+      
+      if (!scheduledMessage) {
+        return res.status(404).json({ error: "Agendamento não encontrado" });
+      }
+
+      // Check company access
+      if (req.user?.role !== 'admin' && scheduledMessage.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Acesso negado" });
+      }
+
+      // Force cancel/fail any stuck message
+      if (scheduledMessage.status === 'processing' || scheduledMessage.status === 'scheduled') {
+        await storage.updateScheduledMessage(id, {
+          status: 'failed',
+          completedAt: new Date(),
+          errorMessage: 'Cancelado manualmente pelo usuário'
+        });
+        
+        res.json({ success: true, message: 'Disparo cancelado com sucesso' });
+      } else {
+        res.status(400).json({ error: 'Este disparo não pode ser cancelado' });
+      }
+    } catch (error) {
+      console.error("Cancel scheduled message error:", error);
+      res.status(500).json({ error: "Erro ao cancelar agendamento" });
+    }
+  });
+
   app.delete("/api/scheduled-messages/:id", authenticate, requireClient, async (req: AuthRequest, res) => {
     try {
       const { id } = req.params;
@@ -3020,9 +3186,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Acesso negado" });
       }
 
-      // Only allow deletion if not completed
+      // Allow deletion for failed, cancelled, or scheduled messages
       if (scheduledMessage.status === 'processing') {
-        return res.status(400).json({ error: "Não é possível excluir agendamento em processamento" });
+        return res.status(400).json({ error: "Use o botão cancelar para disparos em processamento" });
+      }
+      
+      if (scheduledMessage.status === 'completed') {
+        return res.status(400).json({ error: "Não é possível excluir agendamento concluído" });
       }
 
       await storage.deleteScheduledMessage(id);

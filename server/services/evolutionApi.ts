@@ -312,4 +312,71 @@ export class EvolutionApiService {
       return false;
     }
   }
+
+  // Message sending methods for scheduled messages
+  async sendTextMessage(instanceName: string, phoneNumber: string, text: string): Promise<any> {
+    const endpoint = `/message/sendText/${instanceName}`;
+    
+    // Format phone number with @s.whatsapp.net
+    const remoteJid = phoneNumber.includes('@') ? phoneNumber : `${phoneNumber}@s.whatsapp.net`;
+    
+    return this.makeRequest(endpoint, 'POST', {
+      number: remoteJid,
+      text: text,
+      delay: 1000 // 1 second delay
+    });
+  }
+
+  async sendImageMessage(instanceName: string, phoneNumber: string, base64: string, caption?: string): Promise<any> {
+    const endpoint = `/message/sendMedia/${instanceName}`;
+    
+    // Format phone number with @s.whatsapp.net
+    const remoteJid = phoneNumber.includes('@') ? phoneNumber : `${phoneNumber}@s.whatsapp.net`;
+    
+    // Add data URL prefix if not present
+    const mediaBase64 = base64.startsWith('data:') ? base64 : `data:image/jpeg;base64,${base64}`;
+    
+    return this.makeRequest(endpoint, 'POST', {
+      number: remoteJid,
+      mediatype: 'image',
+      media: mediaBase64,
+      caption: caption || '',
+      delay: 1000
+    });
+  }
+
+  async sendAudioMessage(instanceName: string, phoneNumber: string, base64: string): Promise<any> {
+    const endpoint = `/message/sendMedia/${instanceName}`;
+    
+    // Format phone number with @s.whatsapp.net
+    const remoteJid = phoneNumber.includes('@') ? phoneNumber : `${phoneNumber}@s.whatsapp.net`;
+    
+    // Add data URL prefix if not present
+    const mediaBase64 = base64.startsWith('data:') ? base64 : `data:audio/mpeg;base64,${base64}`;
+    
+    return this.makeRequest(endpoint, 'POST', {
+      number: remoteJid,
+      mediatype: 'audio',
+      media: mediaBase64,
+      delay: 1000
+    });
+  }
+
+  async sendVideoMessage(instanceName: string, phoneNumber: string, base64: string, caption?: string): Promise<any> {
+    const endpoint = `/message/sendMedia/${instanceName}`;
+    
+    // Format phone number with @s.whatsapp.net
+    const remoteJid = phoneNumber.includes('@') ? phoneNumber : `${phoneNumber}@s.whatsapp.net`;
+    
+    // Add data URL prefix if not present
+    const mediaBase64 = base64.startsWith('data:') ? base64 : `data:video/mp4;base64,${base64}`;
+    
+    return this.makeRequest(endpoint, 'POST', {
+      number: remoteJid,
+      mediatype: 'video',
+      media: mediaBase64,
+      caption: caption || '',
+      delay: 1000
+    });
+  }
 }

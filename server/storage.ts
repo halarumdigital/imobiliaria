@@ -78,10 +78,14 @@ export interface IStorage {
   // Scheduled Messages
   getScheduledMessage(id: string): Promise<ScheduledMessage | undefined>;
   getScheduledMessagesByCompany(companyId: string): Promise<ScheduledMessage[]>;
+  getScheduledMessagesByStatus(status: string): Promise<ScheduledMessage[]>;
   getPendingScheduledMessages(): Promise<ScheduledMessage[]>;
   createScheduledMessage(message: InsertScheduledMessage): Promise<ScheduledMessage>;
   updateScheduledMessage(id: string, updates: Partial<ScheduledMessage>): Promise<ScheduledMessage>;
   deleteScheduledMessage(id: string): Promise<void>;
+  
+  // Additional methods for scheduled message processing
+  getWhatsappInstancesByIds(ids: string[]): Promise<WhatsappInstance[]>;
 }
 
 export class MySQLStorage implements IStorage {
@@ -1173,6 +1177,24 @@ export class MySQLStorage implements IStorage {
   }
 
   // Scheduled Messages Methods
+  // Helper to format MySQL datetime for local timezone
+  private formatDateTimeForLocal(mysqlDateTime: any): string {
+    if (!mysqlDateTime) return mysqlDateTime;
+    
+    // MySQL returns datetime without timezone info
+    // We need to ensure it's treated as local time
+    const dateStr = mysqlDateTime.toString();
+    
+    // If it's already in ISO format with Z, remove the Z
+    if (dateStr.endsWith('Z')) {
+      return dateStr.slice(0, -1);
+    }
+    
+    // If it's in MySQL format (YYYY-MM-DD HH:MM:SS), return as is
+    // The frontend will parse it as local time
+    return dateStr;
+  }
+
   async getScheduledMessage(id: string): Promise<ScheduledMessage | undefined> {
     if (!this.connection) throw new Error('No database connection');
     
@@ -1186,12 +1208,30 @@ export class MySQLStorage implements IStorage {
     
     const message = messages[0];
     return {
-      ...message,
+      id: message.id,
+      companyId: message.company_id,
+      contactListId: message.contact_list_id,
       instanceIds: JSON.parse(message.instance_ids || '[]'),
+      messageType: message.message_type,
+      messageContent: message.message_content,
       messages: message.messages ? JSON.parse(message.messages) : null,
       useMultipleMessages: !!message.use_multiple_messages,
+      fileName: message.file_name,
+      fileBase64: message.file_base64,
+      scheduledDateTime: this.formatDateTimeForLocal(message.scheduled_date_time),
+      intervalMin: message.interval_min,
+      intervalMax: message.interval_max,
       useMultipleInstances: !!message.use_multiple_instances,
       randomizeInstances: !!message.randomize_instances,
+      status: message.status,
+      totalMessages: message.total_messages,
+      sentMessages: message.sent_messages,
+      failedMessages: message.failed_messages,
+      startedAt: message.started_at,
+      completedAt: message.completed_at,
+      errorMessage: message.error_message,
+      createdAt: message.created_at,
+      updatedAt: message.updated_at,
     };
   }
 
@@ -1205,31 +1245,88 @@ export class MySQLStorage implements IStorage {
     
     const messages = rows as any[];
     return messages.map(message => ({
-      ...message,
+      id: message.id,
+      companyId: message.company_id,
+      contactListId: message.contact_list_id,
       instanceIds: JSON.parse(message.instance_ids || '[]'),
+      messageType: message.message_type,
+      messageContent: message.message_content,
       messages: message.messages ? JSON.parse(message.messages) : null,
       useMultipleMessages: !!message.use_multiple_messages,
+      fileName: message.file_name,
+      fileBase64: message.file_base64,
+      scheduledDateTime: this.formatDateTimeForLocal(message.scheduled_date_time),
+      intervalMin: message.interval_min,
+      intervalMax: message.interval_max,
       useMultipleInstances: !!message.use_multiple_instances,
       randomizeInstances: !!message.randomize_instances,
+      status: message.status,
+      totalMessages: message.total_messages,
+      sentMessages: message.sent_messages,
+      failedMessages: message.failed_messages,
+      startedAt: message.started_at,
+      completedAt: message.completed_at,
+      errorMessage: message.error_message,
+      createdAt: message.created_at,
+      updatedAt: message.updated_at,
     }));
   }
 
   async getPendingScheduledMessages(): Promise<ScheduledMessage[]> {
     if (!this.connection) throw new Error('No database connection');
     
-    const [rows] = await this.connection.execute(
-      'SELECT * FROM scheduled_messages WHERE status = "scheduled" AND scheduled_date_time <= NOW() ORDER BY scheduled_date_time ASC',
+    // Use local time for comparison, not UTC
+    // Convert current local time to MySQL format
+    const now = new Date();
+    const mysqlNow = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+    
+    console.log(`🕐 [Storage] Checking for messages scheduled before: ${mysqlNow}`);
+    
+    // First, let's see all scheduled messages regardless of time (for debugging)
+    const [debugRows] = await this.connection.execute(
+      'SELECT id, status, scheduled_date_time FROM scheduled_messages WHERE status = "scheduled" ORDER BY scheduled_date_time DESC LIMIT 10',
       []
+    );
+    console.log(`🔍 [Storage DEBUG] All scheduled messages:`, debugRows);
+    
+    // Also check recently completed messages (might have been processed already)
+    const [recentRows] = await this.connection.execute(
+      'SELECT id, status, scheduled_date_time, completed_at, sent_messages, failed_messages FROM scheduled_messages WHERE status IN ("completed", "processing", "failed") AND scheduled_date_time >= CURDATE() ORDER BY updated_at DESC LIMIT 5',
+      []
+    );
+    console.log(`🔍 [Storage DEBUG] Recent non-scheduled messages:`, recentRows);
+    
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM scheduled_messages WHERE status = "scheduled" AND scheduled_date_time <= ? ORDER BY scheduled_date_time ASC',
+      [mysqlNow]
     );
     
     const messages = rows as any[];
     return messages.map(message => ({
-      ...message,
+      id: message.id,
+      companyId: message.company_id,
+      contactListId: message.contact_list_id,
       instanceIds: JSON.parse(message.instance_ids || '[]'),
+      messageType: message.message_type,
+      messageContent: message.message_content,
       messages: message.messages ? JSON.parse(message.messages) : null,
       useMultipleMessages: !!message.use_multiple_messages,
+      fileName: message.file_name,
+      fileBase64: message.file_base64,
+      scheduledDateTime: this.formatDateTimeForLocal(message.scheduled_date_time),
+      intervalMin: message.interval_min,
+      intervalMax: message.interval_max,
       useMultipleInstances: !!message.use_multiple_instances,
       randomizeInstances: !!message.randomize_instances,
+      status: message.status,
+      totalMessages: message.total_messages,
+      sentMessages: message.sent_messages,
+      failedMessages: message.failed_messages,
+      startedAt: message.started_at,
+      completedAt: message.completed_at,
+      errorMessage: message.error_message,
+      createdAt: message.created_at,
+      updatedAt: message.updated_at,
     }));
   }
 
@@ -1275,12 +1372,15 @@ export class MySQLStorage implements IStorage {
   async updateScheduledMessage(id: string, updates: Partial<ScheduledMessage>): Promise<ScheduledMessage> {
     if (!this.connection) throw new Error('No database connection');
     
+    console.log(`📝 [Storage] Updating scheduled message ${id} with:`, updates);
+    
     const setParts: string[] = [];
     const values: any[] = [];
     
     if (updates.status !== undefined) {
       setParts.push('status = ?');
       values.push(updates.status);
+      console.log(`📝 [Storage] Setting status to: ${updates.status}`);
     }
     
     if (updates.sentMessages !== undefined) {
@@ -1295,12 +1395,20 @@ export class MySQLStorage implements IStorage {
     
     if (updates.startedAt !== undefined) {
       setParts.push('started_at = ?');
-      values.push(updates.startedAt);
+      // Convert startedAt to local time format for MySQL
+      const startedAt = updates.startedAt instanceof Date ? updates.startedAt : new Date(updates.startedAt);
+      const mysqlDateTime = `${startedAt.getFullYear()}-${String(startedAt.getMonth() + 1).padStart(2, '0')}-${String(startedAt.getDate()).padStart(2, '0')} ${String(startedAt.getHours()).padStart(2, '0')}:${String(startedAt.getMinutes()).padStart(2, '0')}:${String(startedAt.getSeconds()).padStart(2, '0')}`;
+      values.push(mysqlDateTime);
+      console.log(`📝 [Storage] Setting startedAt to local time: ${mysqlDateTime}`);
     }
     
     if (updates.completedAt !== undefined) {
       setParts.push('completed_at = ?');
-      values.push(updates.completedAt);
+      // Convert completedAt to local time format for MySQL
+      const completedAt = updates.completedAt instanceof Date ? updates.completedAt : new Date(updates.completedAt);
+      const mysqlDateTime = `${completedAt.getFullYear()}-${String(completedAt.getMonth() + 1).padStart(2, '0')}-${String(completedAt.getDate()).padStart(2, '0')} ${String(completedAt.getHours()).padStart(2, '0')}:${String(completedAt.getMinutes()).padStart(2, '0')}:${String(completedAt.getSeconds()).padStart(2, '0')}`;
+      values.push(mysqlDateTime);
+      console.log(`📝 [Storage] Setting completedAt to local time: ${mysqlDateTime}`);
     }
     
     if (updates.errorMessage !== undefined) {
@@ -1316,13 +1424,16 @@ export class MySQLStorage implements IStorage {
     
     values.push(id);
     
-    await this.connection.execute(
-      `UPDATE scheduled_messages SET ${setParts.join(', ')}, updated_at = NOW() WHERE id = ?`,
-      values
-    );
+    const query = `UPDATE scheduled_messages SET ${setParts.join(', ')}, updated_at = NOW() WHERE id = ?`;
+    console.log(`📝 [Storage] Executing query: ${query}`);
+    console.log(`📝 [Storage] With values:`, values);
+    
+    await this.connection.execute(query, values);
     
     const updatedMessage = await this.getScheduledMessage(id);
     if (!updatedMessage) throw new Error('Failed to update scheduled message');
+    
+    console.log(`✅ [Storage] Updated message status: ${updatedMessage.status}, sent: ${updatedMessage.sentMessages}, failed: ${updatedMessage.failedMessages}`);
     
     return updatedMessage;
   }
@@ -1331,6 +1442,81 @@ export class MySQLStorage implements IStorage {
     if (!this.connection) throw new Error('No database connection');
     
     await this.connection.execute('DELETE FROM scheduled_messages WHERE id = ?', [id]);
+  }
+
+  async getScheduledMessagesByStatus(status: string): Promise<ScheduledMessage[]> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM scheduled_messages WHERE status = ? ORDER BY created_at DESC',
+      [status]
+    );
+    
+    const messages = rows as any[];
+    return messages.map(message => ({
+      id: message.id,
+      companyId: message.company_id,
+      contactListId: message.contact_list_id,
+      instanceIds: JSON.parse(message.instance_ids || '[]'),
+      messageType: message.message_type,
+      messageContent: message.message_content,
+      messages: message.messages ? JSON.parse(message.messages) : null,
+      useMultipleMessages: !!message.use_multiple_messages,
+      fileName: message.file_name,
+      fileBase64: message.file_base64,
+      scheduledDateTime: this.formatDateTimeForLocal(message.scheduled_date_time),
+      intervalMin: message.interval_min,
+      intervalMax: message.interval_max,
+      useMultipleInstances: !!message.use_multiple_instances,
+      randomizeInstances: !!message.randomize_instances,
+      status: message.status,
+      totalMessages: message.total_messages,
+      sentMessages: message.sent_messages,
+      failedMessages: message.failed_messages,
+      startedAt: message.started_at,
+      completedAt: message.completed_at,
+      errorMessage: message.error_message,
+      createdAt: message.created_at,
+      updatedAt: message.updated_at,
+    }));
+  }
+
+  async getWhatsappInstancesByIds(ids: string[]): Promise<WhatsappInstance[]> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    if (ids.length === 0) return [];
+    
+    const placeholders = ids.map(() => '?').join(',');
+    const [rows] = await this.connection.execute(
+      `SELECT * FROM whatsapp_instances WHERE id IN (${placeholders})`,
+      ids
+    );
+    
+    const instances = rows as any[];
+    console.log(`🔍 [Storage] Raw instances from DB:`, instances.map(i => ({ 
+      id: i.id, 
+      name: i.name, 
+      evolution_id: i.evolution_id, 
+      status: i.status 
+    })));
+    
+    const mappedInstances = instances.map(instance => ({
+      ...instance,
+      companyId: instance.company_id,
+      evolutionId: instance.evolution_instance_id,
+      aiAgentId: instance.ai_agent_id,
+      createdAt: instance.created_at,
+      updatedAt: instance.updated_at
+    }));
+    
+    console.log(`📋 [Storage] Mapped instances:`, mappedInstances.map(i => ({ 
+      id: i.id, 
+      name: i.name, 
+      evolutionId: i.evolutionId, 
+      status: i.status 
+    })));
+    
+    return mappedInstances;
   }
 }
 

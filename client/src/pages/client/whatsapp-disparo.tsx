@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { WhatsappInstance } from "@/types";
-import { Send, MessageSquare, Mic, Image, Video, Eye, Upload, X, Users, Phone, List, Clock, Shuffle, CheckSquare, RefreshCw, Calendar, Timer } from "lucide-react";
+import { Send, MessageSquare, Mic, Image, Video, Eye, Upload, X, Users, Phone, List, Clock, Shuffle, CheckSquare, RefreshCw, Calendar, Timer, History, Trash2, AlertCircle, CheckCircle, Loader2, XCircle, CheckCircle2 } from "lucide-react";
 
 type MessageType = "text" | "audio" | "image" | "video";
 
@@ -49,6 +49,32 @@ interface ScheduleConfig {
   time: string;
 }
 
+interface ScheduledMessage {
+  id: string;
+  companyId: string;
+  contactListId: string;
+  instanceIds: string[];
+  messageType: string;
+  messageContent: string;
+  messages?: string[];
+  useMultipleMessages: boolean;
+  fileName?: string;
+  scheduledDateTime: string;
+  intervalMin: number;
+  intervalMax: number;
+  useMultipleInstances: boolean;
+  randomizeInstances: boolean;
+  status: 'scheduled' | 'processing' | 'completed' | 'cancelled' | 'failed';
+  totalMessages: number;
+  sentMessages: number;
+  failedMessages: number;
+  startedAt?: string;
+  completedAt?: string;
+  errorMessage?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export default function WhatsAppDisparo() {
   const { toast } = useToast();
   const [selectedInstance, setSelectedInstance] = useState<string>("");
@@ -59,6 +85,7 @@ export default function WhatsAppDisparo() {
     messages: []
   });
   const [showPreview, setShowPreview] = useState(false);
+  const [showScheduledList, setShowScheduledList] = useState(false);
   const [broadcastConfig, setBroadcastConfig] = useState<BroadcastConfig>({
     intervalMin: 60,
     intervalMax: 120,
@@ -82,6 +109,22 @@ export default function WhatsAppDisparo() {
   const { data: contactLists = [], isLoading: listsLoading } = useQuery<ContactList[]>({
     queryKey: ["/api/contact-lists"],
     queryFn: () => apiGet("/contact-lists"),
+  });
+
+  // Query to get scheduled messages
+  const { data: scheduledMessages = [], isLoading: scheduledLoading, refetch: refetchScheduled } = useQuery<ScheduledMessage[]>({
+    queryKey: ["/api/scheduled-messages"],
+    queryFn: async () => {
+      const data = await apiGet("/scheduled-messages");
+      console.log("Scheduled messages received:", data);
+      console.log("Contact lists available:", contactLists);
+      if (data && data.length > 0) {
+        console.log("First message date field:", data[0].scheduledDateTime);
+        console.log("First message contactListId:", data[0].contactListId);
+      }
+      return data;
+    },
+    refetchInterval: showScheduledList ? 5000 : false, // Refresh every 5 seconds when viewing list
   });
 
   // Function to get real-time connection status for an instance
@@ -233,6 +276,179 @@ export default function WhatsAppDisparo() {
     });
   };
 
+  const handleCancelScheduled = async (id: string) => {
+    // Find the scheduled message to know its status
+    const scheduled = scheduledMessages.find(s => s.id === id);
+    const isScheduled = scheduled?.status === 'scheduled';
+    const action = isScheduled ? 'cancelar' : 'excluir';
+    const actionPast = isScheduled ? 'cancelado' : 'excluído';
+    
+    // Confirm deletion for non-scheduled items
+    if (!isScheduled) {
+      const confirmed = window.confirm(`Tem certeza que deseja excluir este registro?`);
+      if (!confirmed) return;
+    }
+    
+    try {
+      const response = await fetch(`/api/scheduled-messages/${id}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem("token")}`
+        }
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || `Erro ao ${action} agendamento`);
+      }
+
+      toast({
+        title: "Sucesso",
+        description: `Agendamento ${actionPast} com sucesso`,
+      });
+
+      refetchScheduled();
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || `Erro ao ${action} agendamento`,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const getStatusBadge = (status: ScheduledMessage['status']) => {
+    switch (status) {
+      case 'scheduled':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 rounded-full">
+            <Clock className="w-3 h-3" />
+            Agendado
+          </span>
+        );
+      case 'processing':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-yellow-700 bg-yellow-100 rounded-full">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Processando
+          </span>
+        );
+      case 'completed':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-100 rounded-full">
+            <CheckCircle className="w-3 h-3" />
+            Concluído
+          </span>
+        );
+      case 'cancelled':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-full">
+            <XCircle className="w-3 h-3" />
+            Cancelado
+          </span>
+        );
+      case 'failed':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-700 bg-red-100 rounded-full">
+            <AlertCircle className="w-3 h-3" />
+            Falhou
+          </span>
+        );
+    }
+  };
+
+  const getContactListName = (listId: string | null | undefined) => {
+    if (!listId) {
+      console.error("List ID is null or undefined");
+      return "Sem lista";
+    }
+    
+    console.log("Looking for list with ID:", listId);
+    console.log("Available lists:", contactLists.map(l => ({ id: l.id, name: l.name })));
+    
+    const list = contactLists.find(l => l.id === listId);
+    if (!list) {
+      console.error("List not found for ID:", listId);
+      return `Lista não encontrada (${listId.substring(0, 8)}...)`;
+    }
+    
+    return list.name;
+  };
+
+  const getInstanceNames = (instanceIds: string[]) => {
+    return instanceIds.map(id => {
+      const instance = instances.find(i => i.id === id);
+      return instance?.name || "Instância removida";
+    }).join(", ");
+  };
+
+  const formatScheduledDate = (dateValue: string | Date | null | undefined) => {
+    try {
+      if (!dateValue) {
+        console.error("Date value is null or undefined");
+        return { date: "Sem data", time: "" };
+      }
+
+      console.log("formatScheduledDate input:", dateValue, typeof dateValue);
+
+      let date: Date;
+      
+      if (typeof dateValue === 'string') {
+        // Remove any .000Z suffix if present
+        const cleanValue = dateValue.replace(/\.\d{3}Z$/, '');
+        
+        // Check if it's MySQL datetime format (YYYY-MM-DD HH:MM:SS)
+        if (cleanValue.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
+          // Treat as local time - DO NOT add timezone
+          const [datePart, timePart] = cleanValue.split(' ');
+          const [year, month, day] = datePart.split('-').map(Number);
+          const [hour, minute, second] = timePart.split(':').map(Number);
+          date = new Date(year, month - 1, day, hour, minute, second);
+          console.log("Parsed as MySQL local time:", date);
+        } 
+        // Check if it's ISO format with T
+        else if (cleanValue.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/)) {
+          // Also treat as local time
+          const [datePart, timePart] = cleanValue.split('T');
+          const [year, month, day] = datePart.split('-').map(Number);
+          const [hour, minute, second] = timePart.split(':').map(Number);
+          date = new Date(year, month - 1, day, hour, minute, second);
+          console.log("Parsed as ISO local time:", date);
+        }
+        // If it has Z at the end, it's UTC
+        else if (dateValue.includes('Z')) {
+          date = new Date(dateValue);
+          console.log("Parsed as UTC:", date);
+        }
+        // Try direct parsing
+        else {
+          date = new Date(dateValue);
+          console.log("Direct parse:", date);
+        }
+      } else if (dateValue instanceof Date) {
+        date = dateValue;
+      } else {
+        date = new Date(dateValue);
+      }
+
+      if (isNaN(date.getTime())) {
+        console.error("Invalid date after all attempts:", dateValue, typeof dateValue);
+        return { date: "Data inválida", time: "" };
+      }
+
+      const formatted = {
+        date: date.toLocaleDateString('pt-BR'),
+        time: date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      };
+      
+      console.log("Formatted output:", formatted);
+      return formatted;
+    } catch (error) {
+      console.error("Error formatting date:", error, dateValue);
+      return { date: "Erro na data", time: "" };
+    }
+  };
+
   const handleSendBroadcast = async () => {
     // Validar instâncias
     if (!useMultipleInstances && !selectedInstance) {
@@ -349,7 +565,7 @@ export default function WhatsAppDisparo() {
         randomizeInstances: broadcastConfig.randomizeInstances,
         totalMessages: validContacts * (message.type === "text" && useMultipleMessages ? validMessages.length : 1),
         scheduledDateTime: scheduleConfig.enabled 
-          ? new Date(`${scheduleConfig.date}T${scheduleConfig.time}`).toISOString()
+          ? `${scheduleConfig.date} ${scheduleConfig.time}:00` // Formato MySQL direto sem conversão
           : new Date().toISOString() // Enviar imediatamente se não agendado
       };
 
@@ -480,7 +696,245 @@ export default function WhatsAppDisparo() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="space-y-6">
+      {/* Header with toggle button */}
+      <div className="max-w-4xl mx-auto flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Disparo de Mensagens</h1>
+        <Button
+          variant="outline"
+          onClick={() => setShowScheduledList(!showScheduledList)}
+          className="flex items-center gap-2"
+        >
+          <History className="w-4 h-4" />
+          {showScheduledList ? "Criar Novo Disparo" : "Ver Agendamentos"}
+        </Button>
+      </div>
+
+      {/* Show scheduled list or main form */}
+      {showScheduledList ? (
+        <Card className="max-w-6xl mx-auto">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Calendar className="w-5 h-5" />
+                Disparos Agendados
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => refetchScheduled()}
+                disabled={scheduledLoading}
+              >
+                <RefreshCw className={`w-4 h-4 ${scheduledLoading ? 'animate-spin' : ''}`} />
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {scheduledLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : scheduledMessages.length === 0 ? (
+              <div className="text-center py-8">
+                <Calendar className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
+                <p className="text-muted-foreground">Nenhum disparo agendado</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-2 font-medium">Data/Hora</th>
+                      <th className="text-left p-2 font-medium">Lista</th>
+                      <th className="text-left p-2 font-medium">Instância(s)</th>
+                      <th className="text-left p-2 font-medium">Mensagens</th>
+                      <th className="text-left p-2 font-medium">Status</th>
+                      <th className="text-left p-2 font-medium">Progresso</th>
+                      <th className="text-left p-2 font-medium">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scheduledMessages.map((scheduled) => (
+                      <tr key={scheduled.id} className="border-b hover:bg-muted/50">
+                        <td className="p-2">
+                          <div className="text-sm">
+                            {formatScheduledDate(scheduled.scheduledDateTime).date}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {formatScheduledDate(scheduled.scheduledDateTime).time}
+                          </div>
+                        </td>
+                        <td className="p-2 text-sm">
+                          {getContactListName(scheduled.contactListId)}
+                        </td>
+                        <td className="p-2">
+                          <div className="text-sm max-w-[200px] truncate" title={getInstanceNames(scheduled.instanceIds)}>
+                            {scheduled.useMultipleInstances ? (
+                              <span className="flex items-center gap-1">
+                                <Shuffle className="w-3 h-3" />
+                                {scheduled.instanceIds.length} instâncias
+                              </span>
+                            ) : (
+                              getInstanceNames(scheduled.instanceIds)
+                            )}
+                          </div>
+                        </td>
+                        <td className="p-2">
+                          <div className="text-sm">
+                            {scheduled.totalMessages} total
+                          </div>
+                          {scheduled.status === 'processing' && (
+                            <div className="text-xs text-muted-foreground">
+                              {scheduled.sentMessages} enviadas
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-2">
+                          {getStatusBadge(scheduled.status)}
+                        </td>
+                        <td className="p-2">
+                          {(scheduled.status === 'processing' || scheduled.status === 'completed') && (
+                            <div className="space-y-1">
+                              <div className="w-24 bg-gray-200 rounded-full h-2">
+                                <div 
+                                  className="bg-blue-600 h-2 rounded-full transition-all"
+                                  style={{ width: `${(scheduled.sentMessages / scheduled.totalMessages) * 100}%` }}
+                                />
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {Math.round((scheduled.sentMessages / scheduled.totalMessages) * 100)}%
+                              </div>
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-2">
+                          <div className="flex items-center gap-2">
+                            {scheduled.status === 'processing' && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={async () => {
+                                    const confirmed = window.confirm('Marcar este disparo como concluído?');
+                                    if (!confirmed) return;
+                                    
+                                    try {
+                                      const response = await fetch(`/api/scheduled-messages/${scheduled.id}/force-complete`, {
+                                        method: "PUT",
+                                        headers: {
+                                          "Authorization": `Bearer ${localStorage.getItem("token")}`
+                                        }
+                                      });
+                                      
+                                      if (!response.ok) {
+                                        const error = await response.json();
+                                        throw new Error(error.error || 'Erro ao concluir');
+                                      }
+                                      
+                                      toast({
+                                        title: "Sucesso",
+                                        description: "Disparo marcado como concluído",
+                                      });
+                                      refetchScheduled();
+                                    } catch (error: any) {
+                                      toast({
+                                        title: "Erro",
+                                        description: error.message || "Erro ao marcar como concluído",
+                                        variant: "destructive"
+                                      });
+                                    }
+                                  }}
+                                  title="Marcar como concluído"
+                                >
+                                  <CheckCircle2 className="w-4 h-4 text-green-600" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={async () => {
+                                    const confirmed = window.confirm('Este disparo está em processamento. Deseja forçar o cancelamento?');
+                                    if (!confirmed) return;
+                                    
+                                    try {
+                                      const response = await fetch(`/api/scheduled-messages/${scheduled.id}/cancel`, {
+                                        method: "PUT",
+                                        headers: {
+                                          "Authorization": `Bearer ${localStorage.getItem("token")}`
+                                        }
+                                      });
+                                      
+                                      if (!response.ok) {
+                                        const error = await response.json();
+                                        throw new Error(error.error || 'Erro ao cancelar');
+                                      }
+                                      
+                                      toast({
+                                        title: "Sucesso",
+                                        description: "Disparo cancelado com sucesso",
+                                      });
+                                      refetchScheduled();
+                                    } catch (error: any) {
+                                      toast({
+                                        title: "Erro",
+                                        description: error.message || "Erro ao cancelar disparo",
+                                        variant: "destructive"
+                                      });
+                                    }
+                                  }}
+                                  title="Forçar cancelamento"
+                                >
+                                  <XCircle className="w-4 h-4 text-destructive" />
+                                </Button>
+                              </>
+                            )}
+                            {scheduled.status === 'scheduled' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleCancelScheduled(scheduled.id)}
+                                title="Cancelar agendamento"
+                              >
+                                <XCircle className="w-4 h-4 text-destructive" />
+                              </Button>
+                            )}
+                            {(scheduled.status === 'failed' || scheduled.status === 'cancelled') && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleCancelScheduled(scheduled.id)}
+                                title="Excluir registro"
+                              >
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                              </Button>
+                            )}
+                            {scheduled.status === 'failed' && scheduled.errorMessage && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  toast({
+                                    title: "Erro do disparo",
+                                    description: scheduled.errorMessage,
+                                    variant: "destructive"
+                                  });
+                                }}
+                                title="Ver erro"
+                              >
+                                <AlertCircle className="w-4 h-4 text-destructive" />
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Configuration Panel */}
       <Card>
         <CardHeader>
@@ -1183,6 +1637,8 @@ export default function WhatsAppDisparo() {
           )}
         </CardContent>
       </Card>
+    </div>
+      )}
     </div>
   );
 }

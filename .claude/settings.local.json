@@ -24,7 +24,10 @@
       "Read(C:\\Users\\Gilliard\\Desktop\\print/**)",
       "Read(C:\\Users\\Gilliard\\Desktop\\print/**)",
       "Read(C:\\Users\\Gilliard\\Desktop\\print/**)",
-      "Read(C:\\Users\\Gilliard\\Desktop\\print/**)"
+      "Read(C:\\Users\\Gilliard\\Desktop\\print/**)",
+      "Bash(claude mcp:*)",
+      "Bash(mysql:*)",
+      "Read(//c/Users/Gilliard/Desktop/print/**)"
     ],
     "deny": [],
     "ask": []
