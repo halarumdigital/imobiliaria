@@ -30,7 +30,6 @@ const adminNavItems: NavItem[] = [
 
 const clientNavItems: NavItem[] = [
   { href: "/client", label: "Dashboard", icon: <LayoutDashboard className="w-5 h-5" /> },
-  { href: "/client/profile", label: "Perfil", icon: <User className="w-5 h-5" /> },
   { 
     label: "WhatsApp", 
     icon: <MessageSquare className="w-5 h-5" />,
@@ -40,6 +39,14 @@ const clientNavItems: NavItem[] = [
       { href: "/client/whatsapp/disparo", label: "Disparo", icon: <Send className="w-4 h-4" /> },
       { href: "/client/whatsapp/lista-transmissao", label: "Lista de transmissão", icon: <List className="w-4 h-4" /> },
       { href: "/client/whatsapp/proxy", label: "Proxy", icon: <Globe className="w-4 h-4" /> },
+    ]
+  },
+  { 
+    label: "Comercial", 
+    icon: <Building className="w-5 h-5" />,
+    children: [
+      { href: "/client/comercial/funil", label: "Funil", icon: <LayoutDashboard className="w-4 h-4" /> },
+      { href: "/client/comercial/atendimentos", label: "Atendimentos", icon: <Users className="w-4 h-4" /> },
     ]
   },
   { href: "/client/ai-agents", label: "Agentes IA", icon: <Bot className="w-5 h-5" /> },
@@ -180,9 +187,17 @@ export function Sidebar() {
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-sidebar-foreground truncate">
-              {user.email}
-            </p>
+            {!isAdmin ? (
+              <Link href="/client/profile">
+                <p className="text-sm font-medium text-sidebar-foreground truncate hover:text-sidebar-accent-foreground cursor-pointer">
+                  {user.email}
+                </p>
+              </Link>
+            ) : (
+              <p className="text-sm font-medium text-sidebar-foreground truncate">
+                {user.email}
+              </p>
+            )}
             <p className="text-xs text-muted-foreground truncate">
               {user.role === "admin" ? "Administrador" : "Cliente"}
             </p>
