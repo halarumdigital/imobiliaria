@@ -252,9 +252,14 @@ export class AIService {
         // Buscar por evolutionInstanceId OU usar fallback
         let found = instances.find(i => i.evolutionInstanceId === evolutionInstanceId);
         
-        // Fallback específico para ID conhecido
+        // Fallback específico para IDs conhecidos
         if (!found && evolutionInstanceId === "e5b71c35-276b-417e-a1c3-267f904b2b98") {
           found = instances.find(i => i.name === "deploy2");
+        }
+        
+        // Fallback para o ID atual do deploy10
+        if (!found && evolutionInstanceId === "4d0f0895-9c71-4199-b48d-a3df4e3de3da") {
+          found = instances.find(i => i.name === "deploy10");
         }
         
         if (found) {
