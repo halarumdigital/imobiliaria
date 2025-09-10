@@ -22,7 +22,6 @@ import ClientDashboard from "@/pages/client/dashboard";
 import Profile from "@/pages/client/profile";
 import WhatsApp from "@/pages/client/whatsapp";
 import AiAgents from "@/pages/client/ai-agents";
-import TestAI from "@/pages/client/test-ai";
 import Conversations from "@/pages/client/conversations";
 import WhatsAppDisparo from "@/pages/client/whatsapp-disparo";
 import WhatsAppListaTransmissao from "@/pages/client/whatsapp-lista-transmissao";
@@ -154,14 +153,6 @@ function Router() {
           requiredRole="client"
           title="Agentes IA"
           subtitle="Agentes de IA personalizados"
-        />
-      </Route>
-      <Route path="/client/test-ai">
-        <ProtectedRoute 
-          component={TestAI}
-          requiredRole="client"
-          title="Teste de IA"
-          subtitle="Teste seus agentes de IA"
         />
       </Route>
       <Route path="/client/conversations">

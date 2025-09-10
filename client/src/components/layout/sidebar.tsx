@@ -43,7 +43,6 @@ const clientNavItems: NavItem[] = [
     ]
   },
   { href: "/client/ai-agents", label: "Agentes IA", icon: <Bot className="w-5 h-5" /> },
-  { href: "/client/test-ai", label: "Teste de IA", icon: <Bot className="w-5 h-5" /> },
 ];
 
 export function Sidebar() {
