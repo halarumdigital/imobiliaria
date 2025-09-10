@@ -4,6 +4,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { apiGet, apiPut } from "@/lib/api";
@@ -13,6 +17,7 @@ import {
   MoreVertical, Edit, Trash2, Filter
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface Customer {
   id: string;
@@ -38,6 +43,17 @@ export default function ComercialAtendimentos() {
   const { toast } = useToast();
   const [draggedCustomer, setDraggedCustomer] = useState<Customer | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    company: "",
+    notes: "",
+    value: "",
+    source: "",
+    funnelStageId: ""
+  });
 
   // Fetch funnel stages
   const { data: funnelStages = [], isLoading: stagesLoading } = useQuery<FunnelStage[]>({
@@ -152,6 +168,103 @@ export default function ComercialAtendimentos() {
     },
   });
 
+  const editCustomerMutation = useMutation({
+    mutationFn: async (updatedCustomer: Partial<Customer> & { id: string }) => {
+      // Simular edição local até implementar a API
+      console.log(`Editing customer ${updatedCustomer.id}`, updatedCustomer);
+      
+      // Simular delay da API
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      return { success: true, data: updatedCustomer };
+    },
+    onSuccess: (response, variables) => {
+      // Atualizar localmente os dados dos clientes
+      queryClient.setQueryData(["/api/customers"], (oldData: Customer[] | undefined) => {
+        if (!oldData) return oldData;
+        
+        return oldData.map(customer => 
+          customer.id === variables.id 
+            ? { ...customer, ...variables, updatedAt: new Date().toISOString() }
+            : customer
+        );
+      });
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      setEditingCustomer(null);
+      resetEditForm();
+      
+      toast({
+        title: "Sucesso",
+        description: "Cliente atualizado com sucesso!",
+      });
+    },
+    onError: (error) => {
+      console.error("Error editing customer:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao editar cliente. Funcionalidade em desenvolvimento.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const resetEditForm = () => {
+    setEditForm({
+      name: "",
+      phone: "",
+      email: "",
+      company: "",
+      notes: "",
+      value: "",
+      source: "",
+      funnelStageId: ""
+    });
+  };
+
+  const handleEditCustomer = (customer: Customer) => {
+    setEditingCustomer(customer);
+    setEditForm({
+      name: customer.name,
+      phone: customer.phone,
+      email: customer.email || "",
+      company: customer.company || "",
+      notes: customer.notes || "",
+      value: customer.value?.toString() || "",
+      source: customer.source || "",
+      funnelStageId: customer.funnelStageId
+    });
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingCustomer) return;
+    
+    if (!editForm.name.trim() || !editForm.phone.trim()) {
+      toast({
+        title: "Erro",
+        description: "Nome e telefone são obrigatórios",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    editCustomerMutation.mutate({
+      id: editingCustomer.id,
+      name: editForm.name.trim(),
+      phone: editForm.phone.trim(),
+      email: editForm.email.trim() || undefined,
+      company: editForm.company.trim() || undefined,
+      notes: editForm.notes.trim() || undefined,
+      value: editForm.value ? parseFloat(editForm.value) : undefined,
+      source: editForm.source.trim() || undefined,
+      funnelStageId: editForm.funnelStageId
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingCustomer(null);
+    resetEditForm();
+  };
 
   const handleDragStart = (e: React.DragEvent, customer: Customer) => {
     setDraggedCustomer(customer);
@@ -347,7 +460,7 @@ export default function ComercialAtendimentos() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEditCustomer(customer)}>
                             <Edit className="w-4 h-4 mr-2" />
                             Editar
                           </DropdownMenuItem>
@@ -445,6 +558,129 @@ export default function ComercialAtendimentos() {
           </div>
         ))}
       </div>
+
+      {/* Edit Customer Modal */}
+      <Dialog open={!!editingCustomer} onOpenChange={(open) => !open && handleCancelEdit()}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Cliente</DialogTitle>
+            <DialogDescription>
+              Atualize as informações do cliente
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-stage">Etapa do Funil *</Label>
+              <Select value={editForm.funnelStageId} onValueChange={(value) => setEditForm(prev => ({ ...prev, funnelStageId: value }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a etapa" />
+                </SelectTrigger>
+                <SelectContent>
+                  {funnelStages.filter(s => s.isActive).map((stage) => (
+                    <SelectItem key={stage.id} value={stage.id}>
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: stage.color }}
+                        />
+                        {stage.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="edit-name">Nome *</Label>
+              <Input
+                id="edit-name"
+                value={editForm.name}
+                onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Nome do cliente"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-phone">Telefone *</Label>
+              <Input
+                id="edit-phone"
+                value={editForm.phone}
+                onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
+                placeholder="(11) 99999-9999"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-email">Email</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="cliente@empresa.com"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-company">Empresa</Label>
+              <Input
+                id="edit-company"
+                value={editForm.company}
+                onChange={(e) => setEditForm(prev => ({ ...prev, company: e.target.value }))}
+                placeholder="Nome da empresa"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-value">Valor Potencial</Label>
+              <Input
+                id="edit-value"
+                type="number"
+                value={editForm.value}
+                onChange={(e) => setEditForm(prev => ({ ...prev, value: e.target.value }))}
+                placeholder="0.00"
+                step="0.01"
+                min="0"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-source">Origem</Label>
+              <Input
+                id="edit-source"
+                value={editForm.source}
+                onChange={(e) => setEditForm(prev => ({ ...prev, source: e.target.value }))}
+                placeholder="Website, Indicação, etc."
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-notes">Observações</Label>
+              <Textarea
+                id="edit-notes"
+                value={editForm.notes}
+                onChange={(e) => setEditForm(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Anotações sobre o cliente..."
+                rows={3}
+              />
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button variant="outline" onClick={handleCancelEdit}>
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleSaveEdit}
+                disabled={editCustomerMutation.isPending}
+              >
+                {editCustomerMutation.isPending ? "Salvando..." : "Salvar"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
