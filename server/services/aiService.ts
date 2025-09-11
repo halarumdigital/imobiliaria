@@ -491,12 +491,12 @@ export class AIService {
           contactPhone: phone,
           lastMessage: userMessage
         });
-        
-        // 🎯 NOVA FUNCIONALIDADE: Criar customer automaticamente no kanban quando nova conversa é iniciada
-        await this.createCustomerFromNewConversation(dbInstanceId, phone, conversation.id);
       } else {
         console.log(`💾 Usando conversa existente: ${conversation.id}`);
       }
+      
+      // 🎯 NOVA FUNCIONALIDADE: Criar customer automaticamente no kanban (verifica se já existe)
+      await this.createOrUpdateCustomerFromConversation(dbInstanceId, phone, conversation.id);
 
       // Salvar mensagem do usuário (com dados de imagem se presente)
       const userMessageData: any = {
@@ -533,9 +533,9 @@ export class AIService {
   }
 
   // 🎯 NOVA FUNCIONALIDADE: Criar customer automaticamente no kanban para novas conversas
-  private async createCustomerFromNewConversation(whatsappInstanceId: string, phone: string, conversationId: string) {
+  private async createOrUpdateCustomerFromConversation(whatsappInstanceId: string, phone: string, conversationId: string) {
     try {
-      console.log(`🎯 [CUSTOMER] Criando customer para nova conversa - Phone: ${phone}, ConversationId: ${conversationId}`);
+      console.log(`🎯 [CUSTOMER] Verificando/criando customer para conversa - Phone: ${phone}, ConversationId: ${conversationId}`);
       
       const storage = getStorage();
       
@@ -552,6 +552,15 @@ export class AIService {
       const existingCustomer = await storage.getCustomerByPhone(phone, instance.companyId);
       if (existingCustomer) {
         console.log(`⚠️ [CUSTOMER] Customer já existe para este telefone: ${phone} na empresa ${instance.companyId}`);
+        
+        // Atualizar o lastContact e conversationId se necessário
+        if (existingCustomer.conversationId !== conversationId) {
+          console.log(`📝 [CUSTOMER] Atualizando conversationId do customer existente`);
+          await storage.updateCustomer(existingCustomer.id, {
+            conversationId: conversationId,
+            lastContact: new Date().toISOString().slice(0, 19).replace('T', ' ')
+          });
+        }
         return;
       }
       
