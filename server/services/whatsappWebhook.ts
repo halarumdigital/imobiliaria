@@ -326,6 +326,14 @@ export class WhatsAppWebhookService {
       }
       
       console.log(`📞 Sender phone extracted: ${senderPhone} (from remoteJid: ${(evolutionData.data as any).key?.remoteJid})`);
+      
+      // Extrair o pushName (nome do contato no WhatsApp)
+      const pushName = (evolutionData.data as any).pushName || (evolutionData.data as any).key?.pushName || null;
+      if (pushName) {
+        console.log(`👤 Contact pushName: ${pushName}`);
+      } else {
+        console.log(`👤 No pushName found in webhook data`);
+      }
 
       // Buscar o nome da instância no Evolution API pela instanceId
       console.log(`🔍 About to search for instance ID: ${data.instanceId}`);
@@ -347,7 +355,8 @@ export class WhatsAppWebhookService {
         mediaBase64,
         caption,
         mimeType,
-        messageType: isImageMessage ? 'image' : isAudioMessage ? 'audio' : 'text'
+        messageType: isImageMessage ? 'image' : isAudioMessage ? 'audio' : 'text',
+        pushName: pushName // Adicionar o nome do contato
       };
 
       console.log(`🔄 About to call AIService.processMessage with:`, {
@@ -404,14 +413,15 @@ export class WhatsAppWebhookService {
       
       console.log(`💾 [DEBUG] Final agentId to save: ${agentIdToSave}`);
       
-      // Preparar dados de imagem para salvar
-      const messageData = isImageMessage ? {
-        messageType: 'image',
+      // Preparar dados de imagem/áudio e pushName para salvar
+      const messageData = {
+        messageType: isImageMessage ? 'image' : isAudioMessage ? 'audio' : 'text',
         mediaUrl,
         mediaBase64,
         caption,
-        mimeType
-      } : undefined;
+        mimeType,
+        pushName // Adicionar o nome do contato
+      };
 
       // Se ainda não tem agentId, não salvar a mensagem com agente
       if (agentIdToSave) {

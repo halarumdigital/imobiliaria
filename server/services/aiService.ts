@@ -18,6 +18,7 @@ export interface MessageContext {
   caption?: string;
   mimeType?: string;
   messageType?: string;
+  pushName?: string; // Nome do contato no WhatsApp
 }
 
 export interface AgentResponse {
@@ -465,6 +466,7 @@ export class AIService {
     mediaUrl?: string;
     mediaBase64?: string;
     caption?: string;
+    pushName?: string; // Nome do contato no WhatsApp
   }) {
     try {
       const storage = getStorage();
@@ -496,7 +498,7 @@ export class AIService {
       }
       
       // 🎯 NOVA FUNCIONALIDADE: Criar customer automaticamente no kanban (verifica se já existe)
-      await this.createOrUpdateCustomerFromConversation(dbInstanceId, phone, conversation.id);
+      await this.createOrUpdateCustomerFromConversation(dbInstanceId, phone, conversation.id, messageData?.pushName);
 
       // Salvar mensagem do usuário (com dados de imagem se presente)
       const userMessageData: any = {
@@ -533,7 +535,7 @@ export class AIService {
   }
 
   // 🎯 NOVA FUNCIONALIDADE: Criar customer automaticamente no kanban para novas conversas
-  private async createOrUpdateCustomerFromConversation(whatsappInstanceId: string, phone: string, conversationId: string) {
+  private async createOrUpdateCustomerFromConversation(whatsappInstanceId: string, phone: string, conversationId: string, pushName?: string) {
     try {
       console.log(`🎯 [CUSTOMER] Verificando/criando customer para conversa - Phone: ${phone}, ConversationId: ${conversationId}`);
       
@@ -575,8 +577,9 @@ export class AIService {
       
       console.log(`📊 [CUSTOMER] Primeira etapa ativa encontrada: ${firstActiveStage.name} (${firstActiveStage.id})`);
       
-      // Extrair nome do telefone (usar número como nome temporário)
-      const customerName = `Cliente ${phone.slice(-4)}`; // Últimos 4 dígitos como identificação
+      // Usar pushName se disponível, senão usar o número completo
+      const customerName = pushName || phone;
+      console.log(`👤 [CUSTOMER] Nome do customer: ${customerName} (pushName: ${pushName ? 'sim' : 'não'})`)
       
       // Criar o customer
       const newCustomer = await storage.createCustomer({
