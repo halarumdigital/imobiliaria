@@ -1754,29 +1754,52 @@ export class MySQLStorage implements IStorage {
     
     const id = randomUUID();
     
-    await this.connection.execute(
-      `INSERT INTO customers (id, company_id, name, phone, email, company, funnel_stage_id, last_contact, notes, value, source, conversation_id) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        id,
-        customer.companyId,
-        customer.name,
-        customer.phone,
-        customer.email || null,
-        customer.company || null,
-        customer.funnelStageId,
-        customer.lastContact || null,
-        customer.notes || null,
-        customer.value || null,
-        customer.source || 'WhatsApp',
-        customer.conversationId || null
-      ]
-    );
+    console.log('🔍 [STORAGE] Attempting to create customer:', {
+      id,
+      companyId: customer.companyId,
+      name: customer.name,
+      phone: customer.phone,
+      funnelStageId: customer.funnelStageId,
+      lastContact: customer.lastContact,
+      source: customer.source,
+      conversationId: customer.conversationId
+    });
     
-    const newCustomer = await this.getCustomer(id);
-    if (!newCustomer) throw new Error('Failed to create customer');
-    
-    return newCustomer;
+    try {
+      await this.connection.execute(
+        `INSERT INTO customers (id, company_id, name, phone, email, company, funnel_stage_id, last_contact, notes, value, source, conversation_id) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id,
+          customer.companyId,
+          customer.name,
+          customer.phone,
+          customer.email || null,
+          customer.company || null,
+          customer.funnelStageId,
+          customer.lastContact || null,
+          customer.notes || null,
+          customer.value || null,
+          customer.source || 'WhatsApp',
+          customer.conversationId || null
+        ]
+      );
+      
+      console.log('✅ [STORAGE] Customer insert successful, fetching created customer...');
+      
+      const newCustomer = await this.getCustomer(id);
+      if (!newCustomer) {
+        console.error('❌ [STORAGE] Customer was inserted but could not be retrieved');
+        throw new Error('Failed to create customer');
+      }
+      
+      console.log('✅ [STORAGE] Customer created successfully:', newCustomer.id);
+      return newCustomer;
+      
+    } catch (error) {
+      console.error('❌ [STORAGE] Error creating customer:', error);
+      throw error;
+    }
   }
 
   async updateCustomer(id: string, updates: Partial<Customer>): Promise<Customer> {
