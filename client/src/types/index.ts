@@ -136,3 +136,20 @@ export interface FunnelStage {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface Customer {
+  id: string;
+  companyId: string;
+  name: string;
+  phone: string;
+  email?: string;
+  company?: string;
+  funnelStageId: string;
+  lastContact?: string;
+  notes?: string;
+  value?: number;
+  source?: string;
+  conversationId?: string;
+  createdAt: string;
+  updatedAt: string;
+}

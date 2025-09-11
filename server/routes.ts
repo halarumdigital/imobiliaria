@@ -24,7 +24,7 @@ import {
   insertEvolutionConfigSchema, insertAiConfigSchema, insertWhatsappInstanceSchema,
   insertAiAgentSchema, insertConversationSchema, insertMessageSchema,
   insertContactListSchema, insertContactListItemSchema, insertScheduledMessageSchema,
-  insertFunnelStageSchema
+  insertFunnelStageSchema, insertCustomerSchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -3334,6 +3334,175 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Delete funnel stage error:", error);
       res.status(500).json({ error: "Erro ao excluir etapa do funil" });
+    }
+  });
+
+  // Customer endpoints
+  app.get("/api/customers", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+
+      const customers = await storage.getCustomersByCompany(req.user.companyId);
+      res.json(customers);
+    } catch (error) {
+      console.error("Get customers error:", error);
+      res.status(500).json({ error: "Erro ao buscar clientes" });
+    }
+  });
+
+  app.post("/api/customers", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+
+      const customerData = insertCustomerSchema.parse({
+        ...req.body,
+        companyId: req.user.companyId,
+      });
+
+      const customer = await storage.createCustomer(customerData);
+      res.status(201).json(customer);
+    } catch (error) {
+      console.error("Create customer error:", error);
+      res.status(500).json({ error: "Erro ao criar cliente" });
+    }
+  });
+
+  app.put("/api/customers/:id", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const customer = await storage.getCustomer(id);
+      
+      if (!customer) {
+        return res.status(404).json({ error: "Cliente não encontrado" });
+      }
+
+      // Check company access
+      if (req.user?.role !== 'admin' && customer.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Acesso negado" });
+      }
+
+      const updatedCustomer = await storage.updateCustomer(id, req.body);
+      res.json(updatedCustomer);
+    } catch (error) {
+      console.error("Update customer error:", error);
+      res.status(500).json({ error: "Erro ao atualizar cliente" });
+    }
+  });
+
+  app.delete("/api/customers/:id", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const customer = await storage.getCustomer(id);
+      
+      if (!customer) {
+        return res.status(404).json({ error: "Cliente não encontrado" });
+      }
+
+      // Check company access
+      if (req.user?.role !== 'admin' && customer.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Acesso negado" });
+      }
+
+      await storage.deleteCustomer(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete customer error:", error);
+      res.status(500).json({ error: "Erro ao excluir cliente" });
+    }
+  });
+
+  // Debug route to check customers table and data
+  app.get("/api/debug/customers", async (req, res) => {
+    try {
+      const storage = getStorage();
+      
+      // Get MySQL connection from storage
+      const connection = (storage as any).connection;
+      if (!connection) {
+        throw new Error('No database connection');
+      }
+
+      // Check if customers table exists
+      const [tables] = await connection.execute(`
+        SELECT TABLE_NAME 
+        FROM INFORMATION_SCHEMA.TABLES 
+        WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'customers'
+      `, [process.env.MYSQL_DATABASE]);
+
+      // Get table structure if exists
+      let structure = [];
+      if (tables.length > 0) {
+        const [columns] = await connection.execute(`DESCRIBE customers`);
+        structure = columns;
+      }
+
+      // Try to get customers count
+      let customersCount = 0;
+      let customersData = [];
+      if (tables.length > 0) {
+        try {
+          const [countResult] = await connection.execute(`SELECT COUNT(*) as count FROM customers`);
+          customersCount = countResult[0].count;
+          
+          const [customers] = await connection.execute(`SELECT * FROM customers LIMIT 5`);
+          customersData = customers;
+        } catch (error) {
+          console.log("Error getting customers data:", error.message);
+        }
+      }
+
+      res.json({ 
+        tableExists: tables.length > 0,
+        structure,
+        customersCount,
+        customersData
+      });
+    } catch (error) {
+      console.error("Error debugging customers:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Temporary route to create customers table
+  app.post("/api/create-customers-table", async (req, res) => {
+    try {
+      const storage = getStorage();
+      
+      // Get MySQL connection from storage
+      const connection = (storage as any).connection;
+      if (!connection) {
+        throw new Error('No database connection');
+      }
+
+      // Create customers table
+      await connection.execute(`
+        CREATE TABLE IF NOT EXISTS customers (
+          id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+          company_id VARCHAR(36) NOT NULL,
+          name VARCHAR(255) NOT NULL,
+          phone VARCHAR(20) NOT NULL,
+          email VARCHAR(255),
+          company VARCHAR(255),
+          funnel_stage_id VARCHAR(36) NOT NULL,
+          last_contact TIMESTAMP,
+          notes TEXT,
+          value DECIMAL(10,2),
+          source VARCHAR(255) DEFAULT 'WhatsApp',
+          conversation_id VARCHAR(36),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          UNIQUE KEY customers_phone_company_unique (phone, company_id)
+        )
+      `);
+
+      res.json({ success: true, message: "Customers table created successfully" });
+    } catch (error) {
+      console.error("Error creating customers table:", error);
+      res.status(500).json({ error: error.message });
     }
   });
 

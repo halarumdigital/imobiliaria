@@ -5,7 +5,8 @@ import {
   AiConfiguration, InsertAiConfiguration, WhatsappInstance, InsertWhatsappInstance,
   AiAgent, InsertAiAgent, Conversation, InsertConversation, Message, InsertMessage,
   ContactList, InsertContactList, ContactListItem, InsertContactListItem,
-  ScheduledMessage, InsertScheduledMessage, FunnelStage, InsertFunnelStage
+  ScheduledMessage, InsertScheduledMessage, FunnelStage, InsertFunnelStage,
+  Customer, InsertCustomer
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -94,6 +95,14 @@ export interface IStorage {
   updateFunnelStage(id: string, updates: Partial<FunnelStage>): Promise<FunnelStage>;
   deleteFunnelStage(id: string): Promise<void>;
   reorderFunnelStage(id: string, direction: 'up' | 'down', companyId: string): Promise<{ success: boolean }>;
+  
+  // Customers
+  getCustomer(id: string): Promise<Customer | undefined>;
+  getCustomersByCompany(companyId: string): Promise<Customer[]>;
+  getCustomerByPhone(phone: string, companyId: string): Promise<Customer | undefined>;
+  createCustomer(customer: InsertCustomer): Promise<Customer>;
+  updateCustomer(id: string, updates: Partial<Customer>): Promise<Customer>;
+  deleteCustomer(id: string): Promise<void>;
 }
 
 export class MySQLStorage implements IStorage {
@@ -302,6 +311,36 @@ export class MySQLStorage implements IStorage {
         error_message TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )`,
+
+      `CREATE TABLE IF NOT EXISTS funnel_stages (
+        id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+        company_id VARCHAR(36) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        color VARCHAR(7) NOT NULL DEFAULT '#3B82F6',
+        \`order\` INT NOT NULL DEFAULT 0,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )`,
+
+      `CREATE TABLE IF NOT EXISTS customers (
+        id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+        company_id VARCHAR(36) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        phone VARCHAR(20) NOT NULL,
+        email VARCHAR(255),
+        company VARCHAR(255),
+        funnel_stage_id VARCHAR(36) NOT NULL,
+        last_contact TIMESTAMP,
+        notes TEXT,
+        value DECIMAL(10,2),
+        source VARCHAR(255) DEFAULT 'WhatsApp',
+        conversation_id VARCHAR(36),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY customers_phone_company_unique (phone, company_id)
       )`
     ];
 
@@ -1667,6 +1706,166 @@ export class MySQLStorage implements IStorage {
       await this.connection.rollback();
       throw error;
     }
+  }
+
+  // Customer methods
+  async getCustomer(id: string): Promise<Customer | undefined> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM customers WHERE id = ?',
+      [id]
+    );
+    
+    const customers = rows as any[];
+    if (customers.length === 0) return undefined;
+    
+    return this.parseCustomer(customers[0]);
+  }
+
+  async getCustomersByCompany(companyId: string): Promise<Customer[]> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM customers WHERE company_id = ? ORDER BY created_at DESC',
+      [companyId]
+    );
+    
+    const customers = rows as any[];
+    return customers.map(row => this.parseCustomer(row));
+  }
+
+  async getCustomerByPhone(phone: string, companyId: string): Promise<Customer | undefined> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM customers WHERE phone = ? AND company_id = ?',
+      [phone, companyId]
+    );
+    
+    const customers = rows as any[];
+    if (customers.length === 0) return undefined;
+    
+    return this.parseCustomer(customers[0]);
+  }
+
+  async createCustomer(customer: InsertCustomer): Promise<Customer> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const id = randomUUID();
+    
+    await this.connection.execute(
+      `INSERT INTO customers (id, company_id, name, phone, email, company, funnel_stage_id, last_contact, notes, value, source, conversation_id) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        customer.companyId,
+        customer.name,
+        customer.phone,
+        customer.email || null,
+        customer.company || null,
+        customer.funnelStageId,
+        customer.lastContact || null,
+        customer.notes || null,
+        customer.value || null,
+        customer.source || 'WhatsApp',
+        customer.conversationId || null
+      ]
+    );
+    
+    const newCustomer = await this.getCustomer(id);
+    if (!newCustomer) throw new Error('Failed to create customer');
+    
+    return newCustomer;
+  }
+
+  async updateCustomer(id: string, updates: Partial<Customer>): Promise<Customer> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const fields = [];
+    const values = [];
+    
+    if (updates.name !== undefined) {
+      fields.push('name = ?');
+      values.push(updates.name);
+    }
+    if (updates.phone !== undefined) {
+      fields.push('phone = ?');
+      values.push(updates.phone);
+    }
+    if (updates.email !== undefined) {
+      fields.push('email = ?');
+      values.push(updates.email);
+    }
+    if (updates.company !== undefined) {
+      fields.push('company = ?');
+      values.push(updates.company);
+    }
+    if (updates.funnelStageId !== undefined) {
+      fields.push('funnel_stage_id = ?');
+      values.push(updates.funnelStageId);
+    }
+    if (updates.lastContact !== undefined) {
+      fields.push('last_contact = ?');
+      values.push(updates.lastContact);
+    }
+    if (updates.notes !== undefined) {
+      fields.push('notes = ?');
+      values.push(updates.notes);
+    }
+    if (updates.value !== undefined) {
+      fields.push('value = ?');
+      values.push(updates.value);
+    }
+    if (updates.source !== undefined) {
+      fields.push('source = ?');
+      values.push(updates.source);
+    }
+    if (updates.conversationId !== undefined) {
+      fields.push('conversation_id = ?');
+      values.push(updates.conversationId);
+    }
+    
+    if (fields.length === 0) {
+      throw new Error('No fields to update');
+    }
+    
+    values.push(id);
+    
+    await this.connection.execute(
+      `UPDATE customers SET ${fields.join(', ')}, updated_at = NOW() WHERE id = ?`,
+      values
+    );
+    
+    const updatedCustomer = await this.getCustomer(id);
+    if (!updatedCustomer) throw new Error('Customer not found after update');
+    
+    return updatedCustomer;
+  }
+
+  async deleteCustomer(id: string): Promise<void> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    await this.connection.execute('DELETE FROM customers WHERE id = ?', [id]);
+  }
+
+  private parseCustomer(row: any): Customer {
+    return {
+      id: row.id,
+      companyId: row.company_id,
+      name: row.name,
+      phone: row.phone,
+      email: row.email,
+      company: row.company,
+      funnelStageId: row.funnel_stage_id,
+      lastContact: row.last_contact,
+      notes: row.notes,
+      value: row.value ? parseFloat(row.value) : undefined,
+      source: row.source,
+      conversationId: row.conversation_id,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
   }
 }
 

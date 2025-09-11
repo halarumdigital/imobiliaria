@@ -28,7 +28,11 @@
       "Bash(claude mcp:*)",
       "Bash(mysql:*)",
       "Read(//c/Users/Gilliard/Desktop/print/**)",
-      "Bash(npx drizzle-kit push:*)"
+      "Bash(npx drizzle-kit push:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(cmd /c:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

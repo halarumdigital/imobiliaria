@@ -482,13 +482,18 @@ export class AIService {
       const conversations = await storage.getConversationsByInstance(dbInstanceId);
       let conversation = conversations.find(c => c.contactPhone === phone);
       
+      let isNewConversation = false;
       if (!conversation) {
         console.log(`💾 Criando nova conversa para ${phone}`);
+        isNewConversation = true;
         conversation = await storage.createConversation({
           whatsappInstanceId: dbInstanceId,
           contactPhone: phone,
           lastMessage: userMessage
         });
+        
+        // 🎯 NOVA FUNCIONALIDADE: Criar customer automaticamente no kanban quando nova conversa é iniciada
+        await this.createCustomerFromNewConversation(dbInstanceId, phone, conversation.id);
       } else {
         console.log(`💾 Usando conversa existente: ${conversation.id}`);
       }
@@ -524,6 +529,68 @@ export class AIService {
     } catch (error) {
       console.error("❌ Error saving conversation:", error);
       throw error;
+    }
+  }
+
+  // 🎯 NOVA FUNCIONALIDADE: Criar customer automaticamente no kanban para novas conversas
+  private async createCustomerFromNewConversation(whatsappInstanceId: string, phone: string, conversationId: string) {
+    try {
+      console.log(`🎯 [CUSTOMER] Criando customer para nova conversa - Phone: ${phone}, ConversationId: ${conversationId}`);
+      
+      const storage = getStorage();
+      
+      // Obter a instância para determinar a empresa
+      const instance = await storage.getWhatsappInstance(whatsappInstanceId);
+      if (!instance?.companyId) {
+        console.log(`❌ [CUSTOMER] Instância ou companyId não encontrada para WhatsApp instance: ${whatsappInstanceId}`);
+        return;
+      }
+      
+      console.log(`🏢 [CUSTOMER] Company ID encontrado: ${instance.companyId}`);
+      
+      // Verificar se já existe um customer com este telefone na empresa
+      const existingCustomer = await storage.getCustomerByPhone(phone, instance.companyId);
+      if (existingCustomer) {
+        console.log(`⚠️ [CUSTOMER] Customer já existe para este telefone: ${phone} na empresa ${instance.companyId}`);
+        return;
+      }
+      
+      // Buscar a primeira etapa ativa do funil desta empresa para colocar o customer
+      const funnelStages = await storage.getFunnelStagesByCompany(instance.companyId);
+      const firstActiveStage = funnelStages.find(stage => stage.isActive);
+      
+      if (!firstActiveStage) {
+        console.log(`❌ [CUSTOMER] Nenhuma etapa ativa encontrada no funil da empresa ${instance.companyId}`);
+        return;
+      }
+      
+      console.log(`📊 [CUSTOMER] Primeira etapa ativa encontrada: ${firstActiveStage.name} (${firstActiveStage.id})`);
+      
+      // Extrair nome do telefone (usar número como nome temporário)
+      const customerName = `Cliente ${phone.slice(-4)}`; // Últimos 4 dígitos como identificação
+      
+      // Criar o customer
+      const newCustomer = await storage.createCustomer({
+        companyId: instance.companyId,
+        name: customerName,
+        phone: phone,
+        funnelStageId: firstActiveStage.id,
+        lastContact: new Date().toISOString().slice(0, 19).replace('T', ' '),
+        source: 'WhatsApp',
+        conversationId: conversationId
+      });
+      
+      console.log(`✅ [CUSTOMER] Customer criado com sucesso no kanban:`, {
+        id: newCustomer.id,
+        name: newCustomer.name,
+        phone: newCustomer.phone,
+        stage: firstActiveStage.name,
+        conversationId: conversationId
+      });
+      
+    } catch (error) {
+      console.error("❌ [CUSTOMER] Erro ao criar customer para nova conversa:", error);
+      // Não vamos interromper o fluxo principal por este erro
     }
   }
 }

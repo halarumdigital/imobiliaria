@@ -369,7 +369,13 @@ export class WhatsAppWebhookService {
 
       // Enviar resposta via Evolution API
       console.log(`🚀 About to call sendResponse with instance: ${instanceName}, phone: ${senderPhone}`);
-      await this.sendResponse(instanceName, senderPhone, aiResponse.response);
+      try {
+        await this.sendResponse(instanceName, senderPhone, aiResponse.response);
+        console.log(`✅ Response sent successfully to ${senderPhone}`);
+      } catch (sendError) {
+        console.error(`❌ Error sending response to ${senderPhone}:`, sendError);
+        console.log(`⚠️ Continuing to save conversation despite send error...`);
+      }
 
       // Salvar conversa no banco de dados
       let agentIdToSave = aiResponse.activeAgentId;
@@ -410,7 +416,7 @@ export class WhatsAppWebhookService {
       // Se ainda não tem agentId, não salvar a mensagem com agente
       if (agentIdToSave) {
         await aiService.saveConversation(
-          data.instanceId,
+          instanceName,
           senderPhone,
           messageText,
           aiResponse.response,
@@ -421,7 +427,7 @@ export class WhatsAppWebhookService {
         console.log(`⚠️ [DEBUG] No valid agentId found, skipping conversation save with agent tracking`);
         // Salvar apenas a conversa sem rastreamento de agente
         await aiService.saveConversation(
-          data.instanceId,
+          instanceName,
           senderPhone,
           messageText,
           aiResponse.response,

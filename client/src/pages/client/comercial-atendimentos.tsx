@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { apiGet, apiPut } from "@/lib/api";
-import { FunnelStage } from "@/types";
+import { FunnelStage, Customer } from "@/types";
 import { 
   Users, MessageCircle, Phone, Calendar, 
   MoreVertical, Edit, Trash2, Filter
@@ -19,20 +19,7 @@ import {
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-interface Customer {
-  id: string;
-  name: string;
-  phone: string;
-  email?: string;
-  company?: string;
-  funnelStageId: string;
-  lastContact?: string;
-  notes?: string;
-  value?: number;
-  source?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+// Customer interface moved to types file
 
 interface KanbanColumn {
   stage: FunnelStage;
@@ -62,13 +49,18 @@ export default function ComercialAtendimentos() {
     queryFn: () => apiGet("/funnel-stages"),
   });
 
-  // Inicializar clientes locais quando necessário
+  // Fetch customers
+  const { data: customers = [], isLoading: customersLoading } = useQuery<Customer[]>({
+    queryKey: ["/api/customers"],
+    queryFn: () => apiGet("/customers"),
+  });
+
+  // Sincronizar customers do backend com estado local
   useEffect(() => {
-    if (funnelStages.length > 0 && localCustomers.length === 0) {
-      // Apenas inicializar com array vazio
-      setLocalCustomers([]);
+    if (customers.length > 0) {
+      setLocalCustomers(customers);
     }
-  }, [funnelStages, localCustomers.length]);
+  }, [customers]);
 
   // Create Kanban columns based on funnel stages
   const kanbanColumns: KanbanColumn[] = funnelStages
@@ -86,21 +78,18 @@ export default function ComercialAtendimentos() {
 
   const editCustomerMutation = useMutation({
     mutationFn: async (updatedCustomer: Partial<Customer> & { id: string }) => {
-      // Simular edição local até implementar a API
-      console.log(`Editing customer ${updatedCustomer.id}`, updatedCustomer);
-      
-      // Simular delay da API
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      return { success: true, data: updatedCustomer };
+      return apiPut(`/customers/${updatedCustomer.id}`, updatedCustomer);
     },
     onSuccess: (response, variables) => {
       // Atualizar o estado local dos clientes
       setLocalCustomers(prev => prev.map(customer => 
         customer.id === variables.id 
-          ? { ...customer, ...variables, updatedAt: new Date().toISOString() }
+          ? { ...customer, ...response }
           : customer
       ));
+      
+      // Invalidar a query para refrescar os dados
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
       
       setEditingCustomer(null);
       resetEditForm();
@@ -114,7 +103,7 @@ export default function ComercialAtendimentos() {
       console.error("Error editing customer:", error);
       toast({
         title: "Erro",
-        description: "Erro ao editar cliente. Funcionalidade em desenvolvimento.",
+        description: "Erro ao editar cliente.",
         variant: "destructive",
       });
     },
@@ -253,8 +242,8 @@ export default function ComercialAtendimentos() {
     return phone.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
   };
 
-  if (stagesLoading) {
-    return <div>Carregando etapas do funil...</div>;
+  if (stagesLoading || customersLoading) {
+    return <div>Carregando etapas do funil e clientes...</div>;
   }
 
   if (funnelStages.length === 0) {

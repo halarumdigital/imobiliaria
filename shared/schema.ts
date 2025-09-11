@@ -178,6 +178,23 @@ export const funnelStages = mysqlTable("funnel_stages", {
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });
 
+export const customers = mysqlTable("customers", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  companyId: varchar("company_id", { length: 36 }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  phone: varchar("phone", { length: 20 }).notNull().unique(),
+  email: varchar("email", { length: 255 }),
+  company: varchar("company", { length: 255 }),
+  funnelStageId: varchar("funnel_stage_id", { length: 36 }).notNull(),
+  lastContact: timestamp("last_contact"),
+  notes: text("notes"),
+  value: decimal("value", { precision: 10, scale: 2 }),
+  source: varchar("source", { length: 255 }).default("WhatsApp"),
+  conversationId: varchar("conversation_id", { length: 36 }), // Link to the conversation that created this customer
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
@@ -307,6 +324,20 @@ export const insertFunnelStageSchema = createInsertSchema(funnelStages).pick({
   isActive: true,
 });
 
+export const insertCustomerSchema = createInsertSchema(customers).pick({
+  companyId: true,
+  name: true,
+  phone: true,
+  email: true,
+  company: true,
+  funnelStageId: true,
+  lastContact: true,
+  notes: true,
+  value: true,
+  source: true,
+  conversationId: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -334,3 +365,5 @@ export type ScheduledMessage = typeof scheduledMessages.$inferSelect;
 export type InsertScheduledMessage = z.infer<typeof insertScheduledMessageSchema>;
 export type FunnelStage = typeof funnelStages.$inferSelect;
 export type InsertFunnelStage = z.infer<typeof insertFunnelStageSchema>;
+export type Customer = typeof customers.$inferSelect;
+export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
