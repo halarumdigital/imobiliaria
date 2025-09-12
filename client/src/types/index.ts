@@ -32,9 +32,17 @@ export interface GlobalConfiguration {
   cores_primaria: string;
   cores_secundaria: string;
   cores_fundo: string;
+  // Campos em camelCase vindos do backend
+  coresPrimaria?: string;
+  coresSecundaria?: string;
+  coresFundo?: string;
   nome_sistema: string;
   nome_rodape: string;
   nome_aba_navegador: string;
+  // Campos em camelCase vindos do backend
+  nomeSistema?: string;
+  nomeRodape?: string;
+  nomeAbaNavegador?: string;
   webshare_token?: string;
   updated_at: string;
 }

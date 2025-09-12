@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Aplicar cor primária personalizada apenas no campo focado */
+/* Aplicar cor primária personalizada nos elementos */
 input:focus,
 textarea:focus,
 select:focus,
@@ -32,7 +32,7 @@ select:focus,
 
 /* Menu sidebar - item ativo/selecionado com máxima especificidade */
 div.bg-sidebar-primary.text-sidebar-primary-foreground {
-  background-color: hsl(var(--primary)) !important;
+  background-color: #64bfdd !important;
   color: white !important;
 }
 
@@ -50,8 +50,7 @@ div.bg-sidebar-primary.text-sidebar-primary-foreground span {
 
 /* Fallback para qualquer item com essas classes */
 .bg-sidebar-primary {
-  background-color: hsl(var(--primary)) !important;
-  background-color: #bd64dd !important; /* Fallback direto */
+  background-color: #64bfdd !important;
 }
 
 .text-sidebar-primary-foreground {
@@ -60,7 +59,7 @@ div.bg-sidebar-primary.text-sidebar-primary-foreground span {
 
 /* CSS de emergência com seletor super específico */
 nav div.bg-sidebar-primary.text-sidebar-primary-foreground {
-  background-color: #bd64dd !important;
+  background-color: #64bfdd !important;
   color: white !important;
 }
 
@@ -71,10 +70,135 @@ nav div.bg-sidebar-primary.text-sidebar-primary-foreground span {
 
 /* Aplicar cores personalizadas apenas quando necessário */
 
-/* APENAS botão de login - muito específico */
-form button[type="submit"] {
-  background-color: #bd64dd !important;
+/* Botões primários - aplicar cor primária global com máxima especificidade */
+button[type="submit"],
+button:not([variant]):not(.variant-outline):not(.variant-secondary):not(.variant-ghost):not(.variant-destructive),
+.bg-primary,
+button.bg-primary,
+[data-color="primary"],
+.btn-primary,
+button[class*="bg-primary"],
+[class*="primary"]:not([class*="outline"]):not([class*="secondary"]),
+[role="button"]:not([class*="outline"]):not([class*="secondary"]):not([class*="ghost"]) {
+  background-color: hsl(var(--primary)) !important;
   color: white !important;
+  border-color: hsl(var(--primary)) !important;
+}
+
+button[type="submit"]:hover,
+button:not([variant]):not(.variant-outline):not(.variant-secondary):not(.variant-ghost):not(.variant-destructive):hover,
+.bg-primary:hover,
+button.bg-primary:hover,
+[data-color="primary"]:hover,
+.btn-primary:hover,
+button[class*="bg-primary"]:hover,
+[class*="primary"]:not([class*="outline"]):not([class*="secondary"]):hover,
+[role="button"]:not([class*="outline"]):not([class*="secondary"]):not([class*="ghost"]):hover {
+  background-color: hsl(var(--primary) / 0.9) !important;
+  color: white !important;
+  border-color: hsl(var(--primary) / 0.9) !important;
+}
+
+/* Botões com bordas primárias */
+button[variant="outline"],
+.border-primary,
+[class*="outline"][class*="primary"] {
+  border-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary)) !important;
+}
+
+button[variant="outline"]:hover,
+.border-primary:hover,
+[class*="outline"][class*="primary"]:hover {
+  background-color: hsl(var(--primary)) !important;
+  color: white !important;
+}
+
+/* Links e elementos interativos */
+a[class*="primary"],
+.text-primary,
+[class*="text-primary"],
+.link-primary {
+  color: hsl(var(--primary)) !important;
+}
+
+a[class*="primary"]:hover,
+.text-primary:hover,
+[class*="text-primary"]:hover,
+.link-primary:hover {
+  color: hsl(var(--primary) / 0.8) !important;
+}
+
+/* Elementos com background secundário */
+.bg-secondary {
+  background-color: hsl(var(--secondary)) !important;
+  color: white !important;
+}
+
+.bg-secondary:hover {
+  background-color: hsl(var(--secondary) / 0.9) !important;
+}
+
+/* Força a aplicação em todos os botões do sistema */
+body button:not(.ignore-theme):not([class*="destructive"]):not([class*="outline"]):not([class*="secondary"]):not([class*="ghost"]):not([class*="muted"]) {
+  background-color: #64bfdd !important;
+  color: white !important;
+  border-color: #64bfdd !important;
+}
+
+body button:not(.ignore-theme):not([class*="destructive"]):not([class*="outline"]):not([class*="secondary"]):not([class*="ghost"]):not([class*="muted"]):hover {
+  background-color: #5ab3d2 !important;
+}
+
+/* Classes específicas do Shadcn/UI */
+.inline-flex.items-center.justify-center,
+[class*="button"]:not([class*="outline"]):not([class*="secondary"]):not([class*="ghost"]),
+[data-testid*="button"]:not([data-testid*="outline"]):not([data-testid*="secondary"]) {
+  background-color: hsl(var(--primary)) !important;
+  color: white !important;
+  border-color: hsl(var(--primary)) !important;
+}
+
+.inline-flex.items-center.justify-center:hover,
+[class*="button"]:not([class*="outline"]):not([class*="secondary"]):not([class*="ghost"]):hover,
+[data-testid*="button"]:not([data-testid*="outline"]):not([data-testid*="secondary"]):hover {
+  background-color: hsl(var(--primary) / 0.9) !important;
+}
+
+/* Regra universal para capturar elementos do Tailwind/Shadcn que usam bg-blue ou similar */
+[class*="bg-blue"],
+[class*="bg-indigo"],
+[class*="bg-violet"],
+[class*="bg-purple"] {
+  background-color: hsl(var(--primary)) !important;
+  color: white !important;
+}
+
+[class*="bg-blue"]:hover,
+[class*="bg-indigo"]:hover,
+[class*="bg-violet"]:hover,
+[class*="bg-purple"]:hover {
+  background-color: hsl(var(--primary) / 0.9) !important;
+}
+
+/* Aplicação forçada em componentes comuns do sistema */
+.rounded-md.inline-flex:not([data-variant="outline"]):not([data-variant="secondary"]):not([data-variant="ghost"]):not([class*="outline"]):not([class*="secondary"]):not([class*="ghost"]),
+.rounded-lg.inline-flex:not([data-variant="outline"]):not([data-variant="secondary"]):not([data-variant="ghost"]):not([class*="outline"]):not([class*="secondary"]):not([class*="ghost"]),
+.rounded.inline-flex:not([data-variant="outline"]):not([data-variant="secondary"]):not([data-variant="ghost"]):not([class*="outline"]):not([class*="secondary"]):not([class*="ghost"]) {
+  background-color: hsl(var(--primary)) !important;
+  color: white !important;
+}
+
+/* Especificamente para botões do shadcn/ui */
+button.inline-flex.items-center.justify-center:not([data-variant="outline"]):not([data-variant="secondary"]):not([data-variant="ghost"]):not([class*="outline"]):not([class*="secondary"]):not([class*="ghost"]),
+.inline-flex.items-center.justify-center.whitespace-nowrap:not([data-variant="outline"]):not([data-variant="secondary"]):not([data-variant="ghost"]):not([class*="outline"]):not([class*="secondary"]):not([class*="ghost"]) {
+  background-color: #64bfdd !important;
+  color: white !important;
+}
+
+button.inline-flex.items-center.justify-center:not([data-variant="outline"]):not([data-variant="secondary"]):not([data-variant="ghost"]):not([class*="outline"]):not([class*="secondary"]):not([class*="ghost"]):hover,
+.inline-flex.items-center.justify-center.whitespace-nowrap:not([data-variant="outline"]):not([data-variant="secondary"]):not([data-variant="ghost"]):not([class*="outline"]):not([class*="secondary"]):not([class*="ghost"]):hover {
+  background-color: #5ab3d2 !important;
 }
 
 /* Garantir que variáveis CSS sejam atualizadas */
@@ -90,10 +214,10 @@ form button[type="submit"] {
   --card-foreground: hsl(210 25% 7.8431%);
   --popover: hsl(0 0% 100%);
   --popover-foreground: hsl(210 25% 7.8431%);
-  --primary: hsl(203.8863 88.2845% 53.1373%);
-  --primary-foreground: hsl(0 0% 100%);
-  --secondary: hsl(210 25% 7.8431%);
-  --secondary-foreground: hsl(0 0% 100%);
+  --primary: 189 85% 62%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 189 85% 62%;
+  --secondary-foreground: 0 0% 100%;
   --muted: hsl(240 1.9608% 90%);
   --muted-foreground: hsl(210 25% 7.8431%);
   --accent: hsl(211.5789 51.3514% 92.7451%);
@@ -110,12 +234,12 @@ form button[type="submit"] {
   --chart-5: hsl(341.4894 75.2000% 50.9804%);
   --sidebar: hsl(180 6.6667% 97.0588%);
   --sidebar-foreground: hsl(210 25% 7.8431%);
-  --sidebar-primary: hsl(203.8863 88.2845% 53.1373%);
-  --sidebar-primary-foreground: hsl(0 0% 100%);
-  --sidebar-accent: hsl(211.5789 51.3514% 92.7451%);
-  --sidebar-accent-foreground: hsl(203.8863 88.2845% 53.1373%);
+  --sidebar-primary: hsl(var(--primary));
+  --sidebar-primary-foreground: hsl(var(--primary-foreground));
+  --sidebar-accent: hsl(var(--primary) / 0.15);
+  --sidebar-accent-foreground: hsl(var(--primary));
   --sidebar-border: hsl(205.0000 25.0000% 90.5882%);
-  --sidebar-ring: hsl(202.8169 89.1213% 53.1373%);
+  --sidebar-ring: hsl(var(--primary));
   --font-sans: Open Sans, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: Menlo, monospace;
@@ -139,10 +263,10 @@ form button[type="submit"] {
   --card-foreground: hsl(0 0% 85.0980%);
   --popover: hsl(0 0% 0%);
   --popover-foreground: hsl(200 6.6667% 91.1765%);
-  --primary: hsl(203.7736 87.6033% 52.5490%);
-  --primary-foreground: hsl(0 0% 100%);
-  --secondary: hsl(195.0000 15.3846% 94.9020%);
-  --secondary-foreground: hsl(210 25% 7.8431%);
+  --primary: 189 85% 62%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 189 85% 62%;
+  --secondary-foreground: 0 0% 100%;
   --muted: hsl(0 0% 9.4118%);
   --muted-foreground: hsl(210 3.3898% 46.2745%);
   --accent: hsl(205.7143 70% 7.8431%);
@@ -159,12 +283,12 @@ form button[type="submit"] {
   --chart-5: hsl(341.4894 75.2000% 50.9804%);
   --sidebar: hsl(228 9.8039% 10%);
   --sidebar-foreground: hsl(0 0% 85.0980%);
-  --sidebar-primary: hsl(202.8169 89.1213% 53.1373%);
-  --sidebar-primary-foreground: hsl(0 0% 100%);
-  --sidebar-accent: hsl(205.7143 70% 7.8431%);
-  --sidebar-accent-foreground: hsl(203.7736 87.6033% 52.5490%);
+  --sidebar-primary: hsl(var(--primary));
+  --sidebar-primary-foreground: hsl(var(--primary-foreground));
+  --sidebar-accent: hsl(var(--primary) / 0.15);
+  --sidebar-accent-foreground: hsl(var(--primary));
   --sidebar-border: hsl(205.7143 15.7895% 26.0784%);
-  --sidebar-ring: hsl(202.8169 89.1213% 53.1373%);
+  --sidebar-ring: hsl(var(--primary));
   --font-sans: Open Sans, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: Menlo, monospace;

@@ -28,8 +28,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const applyTheme = (newConfig: GlobalConfiguration) => {
     setConfig(newConfig);
     
+    console.log('Applying theme with config:', newConfig);
+    
     // Convert hex to HSL for Tailwind CSS compatibility
     const hexToHsl = (hex: string) => {
+      if (!hex || !hex.startsWith('#')) return "203 89% 53%"; // fallback
+      
       const r = parseInt(hex.slice(1, 3), 16) / 255;
       const g = parseInt(hex.slice(3, 5), 16) / 255;
       const b = parseInt(hex.slice(5, 7), 16) / 255;
@@ -52,20 +56,34 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
     };
     
-    // Apply CSS custom properties apenas para elementos principais
+    // Apply CSS custom properties
     const root = document.documentElement;
-    const primaryHsl = hexToHsl(newConfig.cores_primaria);
-    const secondaryHsl = hexToHsl(newConfig.cores_secundaria);
     
-    // Aplicar apenas cores primárias e secundárias
-    root.style.setProperty("--primary", `hsl(${primaryHsl})`);
-    root.style.setProperty("--secondary", `hsl(${secondaryHsl})`);
+    // Tentar ambos os formatos de nome do campo
+    const primaryColor = newConfig.coresPrimaria || newConfig.cores_primaria || "#3B82F6";
+    const secondaryColor = newConfig.coresSecundaria || newConfig.cores_secundaria || "#6366F1";
     
-    // Sidebar - apenas cor primária
-    root.style.setProperty("--sidebar-primary", `hsl(${primaryHsl})`);
+    console.log('Primary color:', primaryColor);
+    console.log('Secondary color:', secondaryColor);
+    
+    const primaryHsl = hexToHsl(primaryColor);
+    const secondaryHsl = hexToHsl(secondaryColor);
+    
+    console.log('Primary HSL:', primaryHsl);
+    console.log('Secondary HSL:', secondaryHsl);
+    
+    // Aplicar cores principais
+    root.style.setProperty("--primary", primaryHsl);
+    root.style.setProperty("--primary-foreground", "0 0% 100%");
+    root.style.setProperty("--secondary", secondaryHsl);
+    
+    console.log('CSS variables set successfully');
     
     // Update document title
-    document.title = newConfig.nome_aba_navegador;
+    const title = newConfig.nomeAbaNavegador || newConfig.nome_aba_navegador;
+    if (title) {
+      document.title = title;
+    }
     
     // Update favicon if provided
     if (newConfig.favicon) {
