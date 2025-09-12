@@ -24,7 +24,7 @@ import {
   insertEvolutionConfigSchema, insertAiConfigSchema, insertWhatsappInstanceSchema,
   insertAiAgentSchema, insertConversationSchema, insertMessageSchema,
   insertContactListSchema, insertContactListItemSchema, insertScheduledMessageSchema,
-  insertFunnelStageSchema, insertCustomerSchema
+  insertFunnelStageSchema, insertCustomerSchema, insertPropertySchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -62,6 +62,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         cb(null, true);
       } else {
         cb(new Error('Tipo de arquivo não permitido'));
+      }
+    }
+  });
+
+  // Configure multer for property images
+  const propertyImageStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+      const uploadPath = path.join(process.cwd(), 'uploads', 'properties');
+      
+      // Ensure directory exists
+      if (!fs.existsSync(uploadPath)) {
+        fs.mkdirSync(uploadPath, { recursive: true });
+      }
+      
+      cb(null, uploadPath);
+    },
+    filename: (req, file, cb) => {
+      const timestamp = Date.now();
+      const randomString = Math.random().toString(36).substring(7);
+      const ext = path.extname(file.originalname);
+      cb(null, `property-${timestamp}-${randomString}${ext}`);
+    }
+  });
+
+  const uploadPropertyImages = multer({
+    storage: propertyImageStorage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit per image
+    fileFilter: (req, file, cb) => {
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (allowedTypes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Apenas imagens são permitidas (JPEG, PNG, GIF, WebP)'));
       }
     }
   });
@@ -3439,6 +3472,141 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Property endpoints
+  app.get("/api/properties", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+
+      const properties = await storage.getPropertiesByCompany(req.user.companyId);
+      res.json(properties);
+    } catch (error) {
+      console.error("Get properties error:", error);
+      res.status(500).json({ error: "Erro ao buscar imóveis" });
+    }
+  });
+
+  app.post("/api/properties", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      console.log("🔍 [PROPERTY CREATE] Request body:", JSON.stringify(req.body, null, 2));
+      
+      const result = insertPropertySchema.safeParse(req.body);
+      if (!result.success) {
+        console.error("🔍 [PROPERTY CREATE] Validation failed:", JSON.stringify(result.error.errors, null, 2));
+        return res.status(400).json({ error: result.error.errors });
+      }
+
+      const propertyData = {
+        ...result.data,
+        companyId: req.user?.companyId!,
+      };
+
+      console.log("🔍 [PROPERTY CREATE] Final property data:", JSON.stringify(propertyData, null, 2));
+
+      const property = await storage.createProperty(propertyData);
+      res.status(201).json(property);
+    } catch (error) {
+      console.error("Create property error:", error);
+      res.status(500).json({ error: "Erro ao criar imóvel" });
+    }
+  });
+
+  app.put("/api/properties/:id", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const property = await storage.getProperty(id);
+      
+      if (!property) {
+        return res.status(404).json({ error: "Imóvel não encontrado" });
+      }
+
+      // Check company access
+      if (req.user?.role !== 'admin' && property.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Acesso negado" });
+      }
+
+      const result = insertPropertySchema.partial().safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ error: result.error.errors });
+      }
+
+      const updatedProperty = await storage.updateProperty(id, result.data);
+      res.json(updatedProperty);
+    } catch (error) {
+      console.error("Update property error:", error);
+      res.status(500).json({ error: "Erro ao atualizar imóvel" });
+    }
+  });
+
+  app.delete("/api/properties/:id", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const property = await storage.getProperty(id);
+      
+      if (!property) {
+        return res.status(404).json({ error: "Imóvel não encontrado" });
+      }
+
+      // Check company access
+      if (req.user?.role !== 'admin' && property.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Acesso negado" });
+      }
+
+      await storage.deleteProperty(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete property error:", error);
+      res.status(500).json({ error: "Erro ao excluir imóvel" });
+    }
+  });
+
+  // Upload property images
+  app.post("/api/properties/upload-images", authenticate, requireClient, uploadPropertyImages.array('images', 5), async (req: AuthRequest, res) => {
+    try {
+      if (!req.files || !Array.isArray(req.files)) {
+        return res.status(400).json({ error: "Nenhuma imagem enviada" });
+      }
+
+      const files = req.files as Express.Multer.File[];
+      const imagePaths = files.map(file => `/uploads/properties/${file.filename}`);
+
+      res.json({ 
+        message: "Imagens enviadas com sucesso",
+        images: imagePaths
+      });
+    } catch (error) {
+      console.error("Upload images error:", error);
+      res.status(500).json({ error: "Erro ao fazer upload das imagens" });
+    }
+  });
+
+  // Delete property image
+  app.delete("/api/properties/images", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { imagePath } = req.body;
+      
+      if (!imagePath) {
+        return res.status(400).json({ error: "Caminho da imagem é obrigatório" });
+      }
+
+      // Extract filename from path and construct full file path
+      const filename = path.basename(imagePath);
+      const fullPath = path.join(process.cwd(), 'uploads', 'properties', filename);
+
+      // Check if file exists and delete it
+      if (fs.existsSync(fullPath)) {
+        fs.unlinkSync(fullPath);
+        res.json({ message: "Imagem excluída com sucesso" });
+      } else {
+        res.status(404).json({ error: "Imagem não encontrada" });
+      }
+    } catch (error) {
+      console.error("Delete image error:", error);
+      res.status(500).json({ error: "Erro ao excluir imagem" });
+    }
+  });
+
   // Debug route to check customers table and data
   app.get("/api/debug/customers", async (req, res) => {
     try {
@@ -3487,6 +3655,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error debugging customers:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Temporary route to add transaction_type column
+  app.post("/api/add-transaction-type-column", async (req, res) => {
+    try {
+      const storage = getStorage();
+      
+      // Get MySQL connection from storage
+      const connection = (storage as any).connection;
+      if (!connection) {
+        throw new Error('No database connection');
+      }
+
+      // Add transaction_type column
+      await connection.execute(`
+        ALTER TABLE properties 
+        ADD COLUMN IF NOT EXISTS transaction_type VARCHAR(20) NOT NULL DEFAULT 'venda'
+      `);
+
+      res.json({ success: true, message: "Transaction type column added successfully" });
+    } catch (error) {
+      console.error("Error adding transaction_type column:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Temporary route to update properties table structure
+  app.post("/api/update-properties-table", async (req, res) => {
+    try {
+      const storage = getStorage();
+      
+      // Get MySQL connection from storage
+      const connection = (storage as any).connection;
+      if (!connection) {
+        throw new Error('No database connection');
+      }
+
+      // Update properties table to make fields optional
+      await connection.execute(`
+        ALTER TABLE properties 
+        MODIFY COLUMN neighborhood VARCHAR(100),
+        MODIFY COLUMN city VARCHAR(100),
+        MODIFY COLUMN state VARCHAR(2),
+        MODIFY COLUMN zip_code VARCHAR(10),
+        MODIFY COLUMN bedrooms INT NOT NULL DEFAULT 0
+      `);
+
+      res.json({ success: true, message: "Properties table updated successfully" });
+    } catch (error) {
+      console.error("Error updating properties table:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Temporary route to create properties table
+  app.post("/api/create-properties-table", async (req, res) => {
+    try {
+      const storage = getStorage();
+      
+      // Get MySQL connection from storage
+      const connection = (storage as any).connection;
+      if (!connection) {
+        throw new Error('No database connection');
+      }
+
+      // Create properties table
+      await connection.execute(`
+        CREATE TABLE IF NOT EXISTS properties (
+          id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+          company_id VARCHAR(36) NOT NULL,
+          code VARCHAR(50) NOT NULL,
+          name VARCHAR(255) NOT NULL,
+          street VARCHAR(255) NOT NULL,
+          number VARCHAR(20) NOT NULL,
+          proximity VARCHAR(255),
+          neighborhood VARCHAR(100),
+          city VARCHAR(100),
+          state VARCHAR(2),
+          zip_code VARCHAR(10),
+          private_area DECIMAL(8,2) NOT NULL,
+          parking_spaces INT NOT NULL DEFAULT 0,
+          bathrooms INT NOT NULL DEFAULT 1,
+          bedrooms INT NOT NULL DEFAULT 0,
+          description TEXT,
+          map_location VARCHAR(500),
+          transaction_type VARCHAR(20) NOT NULL DEFAULT 'venda',
+          status VARCHAR(20) DEFAULT 'active',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )
+      `);
+
+      // Try to add transaction_type column if table already exists
+      try {
+        await connection.execute(`
+          ALTER TABLE properties 
+          ADD COLUMN transaction_type VARCHAR(20) NOT NULL DEFAULT 'venda'
+        `);
+      } catch (alterError) {
+        // Column might already exist, ignore the error
+        console.log("Column transaction_type might already exist");
+      }
+
+      res.json({ success: true, message: "Properties table created successfully" });
+    } catch (error) {
+      console.error("Error creating properties table:", error);
       res.status(500).json({ error: error.message });
     }
   });

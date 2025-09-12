@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
   Building, Settings, Waypoints, Bot, Users, 
   LayoutDashboard, User, MessageSquare, 
-  MessageCircle, LogOut, ChevronDown, ChevronRight, Send, List, Globe
+  MessageCircle, LogOut, ChevronDown, ChevronRight, Send, List, Globe, Home
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GlobalConfiguration } from "@/types";
@@ -49,6 +49,13 @@ const clientNavItems: NavItem[] = [
       { href: "/client/comercial/atendimentos", label: "Atendimentos", icon: <Users className="w-4 h-4" /> },
     ]
   },
+  { 
+    label: "Imóveis", 
+    icon: <Home className="w-5 h-5" />,
+    children: [
+      { href: "/client/imoveis/meus-imoveis", label: "Meus Imóveis", icon: <Home className="w-4 h-4" /> },
+    ]
+  },
   { href: "/client/ai-agents", label: "Agentes IA", icon: <Bot className="w-5 h-5" /> },
 ];
 
@@ -56,7 +63,7 @@ export function Sidebar() {
   const { user, logout } = useAuth();
   const { config } = useTheme();
   const [location] = useLocation();
-  const [expandedMenus, setExpandedMenus] = useState<string[]>(['WhatsApp']); // WhatsApp expandido por padrão
+  const [expandedMenus, setExpandedMenus] = useState<string[]>([]); // Todos os menus começam fechados
 
   const toggleMenu = (menuLabel: string) => {
     setExpandedMenus(prev => 

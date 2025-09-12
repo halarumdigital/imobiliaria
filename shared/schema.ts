@@ -198,6 +198,35 @@ export const customers = mysqlTable("customers", {
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });
 
+export const properties = mysqlTable("properties", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  companyId: varchar("company_id", { length: 36 }).notNull(),
+  code: varchar("code", { length: 50 }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  street: varchar("street", { length: 255 }).notNull(),
+  number: varchar("number", { length: 20 }).notNull(),
+  proximity: varchar("proximity", { length: 255 }),
+  neighborhood: varchar("neighborhood", { length: 100 }),
+  city: varchar("city", { length: 100 }),
+  state: varchar("state", { length: 2 }),
+  zipCode: varchar("zip_code", { length: 10 }),
+  privateArea: decimal("private_area", { precision: 8, scale: 2 }).notNull(),
+  parkingSpaces: int("parking_spaces").notNull().default(0),
+  bathrooms: int("bathrooms").notNull().default(1),
+  bedrooms: int("bedrooms").notNull().default(0),
+  description: text("description"),
+  mapLocation: varchar("map_location", { length: 500 }), // Google Maps URL or coordinates
+  transactionType: varchar("transaction_type", { length: 20 }).notNull().default("venda"), // 'venda' | 'locacao'
+  status: varchar("status", { length: 20 }).default("active"), // 'active' | 'inactive'
+  hasServiceArea: boolean("has_service_area").default(false),
+  hasSocialBathroom: boolean("has_social_bathroom").default(false),
+  hasTvRoom: boolean("has_tv_room").default(false),
+  images: json("images").default([]), // Array of image file paths
+  youtubeVideoUrl: varchar("youtube_video_url", { length: 500 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
@@ -344,6 +373,44 @@ export const insertCustomerSchema = createInsertSchema(customers).pick({
   conversationId: true,
 });
 
+export const insertPropertySchema = createInsertSchema(properties).pick({
+  code: true,
+  name: true,
+  street: true,
+  number: true,
+  proximity: true,
+  neighborhood: true,
+  city: true,
+  state: true,
+  zipCode: true,
+  privateArea: true,
+  parkingSpaces: true,
+  bathrooms: true,
+  bedrooms: true,
+  description: true,
+  mapLocation: true,
+  transactionType: true,
+  status: true,
+  hasServiceArea: true,
+  hasSocialBathroom: true,
+  hasTvRoom: true,
+  images: true,
+  youtubeVideoUrl: true,
+}).extend({
+  proximity: z.string().nullable().optional(),
+  neighborhood: z.string().nullable().optional(),
+  city: z.string().nullable().optional(),
+  state: z.string().nullable().optional(),
+  zipCode: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
+  mapLocation: z.string().nullable().optional(),
+  // Accept numbers and convert them to the format expected by the database
+  privateArea: z.union([z.string(), z.number()]).transform(val => typeof val === 'number' ? val.toString() : val),
+  parkingSpaces: z.union([z.string(), z.number()]).transform(val => typeof val === 'number' ? Number(val) : Number(val)),
+  bathrooms: z.union([z.string(), z.number()]).transform(val => typeof val === 'number' ? Number(val) : Number(val)),
+  bedrooms: z.union([z.string(), z.number()]).transform(val => typeof val === 'number' ? Number(val) : Number(val)),
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -373,3 +440,5 @@ export type FunnelStage = typeof funnelStages.$inferSelect;
 export type InsertFunnelStage = z.infer<typeof insertFunnelStageSchema>;
 export type Customer = typeof customers.$inferSelect;
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
+export type Property = typeof properties.$inferSelect;
+export type InsertProperty = z.infer<typeof insertPropertySchema>;

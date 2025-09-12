@@ -6,7 +6,7 @@ import {
   AiAgent, InsertAiAgent, Conversation, InsertConversation, Message, InsertMessage,
   ContactList, InsertContactList, ContactListItem, InsertContactListItem,
   ScheduledMessage, InsertScheduledMessage, FunnelStage, InsertFunnelStage,
-  Customer, InsertCustomer
+  Customer, InsertCustomer, Property, InsertProperty
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -104,6 +104,13 @@ export interface IStorage {
   createCustomer(customer: InsertCustomer): Promise<Customer>;
   updateCustomer(id: string, updates: Partial<Customer>): Promise<Customer>;
   deleteCustomer(id: string): Promise<void>;
+  
+  // Properties
+  getProperty(id: string): Promise<Property | undefined>;
+  getPropertiesByCompany(companyId: string): Promise<Property[]>;
+  createProperty(property: InsertProperty): Promise<Property>;
+  updateProperty(id: string, updates: Partial<Property>): Promise<Property>;
+  deleteProperty(id: string): Promise<void>;
 }
 
 export class MySQLStorage implements IStorage {
@@ -391,6 +398,30 @@ export class MySQLStorage implements IStorage {
               console.error(`❌ Error modifying media_base64 column:`, modifyError);
             }
           }
+        } else {
+          console.error(`❌ Error adding ${column.name} column:`, error);
+        }
+      }
+    }
+
+    // Add new property columns
+    const propertyColumns = [
+      { name: 'has_service_area', type: 'BOOLEAN DEFAULT FALSE' },
+      { name: 'has_social_bathroom', type: 'BOOLEAN DEFAULT FALSE' },
+      { name: 'has_tv_room', type: 'BOOLEAN DEFAULT FALSE' },
+      { name: 'images', type: 'JSON DEFAULT (JSON_ARRAY())' },
+      { name: 'youtube_video_url', type: 'VARCHAR(500)' }
+    ];
+
+    for (const column of propertyColumns) {
+      try {
+        await this.connection.execute(`
+          ALTER TABLE properties ADD COLUMN ${column.name} ${column.type}
+        `);
+        console.log(`✅ Added ${column.name} column to properties table`);
+      } catch (error: any) {
+        if (error.code === 'ER_DUP_FIELDNAME') {
+          console.log(`✅ ${column.name} column already exists in properties table`);
         } else {
           console.error(`❌ Error adding ${column.name} column:`, error);
         }
@@ -1897,6 +1928,177 @@ export class MySQLStorage implements IStorage {
       value: row.value ? parseFloat(row.value) : undefined,
       source: row.source,
       conversationId: row.conversation_id,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  // Property methods
+  async getProperty(id: string): Promise<Property | undefined> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM properties WHERE id = ?',
+      [id]
+    ) as [any[], mysql.FieldPacket[]];
+    
+    return rows.length > 0 ? this.parseProperty(rows[0]) : undefined;
+  }
+
+  async getPropertiesByCompany(companyId: string): Promise<Property[]> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM properties WHERE company_id = ? ORDER BY created_at DESC',
+      [companyId]
+    ) as [any[], mysql.FieldPacket[]];
+    
+    return rows.map(row => this.parseProperty(row));
+  }
+
+  async createProperty(property: InsertProperty): Promise<Property> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const id = randomUUID();
+    
+    await this.connection.execute(`
+      INSERT INTO properties (id, company_id, code, name, street, number, proximity, 
+        neighborhood, city, state, zip_code, private_area, parking_spaces, bathrooms, 
+        bedrooms, description, map_location, transaction_type, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      id, property.companyId, property.code, property.name, property.street, 
+      property.number, property.proximity || null, property.neighborhood || null, property.city || null, 
+      property.state || null, property.zipCode || null, property.privateArea, property.parkingSpaces || 0, 
+      property.bathrooms || 1, property.bedrooms || 0, property.description || null, property.mapLocation || null, 
+      property.transactionType || 'venda', property.status || 'active'
+    ]);
+    
+    const newProperty = await this.getProperty(id);
+    if (!newProperty) throw new Error('Failed to create property');
+    
+    return newProperty;
+  }
+
+  async updateProperty(id: string, updates: Partial<Property>): Promise<Property> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    const fields = [];
+    const values = [];
+    
+    if (updates.code !== undefined) {
+      fields.push('code = ?');
+      values.push(updates.code);
+    }
+    if (updates.name !== undefined) {
+      fields.push('name = ?');
+      values.push(updates.name);
+    }
+    if (updates.street !== undefined) {
+      fields.push('street = ?');
+      values.push(updates.street);
+    }
+    if (updates.number !== undefined) {
+      fields.push('number = ?');
+      values.push(updates.number);
+    }
+    if (updates.proximity !== undefined) {
+      fields.push('proximity = ?');
+      values.push(updates.proximity);
+    }
+    if (updates.neighborhood !== undefined) {
+      fields.push('neighborhood = ?');
+      values.push(updates.neighborhood);
+    }
+    if (updates.city !== undefined) {
+      fields.push('city = ?');
+      values.push(updates.city);
+    }
+    if (updates.state !== undefined) {
+      fields.push('state = ?');
+      values.push(updates.state);
+    }
+    if (updates.zipCode !== undefined) {
+      fields.push('zip_code = ?');
+      values.push(updates.zipCode);
+    }
+    if (updates.privateArea !== undefined) {
+      fields.push('private_area = ?');
+      values.push(updates.privateArea);
+    }
+    if (updates.parkingSpaces !== undefined) {
+      fields.push('parking_spaces = ?');
+      values.push(updates.parkingSpaces);
+    }
+    if (updates.bathrooms !== undefined) {
+      fields.push('bathrooms = ?');
+      values.push(updates.bathrooms);
+    }
+    if (updates.bedrooms !== undefined) {
+      fields.push('bedrooms = ?');
+      values.push(updates.bedrooms);
+    }
+    if (updates.description !== undefined) {
+      fields.push('description = ?');
+      values.push(updates.description);
+    }
+    if (updates.mapLocation !== undefined) {
+      fields.push('map_location = ?');
+      values.push(updates.mapLocation);
+    }
+    if (updates.transactionType !== undefined) {
+      fields.push('transaction_type = ?');
+      values.push(updates.transactionType);
+    }
+    if (updates.status !== undefined) {
+      fields.push('status = ?');
+      values.push(updates.status);
+    }
+
+    if (fields.length === 0) {
+      throw new Error('No fields to update');
+    }
+
+    values.push(id);
+    
+    await this.connection.execute(
+      `UPDATE properties SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      values
+    );
+    
+    const updatedProperty = await this.getProperty(id);
+    if (!updatedProperty) throw new Error('Property not found after update');
+    
+    return updatedProperty;
+  }
+
+  async deleteProperty(id: string): Promise<void> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    await this.connection.execute('DELETE FROM properties WHERE id = ?', [id]);
+  }
+
+  private parseProperty(row: any): Property {
+    return {
+      id: row.id,
+      companyId: row.company_id,
+      code: row.code,
+      name: row.name,
+      street: row.street,
+      number: row.number,
+      proximity: row.proximity || "",
+      neighborhood: row.neighborhood || "",
+      city: row.city || "",
+      state: row.state || "",
+      zipCode: row.zip_code || "",
+      privateArea: parseFloat(row.private_area),
+      parkingSpaces: row.parking_spaces || 0,
+      bathrooms: row.bathrooms || 1,
+      bedrooms: row.bedrooms || 0,
+      description: row.description || "",
+      mapLocation: row.map_location || "",
+      transactionType: row.transaction_type || "venda",
+      status: row.status,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
