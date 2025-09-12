@@ -167,10 +167,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Global configurations - Public view for branding
   app.get("/api/global-config/public", async (req, res) => {
     try {
+      // Desabilitar cache HTTP para sempre obter configurações atualizadas
+      res.set({
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      });
+      
       const config = await storage.getGlobalConfiguration();
       if (config) {
-        // Return only visual/branding information
+        // Return only visual/branding information (incluindo ID para validação no frontend)
         const publicConfig = {
+          id: config.id, // Adicionar ID para que o ThemeProvider reconheça
           logo: config.logo,
           favicon: config.favicon,
           coresPrimaria: config.cores_primaria,
@@ -422,8 +430,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/companies/:id", authenticate, requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
-      const companyData = insertCompanySchema.partial().parse(req.body);
-      const company = await storage.updateCompany(id, companyData);
+      const { adminPassword, ...companyData } = req.body;
+      
+      // Validar dados da empresa
+      const validatedCompanyData = insertCompanySchema.partial().parse(companyData);
+      
+      // Atualizar dados da empresa
+      const company = await storage.updateCompany(id, validatedCompanyData);
+      
+      // Se uma nova senha foi fornecida, atualizar a senha do admin da empresa
+      if (adminPassword && adminPassword.trim() !== '') {
+        if (adminPassword.length < 6) {
+          return res.status(400).json({ error: "Senha deve ter pelo menos 6 caracteres" });
+        }
+        
+        const hashedPassword = await hashPassword(adminPassword);
+        await storage.updateCompanyAdminPassword(id, hashedPassword);
+      }
+      
       res.json(company);
     } catch (error) {
       console.error("Update company error:", error);

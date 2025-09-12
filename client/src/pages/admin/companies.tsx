@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { apiGet, apiPost, apiPut, apiDelete } from "@/lib/api";
-import { Company } from "@/types";
+import { Company } from "@shared/schema";
 import { Building, Plus, Search, Edit, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -28,8 +28,12 @@ export default function Companies() {
     address: "",
     city: "",
     cep: "",
+    responsibleName: "",
+    responsiblePhone: "",
+    responsibleEmail: "",
     userEmail: "",
     userPassword: "",
+    adminPassword: "", // Nova senha para o admin da empresa (apenas na edição)
   });
 
   const { data: companies = [], isLoading } = useQuery<Company[]>({
@@ -103,8 +107,12 @@ export default function Companies() {
       address: "",
       city: "",
       cep: "",
+      responsibleName: "",
+      responsiblePhone: "",
+      responsibleEmail: "",
       userEmail: "",
       userPassword: "",
+      adminPassword: "",
     });
     setEditingCompany(null);
   };
@@ -113,8 +121,12 @@ export default function Companies() {
     e.preventDefault();
     
     if (editingCompany) {
-      // Na edição, não enviar os campos de usuário
+      // Na edição, não enviar os campos de usuário de criação
       const { userEmail, userPassword, ...updateData } = formData;
+      // Só enviar adminPassword se foi preenchido
+      if (!updateData.adminPassword) {
+        delete updateData.adminPassword;
+      }
       updateMutation.mutate({ id: editingCompany.id, data: updateData });
     } else {
       createMutation.mutate(formData);
@@ -131,6 +143,12 @@ export default function Companies() {
       address: company.address || "",
       city: company.city || "",
       cep: company.cep || "",
+      responsibleName: company.responsibleName || "",
+      responsiblePhone: company.responsiblePhone || "",
+      responsibleEmail: company.responsibleEmail || "",
+      userEmail: "",
+      userPassword: "",
+      adminPassword: "",
     });
     setIsDialogOpen(true);
   };
@@ -234,6 +252,38 @@ export default function Companies() {
                 />
               </div>
 
+              {/* Dados do Responsável */}
+              <div className="pt-4 border-t">
+                <h4 className="text-sm font-medium mb-3">Dados do Responsável</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="responsibleName">Nome do Responsável</Label>
+                    <Input
+                      id="responsibleName"
+                      value={formData.responsibleName}
+                      onChange={(e) => setFormData(prev => ({ ...prev, responsibleName: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="responsiblePhone">Telefone do Responsável</Label>
+                    <Input
+                      id="responsiblePhone"
+                      value={formData.responsiblePhone}
+                      onChange={(e) => setFormData(prev => ({ ...prev, responsiblePhone: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="responsibleEmail">Email do Responsável</Label>
+                    <Input
+                      id="responsibleEmail"
+                      type="email"
+                      value={formData.responsibleEmail}
+                      onChange={(e) => setFormData(prev => ({ ...prev, responsibleEmail: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Campos de usuário apenas na criação */}
               {!editingCompany && (
                 <div className="pt-4 border-t">
@@ -266,6 +316,29 @@ export default function Companies() {
                       />
                       <p className="text-xs text-muted-foreground mt-1">
                         Mínimo de 6 caracteres
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Campo de senha apenas na edição */}
+              {editingCompany && (
+                <div className="pt-4 border-t">
+                  <h4 className="text-sm font-medium mb-3">Alterar Senha do Administrador</h4>
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <Label htmlFor="adminPassword">Nova Senha</Label>
+                      <Input
+                        id="adminPassword"
+                        type="password"
+                        value={formData.adminPassword}
+                        onChange={(e) => setFormData(prev => ({ ...prev, adminPassword: e.target.value }))}
+                        placeholder="Digite a nova senha (deixe vazio para não alterar)"
+                        minLength={6}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Deixe em branco se não quiser alterar a senha. Mínimo de 6 caracteres.
                       </p>
                     </div>
                   </div>

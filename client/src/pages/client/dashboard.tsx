@@ -29,8 +29,8 @@ export default function ClientDashboard() {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
-              <div className="p-3 rounded-full bg-green-100">
-                <MessageSquare className="text-green-600 text-xl" />
+              <div className="p-3 rounded-full bg-primary/10">
+                <MessageSquare className="text-primary text-xl" />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-muted-foreground">Instâncias Ativas</p>
@@ -43,8 +43,8 @@ export default function ClientDashboard() {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
-              <div className="p-3 rounded-full bg-purple-100">
-                <Bot className="text-purple-600 text-xl" />
+              <div className="p-3 rounded-full bg-secondary/10">
+                <Bot className="text-secondary text-xl" />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-muted-foreground">Agentes IA</p>
@@ -57,8 +57,8 @@ export default function ClientDashboard() {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
-              <div className="p-3 rounded-full bg-blue-100">
-                <MessageCircle className="text-blue-600 text-xl" />
+              <div className="p-3 rounded-full bg-primary/10">
+                <MessageCircle className="text-primary text-xl" />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-muted-foreground">Conversas Hoje</p>
@@ -86,7 +86,7 @@ export default function ClientDashboard() {
                 <div key={instance.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                   <div className="flex items-center space-x-3">
                     <Circle className={`w-2 h-2 rounded-full ${
-                      instance.status === 'connected' ? 'bg-green-400' : 'bg-red-400'
+                      instance.status === 'connected' ? 'theme-success' : 'theme-error'
                     }`} />
                     <div>
                       <p className="text-sm font-medium">{instance.name}</p>
@@ -117,8 +117,8 @@ export default function ClientDashboard() {
               agents.map((agent) => (
                 <div key={agent.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                   <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                      <Bot className="text-purple-600 text-sm" />
+                    <div className="w-8 h-8 bg-secondary/10 rounded-full flex items-center justify-center">
+                      <Bot className="text-secondary text-sm" />
                     </div>
                     <div>
                       <p className="text-sm font-medium">{agent.name}</p>

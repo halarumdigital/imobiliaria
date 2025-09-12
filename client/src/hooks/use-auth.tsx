@@ -42,6 +42,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(response.user);
     // Limpar cache de queries antigas após login
     queryClient.clear();
+    // Forçar refetch das configurações globais após login
+    setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ["/global-config/public"] });
+      queryClient.refetchQueries({ queryKey: ["/global-config/public"] });
+      // Disparar evento customizado para forçar refresh no ThemeProvider
+      window.dispatchEvent(new CustomEvent('force-theme-refresh'));
+    }, 100);
     return response.user;
   };
 
@@ -50,6 +57,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     // Limpar cache de queries ao fazer logout
     queryClient.clear();
+    // Forçar refetch das configurações globais para garantir tema atualizado
+    queryClient.invalidateQueries({ queryKey: ["/global-config/public"] });
+    // Disparar evento customizado para forçar refresh no ThemeProvider
+    window.dispatchEvent(new CustomEvent('force-theme-refresh'));
   };
 
   return (

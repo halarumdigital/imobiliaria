@@ -36,6 +36,13 @@ export default function Configurations() {
       queryClient.invalidateQueries({ queryKey: ["/global-config"] });
       queryClient.refetchQueries({ queryKey: ["/global-config"] });
       
+      // Invalidar também o endpoint público para que todas as abas/usuários vejam a mudança
+      queryClient.invalidateQueries({ queryKey: ["/global-config/public"] });
+      queryClient.refetchQueries({ queryKey: ["/global-config/public"] });
+      
+      // Disparar evento customizado para forçar refresh no ThemeProvider
+      window.dispatchEvent(new CustomEvent('force-theme-refresh'));
+      
       // Atualiza o estado local imediatamente também
       setFormData(data);
       applyTheme(data);

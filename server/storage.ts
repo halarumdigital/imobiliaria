@@ -23,6 +23,7 @@ export interface IStorage {
   getAllCompanies(): Promise<Company[]>;
   createCompany(company: InsertCompany): Promise<Company>;
   updateCompany(id: string, updates: Partial<Company>): Promise<Company>;
+  updateCompanyAdminPassword(companyId: string, hashedPassword: string): Promise<void>;
   deleteCompany(id: string): Promise<void>;
   
   // Global Configurations
@@ -548,6 +549,16 @@ export class MySQLStorage implements IStorage {
     }
     
     return this.getCompany(id) as Promise<Company>;
+  }
+
+  async updateCompanyAdminPassword(companyId: string, hashedPassword: string): Promise<void> {
+    if (!this.connection) throw new Error('No database connection');
+    
+    // Encontrar o usuário admin da empresa e atualizar sua senha
+    await this.connection.execute(
+      'UPDATE users SET password = ? WHERE company_id = ? AND role = "client"',
+      [hashedPassword, companyId]
+    );
   }
 
   async deleteCompany(id: string): Promise<void> {

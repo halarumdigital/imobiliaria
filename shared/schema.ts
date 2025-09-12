@@ -23,6 +23,9 @@ export const companies = mysqlTable("companies", {
   city: varchar("city", { length: 100 }),
   cep: varchar("cep", { length: 10 }),
   avatar: text("avatar"), // Object storage path
+  responsibleName: varchar("responsible_name", { length: 255 }),
+  responsiblePhone: varchar("responsible_phone", { length: 20 }),
+  responsibleEmail: varchar("responsible_email", { length: 255 }),
   status: varchar("status", { length: 20 }).notNull().default("active"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
@@ -212,6 +215,9 @@ export const insertCompanySchema = createInsertSchema(companies).pick({
   city: true,
   cep: true,
   avatar: true,
+  responsibleName: true,
+  responsiblePhone: true,
+  responsibleEmail: true,
 });
 
 export const insertGlobalConfigSchema = createInsertSchema(globalConfigurations).pick({
