@@ -179,7 +179,16 @@ export class WhatsAppWebhookService {
       console.log("📨 [WEBHOOK] Event type:", evolutionData.data?.messageType || 'unknown');
       console.log("📨 [WEBHOOK] FromMe:", evolutionData.data?.key?.fromMe);
       console.log("📨 [WEBHOOK] Status:", evolutionData.data?.status);
+      console.log("📨 [WEBHOOK] InstanceId received:", evolutionData.data?.instanceId);
       console.log("📨 [WEBHOOK] Available message fields:", Object.keys(evolutionData.data?.message || {}));
+
+      // Log específico sobre o instanceId
+      console.log("🔍 [WEBHOOK] Analyzing instanceId:");
+      console.log("  - data.instanceId:", evolutionData.data?.instanceId);
+      console.log("  - (data as any).instance:", (evolutionData.data as any)?.instance);
+      console.log("  - evolutionData.instance:", (evolutionData as any)?.instance);
+      console.log("  - evolutionData.sender:", evolutionData.sender);
+
       console.log("📨 [WEBHOOK] Full raw data:", JSON.stringify(evolutionData, null, 2));
 
       // Verificar se é uma mensagem válida para processar
@@ -189,7 +198,33 @@ export class WhatsAppWebhookService {
       }
 
       const data = evolutionData.data;
-      
+
+      // CORREÇÃO: O instanceId pode vir em lugares diferentes
+      let instanceIdentifier = data.instanceId;
+
+      // Tentar outros campos possíveis
+      if (!instanceIdentifier) {
+        console.log("⚠️ No instanceId in data, checking alternative fields...");
+        instanceIdentifier = (evolutionData as any).instance ||
+                           (evolutionData as any).instanceName ||
+                           (data as any).instance ||
+                           (data as any).instanceName;
+
+        console.log(`🔍 Found alternative instance identifier: ${instanceIdentifier}`);
+      }
+
+      // Se ainda não tem, usar o sender como última tentativa
+      if (!instanceIdentifier && evolutionData.sender) {
+        console.log("⚠️ Using sender as instance identifier:", evolutionData.sender);
+        instanceIdentifier = evolutionData.sender;
+      }
+
+      // Atualizar o instanceId nos dados
+      if (instanceIdentifier && instanceIdentifier !== data.instanceId) {
+        console.log(`📝 Updating instanceId from ${data.instanceId} to ${instanceIdentifier}`);
+        data.instanceId = instanceIdentifier;
+      }
+
       // DEBUG: Ver todas as propriedades da mensagem
       console.log("🔍 [MESSAGE DEBUG] Full message structure:");
       console.log("🔍 [MESSAGE DEBUG] data.message keys:", Object.keys(data.message));
@@ -335,14 +370,53 @@ export class WhatsAppWebhookService {
         console.log(`👤 No pushName found in webhook data`);
       }
 
-      // Buscar o nome da instância no Evolution API pela instanceId
+      // Buscar a instância no banco de dados
       console.log(`🔍 About to search for instance ID: ${data.instanceId}`);
-      const instanceName = await this.getInstanceNameById(data.instanceId);
-      console.log(`🔍 Instance search result: ${instanceName}`);
-      if (!instanceName) {
-        console.log(`❌ Could not find instance name for ID: ${data.instanceId}`);
+      const storage = getStorage();
+
+      // MAPEAMENTO DIRETO: Se receber o UUID conhecido, mapear para deployimo
+      let searchId = data.instanceId;
+      if (searchId === "e5b71c35-276b-417e-a1c3-267f904b2b98") {
+        console.log(`🔄 Mapping known UUID to deployimo`);
+        searchId = "deployimo";
+      }
+
+      // Primeiro tentar buscar pelo evolutionInstanceId
+      let dbInstance = await storage.getWhatsappInstanceByEvolutionId(searchId);
+
+      // Se não encontrou, tentar buscar pelo nome
+      if (!dbInstance) {
+        console.log(`⚠️ No instance found with evolutionInstanceId: ${searchId}, trying by name...`);
+
+        // Buscar todas as empresas e suas instâncias
+        const companies = await storage.getAllCompanies();
+        for (const company of companies) {
+          const instances = await storage.getWhatsappInstancesByCompany(company.id);
+
+          // Tentar encontrar pelo nome da instância ou evolutionInstanceId
+          const found = instances.find(i =>
+            i.name === searchId ||
+            i.evolutionInstanceId === searchId ||
+            i.name === data.instanceId ||
+            i.evolutionInstanceId === data.instanceId
+          );
+
+          if (found) {
+            dbInstance = found;
+            console.log(`✅ Found instance by fallback: ${found.name}`);
+            break;
+          }
+        }
+      }
+
+      if (!dbInstance) {
+        console.log(`❌ Could not find instance for ID: ${data.instanceId}`);
+        console.log(`❌ Searched by: evolutionInstanceId and name`);
         return;
       }
+
+      const instanceName = dbInstance.name;
+      console.log(`✅ Found instance: ${instanceName} (DB ID: ${dbInstance.id}, EvolutionId: ${dbInstance.evolutionInstanceId})`);
 
       console.log(`📱 Processing Evolution message from ${senderPhone} to instance ${instanceName}: "${messageText}"`);
 
@@ -350,7 +424,8 @@ export class WhatsAppWebhookService {
       const messageContext = {
         phone: senderPhone,
         message: messageText,
-        instanceId: data.instanceId, // IMPORTANTE: Usar o instanceId real, não o nome
+        instanceId: data.instanceId, // evolutionInstanceId usado para busca no AIService
+        databaseInstanceId: dbInstance.id, // ID real do banco de dados
         mediaUrl,
         mediaBase64,
         caption,
@@ -377,7 +452,9 @@ export class WhatsAppWebhookService {
       console.log(`🔍 [DEBUG] Full AI Response object:`, JSON.stringify(aiResponse, null, 2));
 
       // Enviar resposta via Evolution API
+      // IMPORTANTE: Usar o nome da instância, não o evolutionInstanceId
       console.log(`🚀 About to call sendResponse with instance: ${instanceName}, phone: ${senderPhone}`);
+      console.log(`🔍 Instance details for sending: name=${instanceName}, evolutionId=${dbInstance.evolutionInstanceId}`);
       try {
         await this.sendResponse(instanceName, senderPhone, aiResponse.response);
         console.log(`✅ Response sent successfully to ${senderPhone}`);
@@ -388,23 +465,15 @@ export class WhatsAppWebhookService {
 
       // Salvar conversa no banco de dados
       let agentIdToSave = aiResponse.activeAgentId;
-      
+
       // Se não tem activeAgentId, buscar o agente principal da empresa
-      if (!agentIdToSave) {
+      if (!agentIdToSave && dbInstance.companyId) {
         console.log(`💾 [DEBUG] No activeAgentId, searching for main agent...`);
         try {
-          // Buscar a instância para obter a empresa
-          const dbInstanceId = await aiService.findDatabaseInstanceId(data.instanceId);
-          if (dbInstanceId) {
-            const storage = getStorage();
-            const instance = await storage.getWhatsappInstance(dbInstanceId);
-            if (instance?.companyId) {
-              const mainAgents = await storage.getMainAgentsByCompany(instance.companyId);
-              if (mainAgents.length > 0) {
-                agentIdToSave = mainAgents[0].id;
-                console.log(`💾 [DEBUG] Using main agent ID: ${agentIdToSave}`);
-              }
-            }
+          const mainAgents = await storage.getMainAgentsByCompany(dbInstance.companyId);
+          if (mainAgents.length > 0) {
+            agentIdToSave = mainAgents[0].id;
+            console.log(`💾 [DEBUG] Using main agent ID: ${agentIdToSave}`);
           }
         } catch (error) {
           console.error(`💾 [DEBUG] Error finding main agent:`, error);
@@ -594,48 +663,6 @@ export class WhatsAppWebhookService {
     return true;
   }
 
-  private async getInstanceNameById(instanceId: string): Promise<string | null> {
-    console.log(`🔍 STARTING getInstanceNameById with ID: ${instanceId}`);
-    
-    try {
-      const storage = getStorage();
-      console.log(`✅ Storage obtained successfully`);
-      
-      // Buscar todas as empresas
-      const companies = await storage.getAllCompanies();
-      console.log(`📋 Found ${companies.length} companies`);
-      
-      if (companies.length === 0) {
-        console.log(`❌ No companies found in database`);
-        return null;
-      }
-      
-      // Buscar primeira instância disponível como fallback
-      for (const company of companies) {
-        console.log(`🏢 Checking company: ${company.name}`);
-        
-        try {
-          const instances = await storage.getWhatsappInstancesByCompany(company.id);
-          console.log(`📱 Company ${company.name} has ${instances.length} instances`);
-          
-          if (instances.length > 0) {
-            const firstInstance = instances[0];
-            console.log(`⚠️  Using first available instance: ${firstInstance.name} (${firstInstance.evolutionInstanceId})`);
-            return firstInstance.evolutionInstanceId;
-          }
-        } catch (instanceError) {
-          console.error(`❌ Error getting instances for company ${company.name}:`, instanceError);
-        }
-      }
-      
-      console.log(`❌ No instances found in any company`);
-      return null;
-    } catch (error) {
-      console.error("❌ Error in getInstanceNameById:", error);
-      console.error("❌ Stack trace:", (error as Error).stack);
-      return null;
-    }
-  }
 
   private extractMessageText(message: WhatsAppMessage): string | null {
     // Mensagem simples

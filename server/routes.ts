@@ -2009,6 +2009,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Debug endpoint para verificar webhook na Evolution API (TEMPORÁRIO - REMOVER EM PRODUÇÃO)
+  app.get("/api/debug/webhook/:instanceName", async (req, res) => {
+    try {
+      const { instanceName } = req.params;
+      const storage = getStorage();
+      const evolutionConfig = await storage.getEvolutionApiConfiguration();
+
+      if (!evolutionConfig) {
+        return res.status(500).json({ error: "Evolution API não configurada" });
+      }
+
+      const evolutionService = new EvolutionApiService({
+        baseURL: evolutionConfig.evolutionURL,
+        token: evolutionConfig.evolutionToken
+      });
+
+      // Buscar configuração do webhook
+      const webhookConfig = await evolutionService.makeRequest(`/webhook/find/${instanceName}`, 'GET');
+
+      res.json({
+        instanceName,
+        webhookConfig,
+        expectedUrl: `${process.env.BASE_URL || 'https://deploy.halarum.com.br'}/api/webhook/messages`,
+        note: "Verifique se a URL do webhook está configurada corretamente"
+      });
+    } catch (error: any) {
+      console.error("Debug webhook error:", error);
+      res.status(500).json({
+        error: "Erro ao buscar configuração do webhook",
+        details: error.message
+      });
+    }
+  });
+
+  // Debug endpoint para verificar instâncias (TEMPORÁRIO - REMOVER EM PRODUÇÃO)
+  app.get("/api/debug/instances", async (req, res) => {
+    try {
+      const storage = getStorage();
+      const companies = await storage.getAllCompanies();
+      const result: any[] = [];
+
+      for (const company of companies) {
+        const instances = await storage.getWhatsappInstancesByCompany(company.id);
+        for (const instance of instances) {
+          result.push({
+            companyName: company.name,
+            instanceName: instance.name,
+            evolutionInstanceId: instance.evolutionInstanceId,
+            aiAgentId: instance.aiAgentId,
+            status: instance.status
+          });
+        }
+      }
+
+      res.json({
+        totalInstances: result.length,
+        instances: result,
+        lookingFor: "e5b71c35-276b-417e-a1c3-267f904b2b98",
+        foundMatch: result.some(i => i.evolutionInstanceId === "e5b71c35-276b-417e-a1c3-267f904b2b98")
+      });
+    } catch (error) {
+      console.error("Debug endpoint error:", error);
+      res.status(500).json({ error: "Erro ao buscar instâncias" });
+    }
+  });
+
   // WhatsApp Webhook para receber mensagens (Evolution API)
   app.post("/webhook/whatsapp", async (req, res) => {
     try {
@@ -2026,11 +2092,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("🔥🔥🔥 [MESSAGES-UPSERT] ================================");
       console.log("🔥🔥🔥 [MESSAGES-UPSERT] NEW MESSAGE IN UPSERT ENDPOINT!");
+      console.log("🔥🔥🔥 [MESSAGES-UPSERT] REQUEST FROM IP:", req.ip);
+      console.log("🔥🔥🔥 [MESSAGES-UPSERT] REQUEST HEADERS:", JSON.stringify(req.headers, null, 2));
       console.log("🔥🔥🔥 [MESSAGES-UPSERT] ================================");
       console.log("🔍 [MESSAGES-UPSERT] Has data:", !!req.body.data);
       console.log("🔍 [MESSAGES-UPSERT] Has message:", !!req.body.data?.message);
       console.log("🔍 [MESSAGES-UPSERT] FromMe value:", req.body.data?.fromMe || req.body.data?.key?.fromMe);
       console.log("🔍 [MESSAGES-UPSERT] Message type:", req.body.data?.messageType);
+
+      // DEBUG CRÍTICO: Ver estrutura do instanceId
+      console.log("🔥 [INSTANCE DEBUG] Checking instance identification:");
+      console.log("  - req.body.data?.instanceId:", req.body.data?.instanceId);
+      console.log("  - req.body.instance:", req.body.instance);
+      console.log("  - req.body.instanceName:", req.body.instanceName);
+      console.log("  - req.body keys:", Object.keys(req.body));
       console.log("🔍 [MESSAGES-UPSERT] Available message fields:", Object.keys(req.body.data?.message || {}));
       console.log("🔍 [MESSAGES-UPSERT] Has imageMessage:", !!req.body.data?.message?.imageMessage);
       console.log("🔍 [MESSAGES-UPSERT] Has audioMessage:", !!req.body.data?.message?.audioMessage);

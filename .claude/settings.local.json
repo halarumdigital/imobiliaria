@@ -32,7 +32,8 @@
       "Bash(netstat:*)",
       "Bash(findstr:*)",
       "Bash(cmd /c:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(python:*)"
     ],
     "deny": [],
     "ask": []

@@ -40,6 +40,7 @@ export interface IStorage {
   
   // WhatsApp Instances
   getWhatsappInstance(id: string): Promise<WhatsappInstance | undefined>;
+  getWhatsappInstanceByEvolutionId(evolutionInstanceId: string): Promise<WhatsappInstance | undefined>;
   getWhatsappInstancesByCompany(companyId: string): Promise<WhatsappInstance[]>;
   createWhatsappInstance(instance: InsertWhatsappInstance): Promise<WhatsappInstance>;
   updateWhatsappInstance(id: string, updates: Partial<WhatsappInstance>): Promise<WhatsappInstance>;
@@ -773,6 +774,31 @@ export class MySQLStorage implements IStorage {
       evolutionInstanceId: row.evolution_instance_id,
       qrCode: row.qr_code,
       aiAgentId: row.ai_agent_id,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    } as WhatsappInstance;
+  }
+
+  async getWhatsappInstanceByEvolutionId(evolutionInstanceId: string): Promise<WhatsappInstance | undefined> {
+    if (!this.connection) throw new Error('No database connection');
+
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM whatsapp_instances WHERE evolution_instance_id = ?',
+      [evolutionInstanceId]
+    );
+    const row = (rows as any[])[0];
+    if (!row) return undefined;
+
+    // Convert snake_case to camelCase
+    return {
+      id: row.id,
+      name: row.name,
+      phone: row.phone,
+      status: row.status,
+      evolutionInstanceId: row.evolution_instance_id,
+      companyId: row.company_id,
+      aiAgentId: row.ai_agent_id || null,
+      qrCode: row.qr_code || null,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     } as WhatsappInstance;

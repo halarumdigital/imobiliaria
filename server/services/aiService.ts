@@ -36,49 +36,28 @@ export class AIService {
       console.log(`🚀 [MAIN] AIService.processMessage called for instance: ${context.instanceId}`);
       console.log(`🚀 [MAIN] Context:`, { phone: context.phone, message: context.message.substring(0, 50) + '...' });
       const storage = getStorage();
-      
-      // Buscar todas as instâncias para encontrar a correta por evolutionInstanceId
-      let instance = null;
-      
-      // Como não temos método direto, vamos buscar em todas as empresas
-      const companies = await storage.getAllCompanies();
-      console.log(`🔍 Found ${companies.length} companies to search`);
-      
-      for (const company of companies) {
-        const instances = await storage.getWhatsappInstancesByCompany(company.id);
-        console.log(`🏢 Company ${company.name} has ${instances.length} instances`);
-        
-        // Debug: Mostrar todas as instâncias
-        instances.forEach(i => {
-          console.log(`🔍 Instance details: name=${i.name}, evolutionId=${i.evolutionInstanceId}, agentId=${i.aiAgentId}`);
-        });
-        
-        // Buscar por evolutionInstanceId OU por nome (fallback)
-        let found = instances.find(i => i.evolutionInstanceId === context.instanceId);
-        
-        // Se não encontrou por evolutionInstanceId, usar FALLBACK UNIVERSAL
-        if (!found) {
-          console.log(`🔄 FALLBACK ATIVADO: Não encontrou ${context.instanceId}, tentando fallback...`);
-          
-          // Para o ID específico do webhook, mapear para deploy2
-          if (context.instanceId === "e5b71c35-276b-417e-a1c3-267f904b2b98") {
-            found = instances.find(i => i.name === "deploy2");
-            console.log(`🎯 FALLBACK ESPECÍFICO: Mapeando ${context.instanceId} -> deploy2`);
+
+      // Buscar a instância diretamente pelo evolutionInstanceId
+      let instance = await storage.getWhatsappInstanceByEvolutionId(context.instanceId);
+
+      // Se não encontrou e temos um databaseInstanceId, usar ele
+      if (!instance && (context as any).databaseInstanceId) {
+        console.log(`🔄 Using databaseInstanceId as fallback: ${(context as any).databaseInstanceId}`);
+        instance = await storage.getWhatsappInstance((context as any).databaseInstanceId);
+      }
+
+      // Se ainda não encontrou, tentar fallback para deploy2 (temporário)
+      if (!instance && context.instanceId === "e5b71c35-276b-417e-a1c3-267f904b2b98") {
+        console.log(`🎯 FALLBACK ESPECÍFICO: Mapeando ${context.instanceId} -> buscando deploy2`);
+        const companies = await storage.getAllCompanies();
+        for (const company of companies) {
+          const instances = await storage.getWhatsappInstancesByCompany(company.id);
+          const found = instances.find(i => i.name === "deploy2");
+          if (found) {
+            instance = found;
+            console.log(`✅ Found deploy2 instance via fallback`);
+            break;
           }
-          
-          // Se ainda não encontrou, pegar a primeira instância com agente vinculado
-          if (!found) {
-            found = instances.find(i => i.aiAgentId);
-            console.log(`🆘 FALLBACK GENÉRICO: Usando primeira instância com agente: ${found?.name}`);
-          }
-        }
-        
-        if (found) {
-          instance = found;
-          console.log(`✅ Found matching instance: ${found.name}, Agent ID: ${found.aiAgentId}`);
-          break;
-        } else {
-          console.log(`❌ No instance found with evolutionInstanceId: ${context.instanceId}`);
         }
       }
       
