@@ -1262,7 +1262,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           enabled: true,
           url: webhookUrl,
           headers: {
-            autorization: "Bearer TOKEN",
             "Content-Type": "application/json"
           },
           byEvents: true,
