@@ -174,22 +174,27 @@ export class WhatsAppWebhookService {
   }
 
   async handleEvolutionMessage(evolutionData: EvolutionWebhookData): Promise<void> {
+    const messageId = Math.random().toString(36).substr(2, 9);
+    const startTime = Date.now();
+
     try {
-      console.log("📨 [WEBHOOK] RAW Evolution API message received!");
-      console.log("📨 [WEBHOOK] Event type:", evolutionData.data?.messageType || 'unknown');
-      console.log("📨 [WEBHOOK] FromMe:", evolutionData.data?.key?.fromMe);
-      console.log("📨 [WEBHOOK] Status:", evolutionData.data?.status);
-      console.log("📨 [WEBHOOK] InstanceId received:", evolutionData.data?.instanceId);
-      console.log("📨 [WEBHOOK] Available message fields:", Object.keys(evolutionData.data?.message || {}));
+      console.log(`📨 [MSG-${messageId}] ========================================`);
+      console.log(`📨 [MSG-${messageId}] RAW Evolution API message received!`);
+      console.log(`📨 [MSG-${messageId}] Timestamp: ${new Date().toISOString()}`);
+      console.log(`📨 [MSG-${messageId}] Event type: ${evolutionData.data?.messageType || 'unknown'}`);
+      console.log(`📨 [MSG-${messageId}] FromMe: ${evolutionData.data?.key?.fromMe}`);
+      console.log(`📨 [MSG-${messageId}] Status: ${evolutionData.data?.status}`);
+      console.log(`📨 [MSG-${messageId}] InstanceId received: ${evolutionData.data?.instanceId}`);
+      console.log(`📨 [MSG-${messageId}] Available message fields: ${Object.keys(evolutionData.data?.message || {}).join(', ')}`);
 
       // Log específico sobre o instanceId
-      console.log("🔍 [WEBHOOK] Analyzing instanceId:");
-      console.log("  - data.instanceId:", evolutionData.data?.instanceId);
-      console.log("  - (data as any).instance:", (evolutionData.data as any)?.instance);
-      console.log("  - evolutionData.instance:", (evolutionData as any)?.instance);
-      console.log("  - evolutionData.sender:", evolutionData.sender);
+      console.log(`🔍 [MSG-${messageId}] Analyzing instanceId:`);
+      console.log(`  - data.instanceId: ${evolutionData.data?.instanceId}`);
+      console.log(`  - (data as any).instance: ${(evolutionData.data as any)?.instance}`);
+      console.log(`  - evolutionData.instance: ${(evolutionData as any)?.instance}`);
+      console.log(`  - evolutionData.sender: ${evolutionData.sender}`);
 
-      console.log("📨 [WEBHOOK] Full raw data:", JSON.stringify(evolutionData, null, 2));
+      console.log(`📨 [MSG-${messageId}] Full raw data:`, JSON.stringify(evolutionData, null, 2));
 
       // Verificar se é uma mensagem válida para processar
       if (!this.shouldProcessEvolutionMessage(evolutionData)) {
@@ -515,10 +520,23 @@ export class WhatsAppWebhookService {
         );
       }
 
-      console.log("✅ Evolution message processed successfully");
+      const totalTime = Date.now() - startTime;
+      console.log(`✅ [MSG-${messageId}] Evolution message processed successfully in ${totalTime}ms`);
+      console.log(`📊 [MSG-${messageId}] Summary: Instance=${instanceName}, Phone=${senderPhone}, AgentUsed=${aiResponse?.activeAgentId || 'none'}`);
 
     } catch (error) {
-      console.error("❌ Error processing Evolution API message:", error);
+      const totalTime = Date.now() - startTime;
+      console.error(`❌ [MSG-${messageId}] CRITICAL ERROR processing Evolution API message after ${totalTime}ms:`, error);
+      console.error(`❌ [MSG-${messageId}] ERROR STACK:`, error.stack);
+      console.error(`❌ [MSG-${messageId}] ERROR MESSAGE:`, error.message);
+      console.error(`❌ [MSG-${messageId}] ERROR TYPE:`, error.constructor.name);
+
+      // Log do contexto quando há erro
+      console.error(`❌ [MSG-${messageId}] CONTEXT AT ERROR:`, {
+        evolutionDataKeys: Object.keys(evolutionData || {}),
+        dataKeys: Object.keys(evolutionData?.data || {}),
+        messageKeys: Object.keys(evolutionData?.data?.message || {})
+      });
     }
   }
 
@@ -690,17 +708,27 @@ export class WhatsAppWebhookService {
   }
 
   private async sendResponse(instanceId: string, phone: string, response: string): Promise<void> {
+    const sendId = Math.random().toString(36).substr(2, 9);
+    const startTime = Date.now();
+
     try {
-      console.log(`🎯 sendResponse called with instanceId: ${instanceId}, phone: ${phone}`);
-      
+      console.log(`📤 [SEND-${sendId}] ========================================`);
+      console.log(`📤 [SEND-${sendId}] sendResponse called`);
+      console.log(`📤 [SEND-${sendId}] Instance: ${instanceId}`);
+      console.log(`📤 [SEND-${sendId}] Phone: ${phone}`);
+      console.log(`📤 [SEND-${sendId}] Response length: ${response.length} chars`);
+      console.log(`📤 [SEND-${sendId}] Response preview: "${response.substring(0, 100)}${response.length > 100 ? '...' : ''}"`);
+
       const storage = getStorage();
-      
-      // Buscar configuração da Evolution API
+
+      console.log(`🔍 [SEND-${sendId}] Getting Evolution API configuration...`);
       const evolutionConfig = await storage.getEvolutionApiConfiguration();
       if (!evolutionConfig) {
-        console.error("❌ Evolution API configuration not found");
+        console.error(`❌ [SEND-${sendId}] Evolution API configuration not found`);
         return;
       }
+
+      console.log(`✅ [SEND-${sendId}] Evolution API config found: ${evolutionConfig.evolutionURL}`);
 
       // Criar instância do serviço Evolution API
       const evolutionService = new EvolutionApiService({
@@ -708,13 +736,23 @@ export class WhatsAppWebhookService {
         token: evolutionConfig.evolutionToken
       });
 
-      // Enviar mensagem
-      console.log(`📡 Calling evolutionService.sendMessage with instance: ${instanceId}, phone: ${phone}`);
+      console.log(`📡 [SEND-${sendId}] Calling Evolution API sendMessage...`);
+      console.log(`📡 [SEND-${sendId}] URL: ${evolutionConfig.evolutionURL}/message/sendText/${instanceId}`);
+
+      const sendStartTime = Date.now();
       await evolutionService.sendMessage(instanceId, phone, response);
-      
-      console.log(`📤 Response sent to ${phone}`);
+      const sendTime = Date.now() - sendStartTime;
+
+      const totalTime = Date.now() - startTime;
+      console.log(`✅ [SEND-${sendId}] Message sent successfully in ${sendTime}ms (total: ${totalTime}ms)`);
+      console.log(`📤 [SEND-${sendId}] Response delivered to ${phone}`);
     } catch (error) {
-      console.error("❌ Error sending response:", error);
+      const totalTime = Date.now() - startTime;
+      console.error(`❌ [SEND-${sendId}] CRITICAL ERROR sending response after ${totalTime}ms:`, error);
+      console.error(`❌ [SEND-${sendId}] ERROR STACK:`, error.stack);
+      console.error(`❌ [SEND-${sendId}] ERROR MESSAGE:`, error.message);
+      console.error(`❌ [SEND-${sendId}] ERROR TYPE:`, error.constructor.name);
+      console.error(`❌ [SEND-${sendId}] CONTEXT:`, { instanceId, phone, responseLength: response.length });
       throw error;
     }
   }

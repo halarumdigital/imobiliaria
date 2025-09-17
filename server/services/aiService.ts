@@ -32,9 +32,19 @@ export interface AgentResponse {
 
 export class AIService {
   async processMessage(context: MessageContext): Promise<AgentResponse | null> {
+    const aiProcessId = Math.random().toString(36).substr(2, 9);
+    const startTime = Date.now();
+
     try {
-      console.log(`🚀 [MAIN] AIService.processMessage called for instance: ${context.instanceId}`);
-      console.log(`🚀 [MAIN] Context:`, { phone: context.phone, message: context.message.substring(0, 50) + '...' });
+      console.log(`🤖 [AI-${aiProcessId}] ========================================`);
+      console.log(`🤖 [AI-${aiProcessId}] AIService.processMessage called`);
+      console.log(`🤖 [AI-${aiProcessId}] Instance: ${context.instanceId}`);
+      console.log(`🤖 [AI-${aiProcessId}] Phone: ${context.phone}`);
+      console.log(`🤖 [AI-${aiProcessId}] Message: "${context.message}"`);
+      console.log(`🤖 [AI-${aiProcessId}] Message type: ${context.messageType || 'text'}`);
+      console.log(`🤖 [AI-${aiProcessId}] Has media: ${!!context.mediaBase64}`);
+      console.log(`🤖 [AI-${aiProcessId}] Push name: ${context.pushName || 'none'}`);
+
       const storage = getStorage();
 
       // Buscar a instância diretamente pelo evolutionInstanceId
@@ -61,10 +71,19 @@ export class AIService {
         }
       }
       
-      if (!instance || !instance.aiAgentId) {
-        console.log(`❌ No agent linked to instance ${context.instanceId}. Instance found: ${!!instance}, Agent ID: ${instance?.aiAgentId}`);
+      if (!instance) {
+        console.error(`❌ [AI-${aiProcessId}] No instance found for instanceId: ${context.instanceId}`);
         return null;
       }
+
+      console.log(`✅ [AI-${aiProcessId}] Instance found: ${instance.name} (DB ID: ${instance.id})`);
+
+      if (!instance.aiAgentId) {
+        console.error(`❌ [AI-${aiProcessId}] No agent linked to instance ${instance.name}. AgentId: ${instance.aiAgentId}`);
+        return null;
+      }
+
+      console.log(`🔗 [AI-${aiProcessId}] Instance has agent linked: ${instance.aiAgentId}`);
 
       // Buscar o agente principal
       console.log(`🔍 Looking for agent with ID: ${instance.aiAgentId}`);

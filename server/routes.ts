@@ -554,7 +554,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Only check status if we have Evolution config and instance has evolutionInstanceId
         if (evolutionConfig && instance.evolutionInstanceId) {
           try {
-            const statusUrl = `${evolutionConfig.evolutionURL}/instance/connectionState/${instance.evolutionInstanceId}`;
+            // CORREÇÃO: Usar o nome da instância se o evolutionInstanceId for UUID
+            let instanceIdentifier = instance.evolutionInstanceId;
+            if (instance.evolutionInstanceId.includes('-')) {
+              console.log(`⚠️ Using name instead of UUID for ${instance.name}`);
+              instanceIdentifier = instance.name;
+            }
+
+            const statusUrl = `${evolutionConfig.evolutionURL}/instance/connectionState/${instanceIdentifier}`;
             console.log(`🔍 Checking status for ${instance.name} at: ${statusUrl}`);
             
             const response = await fetch(statusUrl, {
@@ -570,8 +577,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
               console.log(`📡 Evolution API response for ${instance.name}:`, statusData);
               
               // Check if instance is connected based on Evolution API response
-              const evolutionState = statusData.instance?.state || statusData.state;
-              const isConnected = evolutionState === 'open' || evolutionState === 'connected';
+              const evolutionState = statusData.instance?.state || statusData.state || statusData.status;
+
+              // Mapear todos os possíveis estados da Evolution API
+              let isConnected = false;
+              if (evolutionState) {
+                const connectedStates = ['open', 'connected', 'CONNECTED', 'online'];
+                isConnected = connectedStates.includes(evolutionState);
+              }
+
               const newStatus = isConnected ? 'connected' : 'disconnected';
               
               console.log(`🔄 Instance ${instance.name}: Evolution state="${evolutionState}", DB status="${instance.status}", New status="${newStatus}"`);
@@ -979,8 +993,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check connection status from Evolution API
-      const statusUrl = `${evolutionConfig.evolutionURL}/instance/connectionState/${instance.evolutionInstanceId}`;
+      // CORREÇÃO: Usar o nome da instância se o evolutionInstanceId não funcionar
+      let instanceIdentifier = instance.evolutionInstanceId || instance.name;
+
+      // Se o evolutionInstanceId é um UUID mas a Evolution API espera o nome, usar o nome
+      if (instance.evolutionInstanceId && instance.evolutionInstanceId.includes('-')) {
+        console.log(`⚠️ evolutionInstanceId parece ser UUID (${instance.evolutionInstanceId}), usando nome: ${instance.name}`);
+        instanceIdentifier = instance.name;
+      }
+
+      const statusUrl = `${evolutionConfig.evolutionURL}/instance/connectionState/${instanceIdentifier}`;
       console.log(`📡 Consultando status em: ${statusUrl}`);
+      console.log(`🔍 Usando identificador: ${instanceIdentifier}`);
 
       const response = await fetch(statusUrl, {
         method: 'GET',
@@ -1002,8 +1026,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`✅ Status obtido:`, statusData);
 
       // Check if instance is connected based on Evolution API response
-      const evolutionState = statusData.instance?.state || statusData.state;
-      const isConnected = evolutionState === 'open' || evolutionState === 'connected';
+      const evolutionState = statusData.instance?.state || statusData.state || statusData.status;
+
+      // Mapear todos os possíveis estados da Evolution API
+      let isConnected = false;
+      if (evolutionState) {
+        const connectedStates = ['open', 'connected', 'CONNECTED', 'online'];
+        isConnected = connectedStates.includes(evolutionState);
+        console.log(`🔍 Estado recebido: "${evolutionState}", Conectado: ${isConnected}`);
+      } else {
+        console.log(`⚠️ Nenhum estado encontrado na resposta da Evolution API`);
+      }
+
       const newStatus = isConnected ? 'connected' : 'disconnected';
       
       console.log(`🔄 Instance ${instance.name}: Evolution state="${evolutionState}", DB status="${instance.status}", New status="${newStatus}"`);
@@ -1120,7 +1154,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // First check if instance exists in Evolution API
       try {
         console.log(`🔍 Verificando se instância existe na Evolution API: ${instance.evolutionInstanceId}`);
-        const statusCheck = await evolutionService.getInstanceStatus(instance.evolutionInstanceId);
+        // CORREÇÃO: Usar o nome da instância se o evolutionInstanceId for UUID
+        let checkInstanceId = instance.evolutionInstanceId;
+        if (instance.evolutionInstanceId && instance.evolutionInstanceId.includes('-')) {
+          checkInstanceId = instance.name;
+        }
+        const statusCheck = await evolutionService.getInstanceStatus(checkInstanceId);
         console.log(`✅ Instância encontrada na Evolution API:`, JSON.stringify(statusCheck, null, 2));
       } catch (statusError) {
         console.error(`❌ Instância não encontrada na Evolution API:`, statusError);
@@ -1146,6 +1185,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log("🚀 INÍCIO DA ROTA WEBHOOK - ID:", req.params.id);
     try {
       const { id } = req.params;
+      const { forceReconfigure } = req.body; // Permite forçar reconfiguração
       console.log("📋 Buscando instância no banco...");
       const instance = await storage.getWhatsappInstance(id);
       
@@ -1247,7 +1287,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // First check if instance exists in Evolution API
       try {
         console.log(`🔍 Verificando se instância existe na Evolution API: ${instance.evolutionInstanceId}`);
-        const statusCheck = await evolutionService.getInstanceStatus(instance.evolutionInstanceId);
+        // CORREÇÃO: Usar o nome da instância se o evolutionInstanceId for UUID
+        let checkInstanceId = instance.evolutionInstanceId;
+        if (instance.evolutionInstanceId && instance.evolutionInstanceId.includes('-')) {
+          checkInstanceId = instance.name;
+        }
+        const statusCheck = await evolutionService.getInstanceStatus(checkInstanceId);
         console.log(`✅ Instância encontrada na Evolution API:`, JSON.stringify(statusCheck, null, 2));
       } catch (statusError) {
         console.error(`❌ Instância não encontrada na Evolution API:`, statusError);
@@ -1257,7 +1302,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      const result = await evolutionService.setWebhook(instance.evolutionInstanceId, webhook);
+      // CORREÇÃO: Usar o nome da instância se o evolutionInstanceId for UUID
+      let instanceIdentifier = instance.evolutionInstanceId;
+      if (instance.evolutionInstanceId && instance.evolutionInstanceId.includes('-')) {
+        console.log(`⚠️ evolutionInstanceId é UUID (${instance.evolutionInstanceId}), usando nome: ${instance.name}`);
+        instanceIdentifier = instance.name;
+      }
+
+      console.log(`🔧 Configurando webhook para instância: ${instanceIdentifier}`);
+      const result = await evolutionService.setWebhook(instanceIdentifier, webhook);
       
       console.log("✅ Webhook configurado com sucesso:", JSON.stringify(result, null, 2));
       
@@ -1331,7 +1384,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       console.log(`🔧 Reconfigurando webhook para: ${webhookUrl}`);
-      const result = await evolutionService.setWebhook(instance.evolutionInstanceId, webhook);
+      // CORREÇÃO: Usar o nome da instância se o evolutionInstanceId for UUID
+      let instanceIdentifier = instance.evolutionInstanceId;
+      if (instance.evolutionInstanceId && instance.evolutionInstanceId.includes('-')) {
+        console.log(`⚠️ evolutionInstanceId é UUID (${instance.evolutionInstanceId}), usando nome: ${instance.name}`);
+        instanceIdentifier = instance.name;
+      }
+
+      console.log(`🔧 Configurando webhook para instância: ${instanceIdentifier}`);
+      const result = await evolutionService.setWebhook(instanceIdentifier, webhook);
       
       console.log("✅ Webhook reconfigurado com sucesso:", JSON.stringify(result, null, 2));
       res.json({ success: true, webhookUrl, result });
@@ -1903,7 +1964,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           };
 
-          await evolutionService.setWebhook(instance.evolutionInstanceId, webhook);
+          // CORREÇÃO: Usar o nome da instância se o evolutionInstanceId for UUID
+          let webhookInstanceId = instance.evolutionInstanceId;
+          if (instance.evolutionInstanceId && instance.evolutionInstanceId.includes('-')) {
+            console.log(`⚠️ Webhook: usando nome ${instance.name} em vez de UUID`);
+            webhookInstanceId = instance.name;
+          }
+          await evolutionService.setWebhook(webhookInstanceId, webhook);
           console.log(`✅ Webhook configurado automaticamente para instância: ${instance.evolutionInstanceId} (URL: ${webhookUrl})`);
         }
       } catch (webhookError) {
@@ -2043,6 +2110,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Endpoint para testar o fluxo completo de mensagem
+  app.post("/api/debug/test-message/:instanceName", async (req, res) => {
+    try {
+      const { instanceName } = req.params;
+      const { phone, message } = req.body;
+
+      if (!phone || !message) {
+        return res.status(400).json({ error: "Phone and message are required" });
+      }
+
+      console.log(`🧪 [TEST] Testing complete message flow for ${instanceName}`);
+      console.log(`🧪 [TEST] Phone: ${phone}, Message: "${message}"`);
+
+      // Simular mensagem recebida
+      const testWebhookData = {
+        data: {
+          key: {
+            remoteJid: `${phone}@s.whatsapp.net`,
+            fromMe: false,
+            id: `test-${Date.now()}`
+          },
+          message: {
+            conversation: message
+          },
+          messageType: "conversation",
+          instanceId: instanceName,
+          pushName: "Test User"
+        },
+        sender: instanceName,
+        destination: "test",
+        date_time: new Date().toISOString(),
+        server_url: "test",
+        apikey: "test"
+      };
+
+      const { whatsappWebhookService } = await import("./services/whatsappWebhook");
+      await whatsappWebhookService.handleEvolutionMessage(testWebhookData);
+
+      res.json({
+        success: true,
+        message: "Test message processed",
+        testData: testWebhookData
+      });
+    } catch (error: any) {
+      console.error("Test message error:", error);
+      res.status(500).json({
+        error: "Erro ao testar mensagem",
+        details: error.message
+      });
+    }
+  });
+
+  // Endpoint para forçar configuração correta do webhook
+  app.post("/api/debug/fix-webhook/:instanceName", async (req, res) => {
+    try {
+      const { instanceName } = req.params;
+      const storage = getStorage();
+      const evolutionConfig = await storage.getEvolutionApiConfiguration();
+
+      if (!evolutionConfig) {
+        return res.status(500).json({ error: "Evolution API não configurada" });
+      }
+
+      const evolutionService = new EvolutionApiService({
+        baseURL: evolutionConfig.evolutionURL,
+        token: evolutionConfig.evolutionToken
+      });
+
+      // Configurar webhook com a URL correta
+      const systemUrl = process.env.BASE_URL || 'https://deploy.halarum.com.br';
+      const webhookUrl = `${systemUrl}/api/webhook/messages`;
+
+      const webhook = {
+        webhook: {
+          enabled: true,
+          url: webhookUrl,
+          headers: {
+            "Content-Type": "application/json"
+          },
+          byEvents: true,
+          base64: true,
+          events: [
+            "MESSAGES_UPSERT",
+            "MESSAGES_UPDATE",
+            "MESSAGES_DELETE",
+            "SEND_MESSAGE"
+          ]
+        }
+      };
+
+      console.log(`🔧 Configurando webhook para ${instanceName}: ${webhookUrl}`);
+      const result = await evolutionService.setWebhook(instanceName, webhook);
+
+      res.json({
+        success: true,
+        instanceName,
+        webhookUrl,
+        result,
+        note: "Webhook configurado com sucesso!"
+      });
+    } catch (error: any) {
+      console.error("Fix webhook error:", error);
+      res.status(500).json({
+        error: "Erro ao configurar webhook",
+        details: error.message
+      });
+    }
+  });
+
   // Debug endpoint para verificar instâncias (TEMPORÁRIO - REMOVER EM PRODUÇÃO)
   app.get("/api/debug/instances", async (req, res) => {
     try {
@@ -2084,6 +2260,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Webhook error:", error);
       res.status(500).json({ error: "Erro ao processar webhook" });
+    }
+  });
+
+  // Webhook principal para TODAS as mensagens da Evolution API
+  app.post("/api/webhook/messages", async (req, res) => {
+    const startTime = Date.now();
+    const requestId = Math.random().toString(36).substr(2, 9);
+
+    try {
+      console.log("🔥🔥🔥 [WEBHOOK PRINCIPAL] ================================");
+      console.log(`🔥🔥🔥 [WEBHOOK-${requestId}] NEW MESSAGE RECEIVED!`);
+      console.log(`🔥🔥🔥 [WEBHOOK-${requestId}] REQUEST PATH:`, req.path);
+      console.log(`🔥🔥🔥 [WEBHOOK-${requestId}] REQUEST METHOD:`, req.method);
+      console.log(`🔥🔥🔥 [WEBHOOK-${requestId}] REQUEST IP:`, req.ip);
+      console.log(`🔥🔥🔥 [WEBHOOK-${requestId}] USER AGENT:`, req.headers['user-agent']);
+      console.log(`🔥🔥🔥 [WEBHOOK-${requestId}] CONTENT TYPE:`, req.headers['content-type']);
+      console.log(`🔥🔥🔥 [WEBHOOK-${requestId}] BODY SIZE:`, JSON.stringify(req.body).length);
+      console.log(`📋 [WEBHOOK-${requestId}] FULL BODY:`, JSON.stringify(req.body, null, 2));
+      console.log("🔥🔥🔥 [WEBHOOK PRINCIPAL] ================================");
+
+      console.log(`⏱️ [WEBHOOK-${requestId}] Starting message processing...`);
+      const { whatsappWebhookService } = await import("./services/whatsappWebhook");
+      await whatsappWebhookService.handleEvolutionMessage(req.body);
+
+      const processingTime = Date.now() - startTime;
+      console.log(`✅ [WEBHOOK-${requestId}] Message processed successfully in ${processingTime}ms`);
+      res.status(200).json({ success: true, processed: true, requestId, processingTime });
+    } catch (error) {
+      const processingTime = Date.now() - startTime;
+      console.error(`❌ [WEBHOOK-${requestId}] CRITICAL ERROR after ${processingTime}ms:`, error);
+      console.error(`❌ [WEBHOOK-${requestId}] ERROR STACK:`, error.stack);
+      console.error(`❌ [WEBHOOK-${requestId}] ERROR MESSAGE:`, error.message);
+      res.status(200).json({ success: true, processed: false, error: error.message, requestId });
     }
   });
 

@@ -97,11 +97,28 @@ export class EvolutionApiService {
   }
 
   async sendMessage(instanceName: string, number: string, message: string): Promise<any> {
-    console.log(`🎯 EvolutionApiService.sendMessage called with instance: ${instanceName}, number: ${number}`);
-    return this.makeRequest(`/message/sendText/${instanceName}`, 'POST', {
+    const apiCallId = Math.random().toString(36).substr(2, 9);
+    console.log(`🎯 [API-${apiCallId}] EvolutionApiService.sendMessage called`);
+    console.log(`🎯 [API-${apiCallId}] Instance: ${instanceName}`);
+    console.log(`🎯 [API-${apiCallId}] Number: ${number}`);
+    console.log(`🎯 [API-${apiCallId}] Message length: ${message.length}`);
+
+    const payload = {
       number,
-      text: message  // Evolution API expects simple format with "text" field
-    });
+      text: message
+    };
+
+    console.log(`📡 [API-${apiCallId}] Making request to: /message/sendText/${instanceName}`);
+    console.log(`📡 [API-${apiCallId}] Payload:`, JSON.stringify(payload, null, 2));
+
+    try {
+      const result = await this.makeRequest(`/message/sendText/${instanceName}`, 'POST', payload);
+      console.log(`✅ [API-${apiCallId}] Evolution API response:`, JSON.stringify(result, null, 2));
+      return result;
+    } catch (error) {
+      console.error(`❌ [API-${apiCallId}] Evolution API error:`, error);
+      throw error;
+    }
   }
 
   async sendMedia(instanceName: string, number: string, mediaData: {
