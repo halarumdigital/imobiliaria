@@ -2178,9 +2178,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         token: evolutionConfig.evolutionToken
       });
 
-      // Configurar webhook com a URL correta
+      // Configurar webhook com a URL correta e TODOS os eventos necessários
       const systemUrl = process.env.BASE_URL || 'https://deploy.halarum.com.br';
       const webhookUrl = `${systemUrl}/api/webhook/messages`;
+
+      console.log(`🔧 [FIX-WEBHOOK] Configurando webhook para ${instanceName}:`);
+      console.log(`🔧 [FIX-WEBHOOK] URL: ${webhookUrl}`);
 
       const webhook = {
         webhook: {
@@ -2195,10 +2198,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             "MESSAGES_UPSERT",
             "MESSAGES_UPDATE",
             "MESSAGES_DELETE",
-            "SEND_MESSAGE"
+            "SEND_MESSAGE",
+            "CHATS_SET",
+            "CHATS_UPSERT",
+            "CHATS_UPDATE",
+            "CHATS_DELETE"
           ]
         }
       };
+
+      console.log(`🔧 [FIX-WEBHOOK] Webhook config:`, JSON.stringify(webhook, null, 2));
 
       console.log(`🔧 Configurando webhook para ${instanceName}: ${webhookUrl}`);
       const result = await evolutionService.setWebhook(instanceName, webhook);
@@ -2299,6 +2308,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`📋 [WEBHOOK-${requestId}] FULL BODY:`, JSON.stringify(req.body, null, 2));
       console.log("🔥🔥🔥 [WEBHOOK PRINCIPAL] ================================");
 
+      // Verificar tipo de evento - processar apenas MESSAGES_UPSERT
+      const eventType = req.body.event;
+      console.log(`🎯 [WEBHOOK-${requestId}] Event type detected: ${eventType}`);
+
+      if (eventType !== 'messages.upsert' && eventType !== 'MESSAGES_UPSERT') {
+        console.log(`⏭️ [WEBHOOK-${requestId}] Ignoring event type: ${eventType}`);
+        return res.status(200).json({
+          success: true,
+          processed: false,
+          ignored: true,
+          reason: `Event type ${eventType} not processed`,
+          requestId
+        });
+      }
+
+      // Verificar se não é mensagem enviada por nós (evitar loop)
+      const fromMe = req.body.data?.key?.fromMe || req.body.data?.fromMe;
+      console.log(`👤 [WEBHOOK-${requestId}] FromMe: ${fromMe}`);
+
+      if (fromMe === true) {
+        console.log(`📤 [WEBHOOK-${requestId}] Message sent by us, ignoring to prevent loop`);
+        return res.status(200).json({
+          success: true,
+          processed: false,
+          ignored: true,
+          reason: "Message sent by us",
+          requestId
+        });
+      }
+
       console.log(`⏱️ [WEBHOOK-${requestId}] Starting message processing...`);
       const { whatsappWebhookService } = await import("./services/whatsappWebhook");
       await whatsappWebhookService.handleEvolutionMessage(req.body);
@@ -2382,70 +2421,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(200).json({ success: true, processed: false, type: "chats_upsert" });
   });
 
-  // Endpoint adicional para Evolution API (formato padrão)
-  app.post("/api/webhook/messages", async (req, res) => {
-    try {
-      console.log("🔥 [WEBHOOK] ================================");
-      console.log("🔥 [WEBHOOK] NEW MESSAGE RECEIVED!");
-      console.log("🔥 [WEBHOOK] ================================");
-      console.log("🔍 [WEBHOOK] Event type:", req.body.event);
-      console.log("🔍 [WEBHOOK] Has message data:", !!req.body.data?.message);
-      console.log("🔍 [WEBHOOK] FromMe value:", req.body.data?.fromMe || req.body.data?.key?.fromMe);
-      console.log("🔍 [WEBHOOK] Message type:", req.body.data?.messageType);
-      console.log("🔍 [WEBHOOK] Available message fields:", Object.keys(req.body.data?.message || {}));
-      console.log("🔍 [WEBHOOK] Has imageMessage:", !!req.body.data?.message?.imageMessage);
-      console.log("🔍 [WEBHOOK] Has conversation:", !!req.body.data?.message?.conversation);
-      console.log("🔍 [WEBHOOK] Has extendedTextMessage:", !!req.body.data?.message?.extendedTextMessage);
-      console.log("🔥 [WEBHOOK] Full request body:", JSON.stringify(req.body, null, 2));
-      
-      // Verificar se temos dados válidos
-      if (!req.body.data || !req.body.sender) {
-        console.log("❌ Invalid webhook format - missing data or sender");
-        return res.status(400).json({ error: "Invalid webhook format" });
-      }
-      
-      // Verificar se é uma mensagem enviada por nós (evitar loop infinito)
-      // IMPORTANTE: Não filtrar por event === "send.message" pois inclui mensagens do usuário
-      if ((req.body.data && req.body.data.fromMe === true) ||
-          (req.body.data && req.body.data.key && req.body.data.key.fromMe === true)) {
-        console.log("📤 Message sent by us, ignoring to prevent loop");
-        return res.status(200).json({ 
-          success: true, 
-          type: "outgoing_message", 
-          ignored: true,
-          timestamp: new Date().toISOString() 
-        });
-      }
-      
-      // Verificar se tem conteúdo de mensagem (para evitar processar status updates)
-      if (!req.body.data.message || 
-          (!req.body.data.message.conversation && 
-           !req.body.data.message.extendedTextMessage && 
-           !req.body.data.message.imageMessage)) {
-        console.log("📊 Non-message event received, ignoring");
-        return res.status(200).json({ 
-          success: true, 
-          type: "non_message_event", 
-          ignored: true,
-          timestamp: new Date().toISOString() 
-        });
-      }
-      
-      // Processar apenas mensagens recebidas (não enviadas por nós)
-      console.log("📨 Processing incoming message");
-      const { whatsappWebhookService } = await import("./services/whatsappWebhook");
-      await whatsappWebhookService.handleEvolutionMessage(req.body);
-      res.status(200).json({ 
-        success: true, 
-        processed: true,
-        type: "incoming_message",
-        timestamp: new Date().toISOString() 
-      });
-    } catch (error) {
-      console.error("❌ Evolution webhook error:", error);
-      res.status(500).json({ error: "Erro ao processar webhook" });
-    }
-  });
+  // DUPLICATE ROUTE REMOVED - main webhook handler above handles all events
 
 
 
