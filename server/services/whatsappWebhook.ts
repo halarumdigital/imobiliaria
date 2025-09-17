@@ -379,12 +379,9 @@ export class WhatsAppWebhookService {
       console.log(`🔍 About to search for instance ID: ${data.instanceId}`);
       const storage = getStorage();
 
-      // MAPEAMENTO DIRETO: Se receber o UUID conhecido, mapear para deployimo
+      // Usar o instanceId diretamente sem mapeamento hardcoded
       let searchId = data.instanceId;
-      if (searchId === "e5b71c35-276b-417e-a1c3-267f904b2b98") {
-        console.log(`🔄 Mapping known UUID to deployimo`);
-        searchId = "deployimo";
-      }
+      console.log(`🔍 [MSG-${messageId}] Using instanceId for search: ${searchId}`);
 
       // Primeiro tentar buscar pelo evolutionInstanceId
       let dbInstance = await storage.getWhatsappInstanceByEvolutionId(searchId);

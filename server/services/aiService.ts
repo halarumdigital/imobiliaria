@@ -56,20 +56,7 @@ export class AIService {
         instance = await storage.getWhatsappInstance((context as any).databaseInstanceId);
       }
 
-      // Se ainda não encontrou, tentar fallback para deploy2 (temporário)
-      if (!instance && context.instanceId === "e5b71c35-276b-417e-a1c3-267f904b2b98") {
-        console.log(`🎯 FALLBACK ESPECÍFICO: Mapeando ${context.instanceId} -> buscando deploy2`);
-        const companies = await storage.getAllCompanies();
-        for (const company of companies) {
-          const instances = await storage.getWhatsappInstancesByCompany(company.id);
-          const found = instances.find(i => i.name === "deploy2");
-          if (found) {
-            instance = found;
-            console.log(`✅ Found deploy2 instance via fallback`);
-            break;
-          }
-        }
-      }
+      // Sem fallbacks hardcoded - usar apenas o que está no banco
       
       if (!instance) {
         console.error(`❌ [AI-${aiProcessId}] No instance found for instanceId: ${context.instanceId}`);

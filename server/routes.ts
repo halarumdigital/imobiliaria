@@ -2097,7 +2097,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         instanceName,
         webhookConfig,
-        expectedUrl: `${process.env.BASE_URL || 'https://deploy.halarum.com.br'}/api/webhook/messages`,
+        expectedUrl: `${process.env.BASE_URL || 'https://imobiliaria.gilliard.dev.br'}/api/webhook/messages`,
         note: "Verifique se a URL do webhook está configurada corretamente"
       });
     } catch (error: any) {
@@ -2161,6 +2161,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Endpoint temporário para atualizar URL global do sistema
+  app.post("/api/debug/update-system-url", async (req, res) => {
+    try {
+      const storage = getStorage();
+      const { url } = req.body;
+
+      if (!url) {
+        return res.status(400).json({ error: "URL é obrigatória" });
+      }
+
+      console.log(`🔧 [UPDATE-URL] Atualizando URL global do sistema para: ${url}`);
+
+      // Update the global config with the new URL
+      await storage.connection?.execute(
+        'UPDATE global_config SET url_global_sistema = ? WHERE id IS NOT NULL',
+        [url]
+      );
+
+      res.json({
+        success: true,
+        message: "URL global do sistema atualizada",
+        newUrl: url
+      });
+    } catch (error: any) {
+      console.error("Update URL error:", error);
+      res.status(500).json({
+        error: "Erro ao atualizar URL",
+        details: error.message
+      });
+    }
+  });
+
   // Endpoint para forçar configuração correta do webhook
   app.post("/api/debug/fix-webhook/:instanceName", async (req, res) => {
     try {
@@ -2177,9 +2209,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         token: evolutionConfig.evolutionToken
       });
 
-      // Configurar webhook com a URL correta e TODOS os eventos necessários
-      const systemUrl = process.env.BASE_URL || 'https://deploy.halarum.com.br';
+      // FORÇAR URL CORRETA DIRETAMENTE
+      const systemUrl = 'https://imobiliaria.gilliard.dev.br';
       const webhookUrl = `${systemUrl}/api/webhook/messages`;
+
+      console.log(`🔧 [FIX-WEBHOOK] USANDO URL FORÇADA: ${systemUrl}`);
 
       console.log(`🔧 [FIX-WEBHOOK] Configurando webhook para ${instanceName}:`);
       console.log(`🔧 [FIX-WEBHOOK] URL: ${webhookUrl}`);
@@ -2290,6 +2324,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Endpoint de teste para verificar conectividade do webhook
+  app.get("/api/webhook/messages", (req, res) => {
+    console.log("🧪 [WEBHOOK TEST] GET request received - Evolution API can reach the webhook!");
+    console.log("🧪 [WEBHOOK TEST] Headers:", JSON.stringify(req.headers, null, 2));
+    res.json({
+      status: "OK",
+      message: "Webhook endpoint is reachable",
+      timestamp: new Date().toISOString()
+    });
+  });
+
   // Webhook principal para TODAS as mensagens da Evolution API
   app.post("/api/webhook/messages", async (req, res) => {
     const startTime = Date.now();
@@ -2311,7 +2356,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const eventType = req.body.event;
       console.log(`🎯 [WEBHOOK-${requestId}] Event type detected: ${eventType}`);
 
-      if (eventType !== 'messages.upsert' && eventType !== 'MESSAGES_UPSERT') {
+      // Aceitar múltiplos formatos de evento MESSAGES_UPSERT
+      const validEvents = ['messages.upsert', 'MESSAGES_UPSERT', 'messages_upsert', 'MESSAGES.UPSERT'];
+      if (!validEvents.includes(eventType)) {
         console.log(`⏭️ [WEBHOOK-${requestId}] Ignoring event type: ${eventType}`);
         return res.status(200).json({
           success: true,
@@ -2423,6 +2470,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // DUPLICATE ROUTE REMOVED - main webhook handler above handles all events
 
 
+
+  // Endpoint para testar webhook localmente simulando Evolution API
+  app.post("/api/test-webhook", async (req, res) => {
+    try {
+      const testPayload = {
+        event: "messages.upsert",
+        data: {
+          instanceId: "deploy1",
+          instanceName: "deploy1",
+          messageType: "text",
+          key: {
+            remoteJid: "5511999999999@s.whatsapp.net",
+            fromMe: false,
+            id: "TEST" + Date.now()
+          },
+          pushName: "Teste Local",
+          message: {
+            conversation: "Olá, teste do webhook"
+          }
+        }
+      };
+
+      console.log("🧪 [TEST] Enviando payload de teste para webhook...");
+
+      // Chamar o webhook internamente
+      const webhookReq = { ...req, body: testPayload };
+      const { whatsappWebhookService } = await import("./services/whatsappWebhook");
+      await whatsappWebhookService.handleEvolutionMessage(testPayload);
+
+      res.json({
+        success: true,
+        message: "Teste de webhook enviado",
+        payload: testPayload
+      });
+    } catch (error: any) {
+      console.error("❌ [TEST] Erro no teste:", error);
+      res.status(500).json({
+        error: "Erro no teste do webhook",
+        details: error.message
+      });
+    }
+  });
 
   // Endpoint de teste para simular mensagem
   app.post("/api/test-message", authenticate, requireClient, async (req: AuthRequest, res) => {
