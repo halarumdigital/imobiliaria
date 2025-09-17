@@ -379,9 +379,9 @@ export class WhatsAppWebhookService {
       console.log(`🔍 About to search for instance ID: ${data.instanceId}`);
       const storage = getStorage();
 
-      // Usar o instanceId diretamente sem mapeamento hardcoded
-      let searchId = data.instanceId;
-      console.log(`🔍 [MSG-${messageId}] Using instanceId for search: ${searchId}`);
+      // Priorizar o nome da instância (deploy1) ao invés do UUID
+      let searchId = evolutionData.instance || data.instanceId;
+      console.log(`🔍 [MSG-${messageId}] Using instance name for search: ${searchId}`);
 
       // Primeiro tentar buscar pelo evolutionInstanceId
       let dbInstance = await storage.getWhatsappInstanceByEvolutionId(searchId);
@@ -395,11 +395,11 @@ export class WhatsAppWebhookService {
         for (const company of companies) {
           const instances = await storage.getWhatsappInstancesByCompany(company.id);
 
-          // Tentar encontrar pelo nome da instância ou evolutionInstanceId
+          // Tentar encontrar pelo nome da instância (deploy1) ou evolutionInstanceId
           const found = instances.find(i =>
             i.name === searchId ||
             i.evolutionInstanceId === searchId ||
-            i.name === data.instanceId ||
+            i.name === evolutionData.instance ||  // Usar o nome que vem do Evolution
             i.evolutionInstanceId === data.instanceId
           );
 
