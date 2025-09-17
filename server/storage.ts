@@ -1,12 +1,12 @@
 import mysql from 'mysql2/promise';
-import { 
-  User, InsertUser, Company, InsertCompany, GlobalConfiguration, 
+import {
+  User, InsertUser, Company, InsertCompany, GlobalConfiguration,
   InsertGlobalConfiguration, EvolutionApiConfiguration, InsertEvolutionApiConfiguration,
   AiConfiguration, InsertAiConfiguration, WhatsappInstance, InsertWhatsappInstance,
   AiAgent, InsertAiAgent, Conversation, InsertConversation, Message, InsertMessage,
   ContactList, InsertContactList, ContactListItem, InsertContactListItem,
   ScheduledMessage, InsertScheduledMessage, FunnelStage, InsertFunnelStage,
-  Customer, InsertCustomer, Property, InsertProperty
+  Customer, InsertCustomer, Lead, InsertLead, Property, InsertProperty
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -105,7 +105,15 @@ export interface IStorage {
   createCustomer(customer: InsertCustomer): Promise<Customer>;
   updateCustomer(id: string, updates: Partial<Customer>): Promise<Customer>;
   deleteCustomer(id: string): Promise<void>;
-  
+
+  // Leads
+  getLead(id: string): Promise<Lead | undefined>;
+  getLeadsByCompany(companyId: string): Promise<Lead[]>;
+  getLeadByPhone(phone: string, companyId: string): Promise<Lead | undefined>;
+  createLead(lead: InsertLead): Promise<Lead>;
+  updateLead(id: string, updates: Partial<Lead>): Promise<Lead>;
+  deleteLead(id: string): Promise<void>;
+
   // Properties
   getProperty(id: string): Promise<Property | undefined>;
   getPropertiesByCompany(companyId: string): Promise<Property[]>;
@@ -350,6 +358,21 @@ export class MySQLStorage implements IStorage {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         UNIQUE KEY customers_phone_company_unique (phone, company_id)
+      )`,
+
+      `CREATE TABLE IF NOT EXISTS leads (
+        id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+        company_id VARCHAR(36) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        phone VARCHAR(20) NOT NULL,
+        email VARCHAR(255),
+        source VARCHAR(255) DEFAULT 'WhatsApp',
+        status VARCHAR(50) DEFAULT 'new',
+        notes TEXT,
+        converted_to_customer BOOLEAN DEFAULT FALSE,
+        customer_id VARCHAR(36),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )`
     ];
 
@@ -1954,6 +1977,157 @@ export class MySQLStorage implements IStorage {
       value: row.value ? parseFloat(row.value) : undefined,
       source: row.source,
       conversationId: row.conversation_id,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  // Lead methods
+  async getLead(id: string): Promise<Lead | undefined> {
+    if (!this.connection) throw new Error('No database connection');
+
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM leads WHERE id = ?',
+      [id]
+    );
+
+    const leads = rows as any[];
+    if (leads.length === 0) return undefined;
+
+    return this.parseLead(leads[0]);
+  }
+
+  async getLeadsByCompany(companyId: string): Promise<Lead[]> {
+    if (!this.connection) throw new Error('No database connection');
+
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM leads WHERE company_id = ? ORDER BY created_at DESC',
+      [companyId]
+    );
+
+    const leads = rows as any[];
+    return leads.map(row => this.parseLead(row));
+  }
+
+  async getLeadByPhone(phone: string, companyId: string): Promise<Lead | undefined> {
+    if (!this.connection) throw new Error('No database connection');
+
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM leads WHERE phone = ? AND company_id = ?',
+      [phone, companyId]
+    );
+
+    const leads = rows as any[];
+    if (leads.length === 0) return undefined;
+
+    return this.parseLead(leads[0]);
+  }
+
+  async createLead(lead: InsertLead): Promise<Lead> {
+    if (!this.connection) throw new Error('No database connection');
+
+    const id = randomUUID();
+
+    await this.connection.execute(
+      `INSERT INTO leads (
+        id, company_id, name, phone, email, source, status, notes,
+        converted_to_customer, customer_id, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+      [
+        id,
+        lead.companyId,
+        lead.name,
+        lead.phone,
+        lead.email || null,
+        lead.source || 'Manual',
+        lead.status || 'new',
+        lead.notes || null,
+        lead.convertedToCustomer || false,
+        lead.customerId || null
+      ]
+    );
+
+    const newLead = await this.getLead(id);
+    if (!newLead) {
+      throw new Error('Failed to create lead');
+    }
+
+    return newLead;
+  }
+
+  async updateLead(id: string, updates: Partial<Lead>): Promise<Lead> {
+    if (!this.connection) throw new Error('No database connection');
+
+    const setClause = [];
+    const values = [];
+
+    if (updates.name !== undefined) {
+      setClause.push('name = ?');
+      values.push(updates.name);
+    }
+    if (updates.phone !== undefined) {
+      setClause.push('phone = ?');
+      values.push(updates.phone);
+    }
+    if (updates.email !== undefined) {
+      setClause.push('email = ?');
+      values.push(updates.email);
+    }
+    if (updates.source !== undefined) {
+      setClause.push('source = ?');
+      values.push(updates.source);
+    }
+    if (updates.status !== undefined) {
+      setClause.push('status = ?');
+      values.push(updates.status);
+    }
+    if (updates.notes !== undefined) {
+      setClause.push('notes = ?');
+      values.push(updates.notes);
+    }
+    if (updates.convertedToCustomer !== undefined) {
+      setClause.push('converted_to_customer = ?');
+      values.push(updates.convertedToCustomer);
+    }
+    if (updates.customerId !== undefined) {
+      setClause.push('customer_id = ?');
+      values.push(updates.customerId);
+    }
+
+    setClause.push('updated_at = NOW()');
+    values.push(id);
+
+    await this.connection.execute(
+      `UPDATE leads SET ${setClause.join(', ')} WHERE id = ?`,
+      values
+    );
+
+    const updatedLead = await this.getLead(id);
+    if (!updatedLead) {
+      throw new Error('Lead not found after update');
+    }
+
+    return updatedLead;
+  }
+
+  async deleteLead(id: string): Promise<void> {
+    if (!this.connection) throw new Error('No database connection');
+
+    await this.connection.execute('DELETE FROM leads WHERE id = ?', [id]);
+  }
+
+  private parseLead(row: any): Lead {
+    return {
+      id: row.id,
+      companyId: row.company_id,
+      name: row.name,
+      phone: row.phone,
+      email: row.email,
+      source: row.source,
+      status: row.status,
+      notes: row.notes,
+      convertedToCustomer: row.converted_to_customer,
+      customerId: row.customer_id,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };

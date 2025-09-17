@@ -19,12 +19,12 @@ import { ObjectStorageService } from "./objectStorage";
 import { extractTextFromMultiplePDFs } from "./pdfProcessor";
 import { AiResponseService } from "./aiResponseService";
 import { whatsappWebhookService } from "./services/whatsappWebhook";
-import { 
-  insertUserSchema, insertCompanySchema, insertGlobalConfigSchema, 
+import {
+  insertUserSchema, insertCompanySchema, insertGlobalConfigSchema,
   insertEvolutionConfigSchema, insertAiConfigSchema, insertWhatsappInstanceSchema,
   insertAiAgentSchema, insertConversationSchema, insertMessageSchema,
   insertContactListSchema, insertContactListItemSchema, insertScheduledMessageSchema,
-  insertFunnelStageSchema, insertCustomerSchema, insertPropertySchema
+  insertFunnelStageSchema, insertCustomerSchema, insertLeadSchema, insertPropertySchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -3836,6 +3836,128 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Delete customer error:", error);
       res.status(500).json({ error: "Erro ao excluir cliente" });
+    }
+  });
+
+  // Leads endpoints
+  app.get("/api/leads", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+
+      const leads = await storage.getLeadsByCompany(req.user.companyId);
+      res.json(leads);
+    } catch (error) {
+      console.error("Get leads error:", error);
+      res.status(500).json({ error: "Erro ao buscar leads" });
+    }
+  });
+
+  app.post("/api/leads", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(404).json({ error: "Empresa não encontrada" });
+      }
+
+      const leadData = insertLeadSchema.parse({
+        ...req.body,
+        companyId: req.user.companyId,
+      });
+
+      const lead = await storage.createLead(leadData);
+      res.status(201).json(lead);
+    } catch (error) {
+      console.error("Create lead error:", error);
+      res.status(500).json({ error: "Erro ao criar lead" });
+    }
+  });
+
+  app.put("/api/leads/:id", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const lead = await storage.getLead(id);
+
+      if (!lead) {
+        return res.status(404).json({ error: "Lead não encontrado" });
+      }
+
+      // Check company access
+      if (req.user?.role !== 'admin' && lead.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Acesso negado" });
+      }
+
+      const updatedLead = await storage.updateLead(id, req.body);
+      res.json(updatedLead);
+    } catch (error) {
+      console.error("Update lead error:", error);
+      res.status(500).json({ error: "Erro ao atualizar lead" });
+    }
+  });
+
+  app.delete("/api/leads/:id", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const lead = await storage.getLead(id);
+
+      if (!lead) {
+        return res.status(404).json({ error: "Lead não encontrado" });
+      }
+
+      // Check company access
+      if (req.user?.role !== 'admin' && lead.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Acesso negado" });
+      }
+
+      await storage.deleteLead(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete lead error:", error);
+      res.status(500).json({ error: "Erro ao excluir lead" });
+    }
+  });
+
+  // Convert lead to customer
+  app.post("/api/leads/:id/convert", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const { funnelStageId } = req.body;
+
+      const lead = await storage.getLead(id);
+
+      if (!lead) {
+        return res.status(404).json({ error: "Lead não encontrado" });
+      }
+
+      // Check company access
+      if (req.user?.role !== 'admin' && lead.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Acesso negado" });
+      }
+
+      // Create customer from lead
+      const customerData = insertCustomerSchema.parse({
+        companyId: lead.companyId,
+        name: lead.name,
+        phone: lead.phone,
+        email: lead.email,
+        funnelStageId: funnelStageId,
+        source: lead.source,
+        notes: lead.notes,
+      });
+
+      const customer = await storage.createCustomer(customerData);
+
+      // Update lead to mark as converted
+      await storage.updateLead(id, {
+        convertedToCustomer: true,
+        customerId: customer.id,
+        status: 'converted'
+      });
+
+      res.json({ customer, lead: await storage.getLead(id) });
+    } catch (error) {
+      console.error("Convert lead error:", error);
+      res.status(500).json({ error: "Erro ao converter lead" });
     }
   });
 

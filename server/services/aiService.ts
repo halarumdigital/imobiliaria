@@ -497,12 +497,13 @@ export class AIService {
           contactPhone: phone,
           lastMessage: userMessage
         });
+
+        // 🎯 FUNCIONALIDADE: Criar lead automaticamente quando alguém enviar a PRIMEIRA mensagem
+        console.log(`🚀 [PRIMEIRA MENSAGEM] Detectada primeira mensagem de ${phone}, criando lead automaticamente...`);
+        await this.createOrUpdateCustomerFromConversation(dbInstanceId, phone, conversation.id, messageData?.pushName);
       } else {
         console.log(`💾 Usando conversa existente: ${conversation.id}`);
       }
-      
-      // 🎯 NOVA FUNCIONALIDADE: Criar customer automaticamente no kanban (verifica se já existe)
-      await this.createOrUpdateCustomerFromConversation(dbInstanceId, phone, conversation.id, messageData?.pushName);
 
       // Salvar mensagem do usuário (com dados de imagem se presente)
       const userMessageData: any = {
@@ -538,30 +539,45 @@ export class AIService {
     }
   }
 
-  // 🎯 NOVA FUNCIONALIDADE: Criar customer automaticamente no kanban para novas conversas
+  // 🎯 FUNCIONALIDADE: Criar lead automaticamente quando alguém enviar a primeira mensagem
   private async createOrUpdateCustomerFromConversation(whatsappInstanceId: string, phone: string, conversationId: string, pushName?: string) {
     try {
-      console.log(`🎯 [CUSTOMER] Verificando/criando customer para conversa - Phone: ${phone}, ConversationId: ${conversationId}`);
-      
+      console.log(`🎯🎯🎯 [LEAD AUTO] === INICIANDO CRIAÇÃO AUTOMÁTICA DE LEAD ===`);
+      console.log(`📞 [LEAD AUTO] Phone: ${phone}`);
+      console.log(`🆔 [LEAD AUTO] ConversationId: ${conversationId}`);
+      console.log(`👤 [LEAD AUTO] PushName: ${pushName || 'N/A'}`);
+      console.log(`🏢 [LEAD AUTO] WhatsApp Instance ID: ${whatsappInstanceId}`);
+
       const storage = getStorage();
-      
+
       // Obter a instância para determinar a empresa
+      console.log(`🔍 [LEAD AUTO] Buscando instância no banco de dados...`);
       const instance = await storage.getWhatsappInstance(whatsappInstanceId);
       if (!instance?.companyId) {
-        console.log(`❌ [CUSTOMER] Instância ou companyId não encontrada para WhatsApp instance: ${whatsappInstanceId}`);
+        console.log(`❌ [LEAD AUTO] Instância ou companyId não encontrada para WhatsApp instance: ${whatsappInstanceId}`);
         return;
       }
-      
-      console.log(`🏢 [CUSTOMER] Company ID encontrado: ${instance.companyId}`);
-      
+
+      console.log(`✅ [LEAD AUTO] Instância encontrada! Company ID: ${instance.companyId}`);
+
+      // Verificar se já existe um lead para este telefone na empresa
+      console.log(`🔍 [LEAD AUTO] Verificando se já existe lead para phone: ${phone} na empresa: ${instance.companyId}`);
+      const existingLead = await storage.getLeadByPhone(phone, instance.companyId);
+      if (existingLead) {
+        console.log(`⚠️ [LEAD AUTO] Lead já existe! ID: ${existingLead.id}, Status: ${existingLead.status}`);
+        return;
+      }
+      console.log(`✅ [LEAD AUTO] Nenhum lead existente encontrado - prosseguindo com criação`);
+
       // Verificar se já existe um customer com este telefone na empresa
+      console.log(`🔍 [LEAD AUTO] Verificando se já existe customer para phone: ${phone} na empresa: ${instance.companyId}`);
       const existingCustomer = await storage.getCustomerByPhone(phone, instance.companyId);
       if (existingCustomer) {
-        console.log(`⚠️ [CUSTOMER] Customer já existe para este telefone: ${phone} na empresa ${instance.companyId}`);
-        
+        console.log(`⚠️ [LEAD AUTO] Customer já existe! ID: ${existingCustomer.id}, Nome: ${existingCustomer.name}`);
+
         // Atualizar o lastContact e conversationId se necessário
         if (existingCustomer.conversationId !== conversationId) {
-          console.log(`📝 [CUSTOMER] Atualizando conversationId do customer existente`);
+          console.log(`📝 [LEAD AUTO] Atualizando conversationId do customer existente`);
           await storage.updateCustomer(existingCustomer.id, {
             conversationId: conversationId,
             lastContact: new Date().toISOString().slice(0, 19).replace('T', ' ')
@@ -569,43 +585,56 @@ export class AIService {
         }
         return;
       }
-      
-      // Buscar a primeira etapa ativa do funil desta empresa para colocar o customer
-      const funnelStages = await storage.getFunnelStagesByCompany(instance.companyId);
-      const firstActiveStage = funnelStages.find(stage => stage.isActive);
-      
-      if (!firstActiveStage) {
-        console.log(`❌ [CUSTOMER] Nenhuma etapa ativa encontrada no funil da empresa ${instance.companyId}`);
-        return;
-      }
-      
-      console.log(`📊 [CUSTOMER] Primeira etapa ativa encontrada: ${firstActiveStage.name} (${firstActiveStage.id})`);
-      
+      console.log(`✅ [LEAD AUTO] Nenhum customer existente encontrado - prosseguindo com criação do lead`);
+
       // Usar pushName se disponível, senão usar o número completo
-      const customerName = pushName || phone;
-      console.log(`👤 [CUSTOMER] Nome do customer: ${customerName} (pushName: ${pushName ? 'sim' : 'não'})`)
-      
-      // Criar o customer
-      const newCustomer = await storage.createCustomer({
+      const leadName = pushName || phone;
+      console.log(`👤 [LEAD AUTO] Nome definido para o lead: "${leadName}" (pushName: ${pushName ? 'SIM' : 'NÃO'})`);
+
+      // Criar lead automaticamente para nova conversa
+      console.log(`🚀 [LEAD AUTO] CRIANDO LEAD AUTOMATICAMENTE...`);
+      console.log(`📋 [LEAD AUTO] Dados do lead:`, {
         companyId: instance.companyId,
-        name: customerName,
+        name: leadName,
         phone: phone,
-        funnelStageId: firstActiveStage.id,
-        lastContact: new Date().toISOString().slice(0, 19).replace('T', ' '),
         source: 'WhatsApp',
-        conversationId: conversationId
+        status: 'new',
+        notes: 'Lead criado automaticamente através da primeira mensagem do WhatsApp.',
+        convertedToCustomer: false,
+        customerId: undefined
       });
-      
-      console.log(`✅ [CUSTOMER] Customer criado com sucesso no kanban:`, {
-        id: newCustomer.id,
-        name: newCustomer.name,
-        phone: newCustomer.phone,
-        stage: firstActiveStage.name,
-        conversationId: conversationId
-      });
-      
+
+      try {
+        const newLead = await storage.createLead({
+          companyId: instance.companyId,
+          name: leadName,
+          phone: phone,
+          source: 'WhatsApp',
+          status: 'new', // Novo lead para ser qualificado
+          notes: `Lead criado automaticamente através da primeira mensagem do WhatsApp.`,
+          convertedToCustomer: false,
+          customerId: undefined
+        });
+
+        console.log(`🎉🎉🎉 [LEAD AUTO] LEAD CRIADO COM SUCESSO! 🎉🎉🎉`);
+        console.log(`✅ [LEAD AUTO] Detalhes do lead criado:`, {
+          id: newLead.id,
+          name: newLead.name,
+          phone: newLead.phone,
+          status: newLead.status,
+          source: newLead.source,
+          companyId: newLead.companyId
+        });
+
+      } catch (leadError) {
+        console.error("❌❌❌ [LEAD AUTO] ERRO CRÍTICO ao criar lead automaticamente:", leadError);
+        console.error("❌ [LEAD AUTO] Stack trace:", (leadError as Error).stack);
+        // Não interromper o fluxo se houver erro na criação do lead
+      }
+
     } catch (error) {
-      console.error("❌ [CUSTOMER] Erro ao criar customer para nova conversa:", error);
+      console.error("❌❌❌ [LEAD AUTO] ERRO CRÍTICO no processamento geral:", error);
+      console.error("❌ [LEAD AUTO] Stack trace:", (error as Error).stack);
       // Não vamos interromper o fluxo principal por este erro
     }
   }

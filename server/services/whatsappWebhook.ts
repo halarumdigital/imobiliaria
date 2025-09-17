@@ -661,7 +661,7 @@ export class WhatsAppWebhookService {
     }
 
     // Verificar se o tipo de mensagem é suportado (texto, imagem ou áudio)
-    const supportedTypes = ['conversation', 'extendedTextMessage', 'imageMessage', 'audioMessage'];
+    const supportedTypes = ['conversation', 'extendedTextMessage', 'imageMessage', 'audioMessage', 'text'];
     if (!supportedTypes.includes(data.messageType)) {
       console.log(`❌ Evolution message ignored - unsupported type: ${data.messageType}`);
       return false;
