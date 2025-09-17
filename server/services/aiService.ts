@@ -89,10 +89,19 @@ export class AIService {
       console.log(`🔍 Looking for agent with ID: ${instance.aiAgentId}`);
       const mainAgent = await storage.getAiAgent(instance.aiAgentId);
       if (!mainAgent) {
-        console.log(`❌ Agent ${instance.aiAgentId} not found`);
+        console.error(`❌ [AI-${aiProcessId}] Agent ${instance.aiAgentId} not found in database`);
         return null;
       }
-      console.log(`✅ Agent found: ${mainAgent.name}`);
+
+      console.log(`✅ [AI-${aiProcessId}] Agent found: ${mainAgent.name}`);
+      console.log(`🔍 [AI-${aiProcessId}] Agent details:`, {
+        id: mainAgent.id,
+        name: mainAgent.name,
+        agentType: mainAgent.agentType,
+        hasOpenAIKey: !!mainAgent.openaiApiKey,
+        hasPrompt: !!mainAgent.prompt,
+        promptLength: mainAgent.prompt?.length || 0
+      });
 
       // Verificar se deve delegar para um agente secundário
       console.log(`🔍 Verificando delegação para agente principal: ${mainAgent.name}`);
@@ -169,7 +178,17 @@ export class AIService {
       };
 
     } catch (error) {
-      console.error("Error processing message:", error);
+      const totalTime = Date.now() - startTime;
+      console.error(`❌ [AI-${aiProcessId}] CRITICAL ERROR processing message after ${totalTime}ms:`, error);
+      console.error(`❌ [AI-${aiProcessId}] ERROR STACK:`, error.stack);
+      console.error(`❌ [AI-${aiProcessId}] ERROR MESSAGE:`, error.message);
+      console.error(`❌ [AI-${aiProcessId}] ERROR TYPE:`, error.constructor.name);
+      console.error(`❌ [AI-${aiProcessId}] CONTEXT:`, {
+        instanceId: context.instanceId,
+        phone: context.phone,
+        messageLength: context.message?.length || 0,
+        messageType: context.messageType
+      });
       return null;
     }
   }

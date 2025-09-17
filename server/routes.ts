@@ -2229,11 +2229,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const company of companies) {
         const instances = await storage.getWhatsappInstancesByCompany(company.id);
         for (const instance of instances) {
+          // Buscar informações do agente se vinculado
+          let agentInfo = null;
+          if (instance.aiAgentId) {
+            try {
+              const agent = await storage.getAiAgent(instance.aiAgentId);
+              agentInfo = agent ? {
+                id: agent.id,
+                name: agent.name,
+                agentType: agent.agentType,
+                hasOpenAIKey: !!agent.openaiApiKey,
+                hasPrompt: !!agent.prompt
+              } : 'AGENT_NOT_FOUND';
+            } catch (error) {
+              agentInfo = 'AGENT_ERROR';
+            }
+          }
+
           result.push({
             companyName: company.name,
             instanceName: instance.name,
+            instanceId: instance.id,
             evolutionInstanceId: instance.evolutionInstanceId,
             aiAgentId: instance.aiAgentId,
+            agentInfo,
             status: instance.status
           });
         }
@@ -2242,8 +2261,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         totalInstances: result.length,
         instances: result,
-        lookingFor: "e5b71c35-276b-417e-a1c3-267f904b2b98",
-        foundMatch: result.some(i => i.evolutionInstanceId === "e5b71c35-276b-417e-a1c3-267f904b2b98")
+        deployimoFound: result.find(i => i.instanceName === "deployimo"),
+        hasAgentConfigured: result.some(i => i.aiAgentId && i.agentInfo && i.agentInfo !== 'AGENT_NOT_FOUND')
       });
     } catch (error) {
       console.error("Debug endpoint error:", error);
