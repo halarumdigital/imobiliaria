@@ -4,10 +4,10 @@ import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { 
-  Building, Settings, Waypoints, Bot, Users, 
-  LayoutDashboard, User, MessageSquare, 
-  MessageCircle, LogOut, ChevronDown, ChevronRight, Send, List, Globe, Home
+import {
+  Building, Settings, Waypoints, Bot, Users,
+  LayoutDashboard, User, MessageSquare,
+  MessageCircle, LogOut, ChevronDown, ChevronRight, Send, List, Globe, Home, UserPlus
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GlobalConfiguration } from "@/types";
@@ -41,12 +41,13 @@ const clientNavItems: NavItem[] = [
       { href: "/client/whatsapp/proxy", label: "Proxy", icon: <Globe className="w-4 h-4" /> },
     ]
   },
-  { 
-    label: "Comercial", 
+  {
+    label: "Comercial",
     icon: <Building className="w-5 h-5" />,
     children: [
       { href: "/client/comercial/funil", label: "Funil", icon: <LayoutDashboard className="w-4 h-4" /> },
       { href: "/client/comercial/atendimentos", label: "Atendimentos", icon: <Users className="w-4 h-4" /> },
+      { href: "/client/comercial/leads", label: "Leads", icon: <UserPlus className="w-4 h-4" /> },
     ]
   },
   { 

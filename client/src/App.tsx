@@ -28,6 +28,7 @@ import WhatsAppListaTransmissao from "@/pages/client/whatsapp-lista-transmissao"
 import WhatsAppProxy from "@/pages/client/whatsapp-proxy";
 import ComercialFunil from "@/pages/client/comercial-funil";
 import ComercialAtendimentos from "@/pages/client/comercial-atendimentos";
+import ComercialLeads from "@/pages/client/comercial-leads";
 import MeusImoveis from "@/pages/client/meus-imoveis";
 
 interface ProtectedRouteProps {
@@ -199,11 +200,19 @@ function Router() {
         />
       </Route>
       <Route path="/client/comercial/atendimentos">
-        <ProtectedRoute 
+        <ProtectedRoute
           component={ComercialAtendimentos}
           requiredRole="client"
           title="Atendimentos"
           subtitle="Gerencie seus clientes no funil"
+        />
+      </Route>
+      <Route path="/client/comercial/leads">
+        <ProtectedRoute
+          component={ComercialLeads}
+          requiredRole="client"
+          title="Leads"
+          subtitle="Gerencie seus leads e oportunidades"
         />
       </Route>
       <Route path="/client/imoveis/meus-imoveis">
