@@ -10,13 +10,20 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { apiGet, apiPost } from "@/lib/api";
 import { AiConfiguration } from "@/types";
-import { Eye, EyeOff, Play } from "lucide-react";
+import { Eye, EyeOff, Play, RefreshCw } from "lucide-react";
+
+interface OpenAIModel {
+  id: string;
+  created: number;
+  owned_by: string;
+}
 
 export default function AiSettings() {
   const { toast } = useToast();
   const [formData, setFormData] = useState<Partial<AiConfiguration>>({});
   const [showApiKey, setShowApiKey] = useState(false);
   const [testPrompt, setTestPrompt] = useState("");
+  const [availableModels, setAvailableModels] = useState<OpenAIModel[]>([]);
 
   const { data: config, isLoading, error } = useQuery<AiConfiguration>({
     queryKey: ["/api/ai-config"],
@@ -65,6 +72,41 @@ export default function AiSettings() {
       toast({
         title: "❌ Erro no teste",
         description: error?.response?.data?.details || error?.response?.data?.error || error.message || "Erro ao testar IA",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const fetchModelsMutation = useMutation({
+    mutationFn: async () => {
+      try {
+        const data = await apiGet("/ai-config/models");
+        return data;
+      } catch (error: any) {
+        console.error("Fetch models error:", error);
+        throw error;
+      }
+    },
+    onSuccess: (data) => {
+      if (data && data.models && Array.isArray(data.models)) {
+        setAvailableModels(data.models);
+        toast({
+          title: "✅ Modelos carregados!",
+          description: `${data.models.length} modelos disponíveis encontrados`,
+        });
+      } else {
+        toast({
+          title: "⚠️ Aviso",
+          description: "Nenhum modelo encontrado ou resposta inválida",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: any) => {
+      console.error("Full error:", error);
+      toast({
+        title: "❌ Erro ao buscar modelos",
+        description: error.message || "Erro ao buscar modelos da OpenAI. Verifique se a chave da API está configurada corretamente.",
         variant: "destructive",
       });
     },
@@ -132,7 +174,20 @@ export default function AiSettings() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div>
-              <Label htmlFor="modelo">Modelo</Label>
+              <div className="flex items-center justify-between mb-2">
+                <Label htmlFor="modelo">Modelo</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => fetchModelsMutation.mutate()}
+                  disabled={fetchModelsMutation.isPending}
+                  className="h-8 px-2"
+                >
+                  <RefreshCw className={`w-4 h-4 mr-1 ${fetchModelsMutation.isPending ? 'animate-spin' : ''}`} />
+                  {fetchModelsMutation.isPending ? "Buscando..." : "Atualizar"}
+                </Button>
+              </div>
               <Select
                 value={formData.modelo || "gpt-4o"}
                 onValueChange={(value) => handleInputChange("modelo", value)}
@@ -141,13 +196,28 @@ export default function AiSettings() {
                   <SelectValue placeholder="Selecionar modelo" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo (Rápido e Econômico)</SelectItem>
-                  <SelectItem value="gpt-4">GPT-4 (Mais Preciso)</SelectItem>
-                  <SelectItem value="gpt-4o">GPT-4o (Recomendado - Mais Recente)</SelectItem>
-                  <SelectItem value="gpt-4-turbo">GPT-4 Turbo (Balanceado)</SelectItem>
-                  <SelectItem value="gpt-4o-mini">GPT-4o Mini (Econômico)</SelectItem>
+                  {availableModels.length > 0 ? (
+                    availableModels.map((model) => (
+                      <SelectItem key={model.id} value={model.id}>
+                        {model.id}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <>
+                      <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo (Rápido e Econômico)</SelectItem>
+                      <SelectItem value="gpt-4">GPT-4 (Mais Preciso)</SelectItem>
+                      <SelectItem value="gpt-4o">GPT-4o (Recomendado - Mais Recente)</SelectItem>
+                      <SelectItem value="gpt-4-turbo">GPT-4 Turbo (Balanceado)</SelectItem>
+                      <SelectItem value="gpt-4o-mini">GPT-4o Mini (Econômico)</SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
+              {availableModels.length > 0 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {availableModels.length} modelos disponíveis
+                </p>
+              )}
             </div>
 
             <div>

@@ -3,6 +3,9 @@ import { AIService } from "./aiService";
 import { EvolutionApiService } from "./evolutionApi";
 import { getStorage } from "../storage";
 import { WhatsappInstance } from "@shared/schema";
+import { propertyService } from "./propertyService";
+import fs from 'fs';
+import path from 'path';
 
 export interface WhatsAppMessage {
   key: {
@@ -368,11 +371,20 @@ export class WhatsAppWebhookService {
       console.log(`📞 Sender phone extracted: ${senderPhone} (from remoteJid: ${(evolutionData.data as any).key?.remoteJid})`);
       
       // Extrair o pushName (nome do contato no WhatsApp)
+      console.log(`👤 [PUSHNAME DEBUG] Buscando pushName...`);
+      console.log(`👤 [PUSHNAME DEBUG] evolutionData.data.pushName: ${(evolutionData.data as any).pushName}`);
+      console.log(`👤 [PUSHNAME DEBUG] evolutionData.data.key?.pushName: ${(evolutionData.data as any).key?.pushName}`);
+      console.log(`👤 [PUSHNAME DEBUG] Full data:`, JSON.stringify({
+        pushName: (evolutionData.data as any).pushName,
+        keyPushName: (evolutionData.data as any).key?.pushName,
+        sender: evolutionData.sender
+      }));
+
       const pushName = (evolutionData.data as any).pushName || (evolutionData.data as any).key?.pushName || null;
       if (pushName) {
-        console.log(`👤 Contact pushName: ${pushName}`);
+        console.log(`✅ [PUSHNAME] Contact pushName encontrado: "${pushName}"`);
       } else {
-        console.log(`👤 No pushName found in webhook data`);
+        console.log(`⚠️ [PUSHNAME] No pushName found in webhook data`);
       }
 
       // Buscar a instância no banco de dados
@@ -458,7 +470,7 @@ export class WhatsAppWebhookService {
       console.log(`🚀 About to call sendResponse with instance: ${instanceName}, phone: ${senderPhone}`);
       console.log(`🔍 Instance details for sending: name=${instanceName}, evolutionId=${dbInstance.evolutionInstanceId}`);
       try {
-        await this.sendResponse(instanceName, senderPhone, aiResponse.response);
+        await this.sendResponse(instanceName, senderPhone, aiResponse.response, messageText, dbInstance.companyId);
         console.log(`✅ Response sent successfully to ${senderPhone}`);
       } catch (sendError) {
         console.error(`❌ Error sending response to ${senderPhone}:`, sendError);
@@ -494,8 +506,15 @@ export class WhatsAppWebhookService {
         pushName // Adicionar o nome do contato
       };
 
+      console.log(`💾 [WEBHOOK] Preparando para salvar conversa...`);
+      console.log(`💾 [WEBHOOK] instanceName: ${instanceName}`);
+      console.log(`💾 [WEBHOOK] senderPhone: ${senderPhone}`);
+      console.log(`💾 [WEBHOOK] pushName: "${pushName}"`);
+      console.log(`💾 [WEBHOOK] messageData:`, JSON.stringify(messageData, null, 2));
+
       // Se ainda não tem agentId, não salvar a mensagem com agente
       if (agentIdToSave) {
+        console.log(`💾 [WEBHOOK] Chamando saveConversation com agentId: ${agentIdToSave}`);
         await aiService.saveConversation(
           instanceName,
           senderPhone,
@@ -704,7 +723,7 @@ export class WhatsAppWebhookService {
     return remoteJid.replace('@s.whatsapp.net', '');
   }
 
-  private async sendResponse(instanceId: string, phone: string, response: string): Promise<void> {
+  private async sendResponse(instanceId: string, phone: string, response: string, userMessage?: string, companyId?: string): Promise<void> {
     const sendId = Math.random().toString(36).substr(2, 9);
     const startTime = Date.now();
 
@@ -743,6 +762,75 @@ export class WhatsAppWebhookService {
       const totalTime = Date.now() - startTime;
       console.log(`✅ [SEND-${sendId}] Message sent successfully in ${sendTime}ms (total: ${totalTime}ms)`);
       console.log(`📤 [SEND-${sendId}] Response delivered to ${phone}`);
+
+      // 🏠 ENVIAR IMAGENS E VÍDEOS DOS IMÓVEIS SE A MENSAGEM FOR SOBRE PROPRIEDADES
+      if (userMessage && companyId && propertyService.isPropertySearchIntent(userMessage)) {
+        console.log(`🏠 [SEND-${sendId}] Detectada busca de imóveis, buscando propriedades para enviar mídias...`);
+
+        try {
+          const properties = await propertyService.searchPropertiesFromMessage(userMessage, companyId);
+
+          if (properties.length > 0) {
+            console.log(`🏠 [SEND-${sendId}] Encontradas ${properties.length} propriedades, enviando mídias...`);
+
+            for (const property of properties) {
+              // Enviar imagens
+              if (property.images && Array.isArray(property.images) && property.images.length > 0) {
+                console.log(`📸 [SEND-${sendId}] Enviando ${property.images.length} imagens do imóvel ${property.name}...`);
+
+                for (let i = 0; i < Math.min(property.images.length, 3); i++) { // Limitar a 3 imagens por imóvel
+                  const imagePath = property.images[i];
+
+                  try {
+                    // Verificar se o arquivo existe
+                    const fullPath = path.join(process.cwd(), imagePath);
+                    if (fs.existsSync(fullPath)) {
+                      // Ler arquivo e converter para base64
+                      const imageBuffer = fs.readFileSync(fullPath);
+                      const base64Image = imageBuffer.toString('base64');
+
+                      const caption = i === 0
+                        ? `📍 *${property.name}* - Código: ${property.code}\n${property.bedrooms} quartos, ${property.bathrooms} banheiros, ${property.parkingSpaces} vagas`
+                        : undefined;
+
+                      console.log(`📸 Enviando imagem ${i + 1}/${property.images.length}: ${imagePath}`);
+                      await evolutionService.sendImageMessage(instanceId, phone, base64Image, caption);
+
+                      // Delay entre envios para não sobrecarregar
+                      await new Promise(resolve => setTimeout(resolve, 1500));
+                    } else {
+                      console.log(`⚠️ Imagem não encontrada: ${fullPath}`);
+                    }
+                  } catch (imageError) {
+                    console.error(`❌ Erro ao enviar imagem ${imagePath}:`, imageError);
+                  }
+                }
+              }
+
+              // Enviar link do vídeo do YouTube se disponível
+              if (property.youtubeVideoUrl) {
+                console.log(`🎥 [SEND-${sendId}] Enviando link do vídeo do YouTube para ${property.name}...`);
+
+                try {
+                  const videoMessage = `🎥 *Vídeo do imóvel ${property.name}*\n\n${property.youtubeVideoUrl}`;
+                  await evolutionService.sendMessage(instanceId, phone, videoMessage);
+
+                  // Delay entre envios
+                  await new Promise(resolve => setTimeout(resolve, 1000));
+                } catch (videoError) {
+                  console.error(`❌ Erro ao enviar link do vídeo:`, videoError);
+                }
+              }
+            }
+
+            console.log(`✅ [SEND-${sendId}] Mídias dos imóveis enviadas com sucesso!`);
+          }
+        } catch (mediaError) {
+          console.error(`❌ [SEND-${sendId}] Erro ao enviar mídias dos imóveis:`, mediaError);
+          // Não falhar o envio da mensagem se houver erro nas mídias
+        }
+      }
+
     } catch (error) {
       const totalTime = Date.now() - startTime;
       console.error(`❌ [SEND-${sendId}] CRITICAL ERROR sending response after ${totalTime}ms:`, error);

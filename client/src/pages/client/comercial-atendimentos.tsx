@@ -12,9 +12,9 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { apiGet, apiPut } from "@/lib/api";
 import { FunnelStage, Customer } from "@/types";
-import { 
-  Users, MessageCircle, Phone, Calendar, 
-  MoreVertical, Edit, Trash2, Filter
+import {
+  Users, MessageCircle, Phone, Calendar,
+  MoreVertical, Edit, Trash2, Filter, Plus
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -32,15 +32,24 @@ export default function ComercialAtendimentos() {
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [localCustomers, setLocalCustomers] = useState<Customer[]>([]);
+  const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
+  const [createStageId, setCreateStageId] = useState<string>("");
   const [editForm, setEditForm] = useState({
     name: "",
     phone: "",
     email: "",
-    company: "",
     notes: "",
     value: "",
     source: "",
     funnelStageId: ""
+  });
+  const [createForm, setCreateForm] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    notes: "",
+    value: "",
+    source: "Kanban",
   });
 
   // Fetch funnel stages
@@ -109,12 +118,104 @@ export default function ComercialAtendimentos() {
     },
   });
 
+  // Create customer mutation (also creates lead)
+  const createCustomerMutation = useMutation({
+    mutationFn: async (newCustomer: {
+      name: string;
+      phone: string;
+      email?: string;
+      notes?: string;
+      value?: number;
+      source: string;
+      funnelStageId: string;
+    }) => {
+      // Create customer
+      const customerResponse = await fetch("/api/customers", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify(newCustomer),
+      });
+
+      if (!customerResponse.ok) {
+        throw new Error("Falha ao criar cliente");
+      }
+
+      const customer = await customerResponse.json();
+
+      // Create lead
+      const leadData = {
+        name: newCustomer.name,
+        phone: newCustomer.phone,
+        email: newCustomer.email,
+        source: newCustomer.source,
+        status: "converted",
+        notes: newCustomer.notes,
+        convertedToCustomer: true,
+        customerId: customer.id,
+      };
+
+      const leadResponse = await fetch("/api/leads", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify(leadData),
+      });
+
+      if (!leadResponse.ok) {
+        console.warn("Falha ao criar lead, mas cliente foi criado com sucesso");
+      }
+
+      return customer;
+    },
+    onSuccess: (newCustomer) => {
+      // Add to local state
+      setLocalCustomers(prev => [...prev, newCustomer]);
+
+      // Invalidate queries
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+
+      // Reset form and close dialog
+      resetCreateForm();
+      setIsCreatingCustomer(false);
+      setCreateStageId("");
+
+      toast({
+        title: "Sucesso",
+        description: "Cliente e lead criados com sucesso!",
+      });
+    },
+    onError: (error) => {
+      console.error("Error creating customer:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao criar cliente.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const resetCreateForm = () => {
+    setCreateForm({
+      name: "",
+      phone: "",
+      email: "",
+      notes: "",
+      value: "",
+      source: "Kanban",
+    });
+  };
+
   const resetEditForm = () => {
     setEditForm({
       name: "",
       phone: "",
       email: "",
-      company: "",
       notes: "",
       value: "",
       source: "",
@@ -128,7 +229,6 @@ export default function ComercialAtendimentos() {
       name: customer.name,
       phone: customer.phone,
       email: customer.email || "",
-      company: customer.company || "",
       notes: customer.notes || "",
       value: customer.value?.toString() || "",
       source: customer.source || "",
@@ -153,7 +253,6 @@ export default function ComercialAtendimentos() {
       name: editForm.name.trim(),
       phone: editForm.phone.trim(),
       email: editForm.email.trim() || undefined,
-      company: editForm.company.trim() || undefined,
       notes: editForm.notes.trim() || undefined,
       value: editForm.value ? parseFloat(editForm.value) : undefined,
       source: editForm.source.trim() || undefined,
@@ -164,6 +263,39 @@ export default function ComercialAtendimentos() {
   const handleCancelEdit = () => {
     setEditingCustomer(null);
     resetEditForm();
+  };
+
+  const handleCreateCustomer = (stageId: string) => {
+    setCreateStageId(stageId);
+    setIsCreatingCustomer(true);
+    resetCreateForm();
+  };
+
+  const handleSubmitCreate = () => {
+    if (!createForm.name.trim() || !createForm.phone.trim()) {
+      toast({
+        title: "Erro",
+        description: "Nome e telefone são obrigatórios",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    createCustomerMutation.mutate({
+      name: createForm.name.trim(),
+      phone: createForm.phone.trim(),
+      email: createForm.email.trim() || undefined,
+      notes: createForm.notes.trim() || undefined,
+      value: createForm.value ? parseFloat(createForm.value) : undefined,
+      source: createForm.source,
+      funnelStageId: createStageId,
+    });
+  };
+
+  const handleCancelCreate = () => {
+    setIsCreatingCustomer(false);
+    setCreateStageId("");
+    resetCreateForm();
   };
 
   const handleDragStart = (e: React.DragEvent, customer: Customer) => {
@@ -295,7 +427,7 @@ export default function ComercialAtendimentos() {
             <div className="mb-4">
               <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
                 <div className="flex items-center gap-3">
-                  <div 
+                  <div
                     className="w-4 h-4 rounded-full"
                     style={{ backgroundColor: column.stage.color }}
                   />
@@ -306,9 +438,19 @@ export default function ComercialAtendimentos() {
                     </p>
                   </div>
                 </div>
-                <Badge variant="secondary">
-                  {formatCurrency(column.customers.reduce((sum, customer) => sum + (customer.value || 0), 0))}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleCreateCustomer(column.stage.id)}
+                    className="h-8 w-8 p-0"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                  <Badge variant="secondary">
+                    {formatCurrency(column.customers.reduce((sum, customer) => sum + (customer.value || 0), 0))}
+                  </Badge>
+                </div>
               </div>
             </div>
 
@@ -336,9 +478,6 @@ export default function ComercialAtendimentos() {
                         </Avatar>
                         <div>
                           <h4 className="font-semibold text-sm">{customer.name}</h4>
-                          {customer.company && (
-                            <p className="text-xs text-muted-foreground">{customer.company}</p>
-                          )}
                         </div>
                       </div>
                       
@@ -508,19 +647,10 @@ export default function ComercialAtendimentos() {
                 type="email"
                 value={editForm.email}
                 onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
-                placeholder="cliente@empresa.com"
+                placeholder="cliente@email.com"
               />
             </div>
 
-            <div>
-              <Label htmlFor="edit-company">Empresa</Label>
-              <Input
-                id="edit-company"
-                value={editForm.company}
-                onChange={(e) => setEditForm(prev => ({ ...prev, company: e.target.value }))}
-                placeholder="Nome da empresa"
-              />
-            </div>
 
             <div>
               <Label htmlFor="edit-value">Valor Potencial</Label>
@@ -565,6 +695,97 @@ export default function ComercialAtendimentos() {
                 disabled={editCustomerMutation.isPending}
               >
                 {editCustomerMutation.isPending ? "Salvando..." : "Salvar"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Customer Modal */}
+      <Dialog open={isCreatingCustomer} onOpenChange={(open) => !open && handleCancelCreate()}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Novo Cliente</DialogTitle>
+            <DialogDescription>
+              Adicione um novo cliente ao funil de vendas
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="create-name">Nome *</Label>
+              <Input
+                id="create-name"
+                value={createForm.name}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Nome do cliente"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="create-phone">Telefone *</Label>
+              <Input
+                id="create-phone"
+                value={createForm.phone}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, phone: e.target.value }))}
+                placeholder="(11) 99999-9999"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="create-email">Email</Label>
+              <Input
+                id="create-email"
+                type="email"
+                value={createForm.email}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="cliente@email.com"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="create-value">Valor Potencial</Label>
+              <Input
+                id="create-value"
+                type="number"
+                value={createForm.value}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, value: e.target.value }))}
+                placeholder="0.00"
+                step="0.01"
+                min="0"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="create-source">Origem</Label>
+              <Input
+                id="create-source"
+                value={createForm.source}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, source: e.target.value }))}
+                placeholder="WhatsApp, Site, Referência..."
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="create-notes">Observações</Label>
+              <Textarea
+                id="create-notes"
+                value={createForm.notes}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Anotações sobre o cliente..."
+                rows={3}
+              />
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <Button variant="outline" onClick={handleCancelCreate}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleSubmitCreate}
+                disabled={createCustomerMutation.isPending}
+              >
+                {createCustomerMutation.isPending ? "Criando..." : "Criar Cliente"}
               </Button>
             </div>
           </div>

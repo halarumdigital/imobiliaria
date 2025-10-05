@@ -198,6 +198,21 @@ export const customers = mysqlTable("customers", {
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });
 
+export const leads = mysqlTable("leads", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  companyId: varchar("company_id", { length: 36 }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  phone: varchar("phone", { length: 20 }).notNull(),
+  email: varchar("email", { length: 255 }),
+  source: varchar("source", { length: 255 }).default("Manual"),
+  status: varchar("status", { length: 20 }).default("new"), // 'new' | 'contacted' | 'qualified' | 'converted' | 'lost'
+  notes: text("notes"),
+  convertedToCustomer: boolean("converted_to_customer").default(false),
+  customerId: varchar("customer_id", { length: 36 }), // Link to customer if converted
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
 export const properties = mysqlTable("properties", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
   companyId: varchar("company_id", { length: 36 }).notNull(),
@@ -373,7 +388,20 @@ export const insertCustomerSchema = createInsertSchema(customers).pick({
   conversationId: true,
 });
 
+export const insertLeadSchema = createInsertSchema(leads).pick({
+  companyId: true,
+  name: true,
+  phone: true,
+  email: true,
+  source: true,
+  status: true,
+  notes: true,
+  convertedToCustomer: true,
+  customerId: true,
+});
+
 export const insertPropertySchema = createInsertSchema(properties).pick({
+  companyId: true,
   code: true,
   name: true,
   street: true,
@@ -440,5 +468,7 @@ export type FunnelStage = typeof funnelStages.$inferSelect;
 export type InsertFunnelStage = z.infer<typeof insertFunnelStageSchema>;
 export type Customer = typeof customers.$inferSelect;
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
+export type Lead = typeof leads.$inferSelect;
+export type InsertLead = z.infer<typeof insertLeadSchema>;
 export type Property = typeof properties.$inferSelect;
 export type InsertProperty = z.infer<typeof insertPropertySchema>;

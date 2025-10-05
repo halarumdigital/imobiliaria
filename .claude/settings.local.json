@@ -33,7 +33,9 @@
       "Bash(findstr:*)",
       "Bash(cmd /c:*)",
       "Bash(curl:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(rm:*)",
+      "Bash(npm install)"
     ],
     "deny": [],
     "ask": []

@@ -387,9 +387,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { prompt } = req.body;
       const config = await storage.getAiConfiguration();
-      
+
       console.log("AI test config:", config);
-      
+
       if (!config) {
         return res.status(404).json({ error: "Configuração de IA não encontrada" });
       }
@@ -408,12 +408,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
           maxTokens: config.numeroTokens || 1000
         }
       );
-      
+
       res.json({ response: response.content, usage: response.usage });
     } catch (error) {
       console.error("Test AI error:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         error: "Erro ao testar IA",
+        details: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+
+  app.get("/api/ai-config/models", authenticate, requireAdmin, async (req, res) => {
+    try {
+      const config = await storage.getAiConfiguration();
+
+      if (!config || !config.apiKey) {
+        return res.status(400).json({ error: "Chave da API OpenAI não configurada" });
+      }
+
+      const openAiService = new OpenAiService(config.apiKey);
+      const models = await openAiService.listModels();
+
+      res.json({ models });
+    } catch (error) {
+      console.error("List models error:", error);
+      res.status(500).json({
+        error: "Erro ao buscar modelos",
         details: error instanceof Error ? error.message : "Erro desconhecido"
       });
     }

@@ -66,4 +66,22 @@ export class OpenAiService {
     );
     return response.content;
   }
+
+  async listModels(): Promise<Array<{ id: string; created: number; owned_by: string }>> {
+    try {
+      const response = await this.openai.models.list();
+      // Filter for GPT models only
+      const models = response.data
+        .filter(model => model.id.startsWith('gpt-'))
+        .sort((a, b) => b.created - a.created)
+        .map(model => ({
+          id: model.id,
+          created: model.created,
+          owned_by: model.owned_by
+        }));
+      return models;
+    } catch (error) {
+      throw new Error(`OpenAI API Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
 }

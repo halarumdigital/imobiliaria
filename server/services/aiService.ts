@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import fs from 'fs';
 import path from 'path';
 import { getStorage } from "../storage";
+import { propertyService } from "./propertyService";
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 
@@ -219,24 +220,30 @@ export class AIService {
         console.log(`📚 [HISTORY] Primeiras mensagens:`, messages.slice(0, 3).map(m => ({ sender: m.sender, content: m.content.substring(0, 50) + '...' })));
       }
       
-      // Converter para formato OpenAI (últimas 10 mensagens para não sobrecarregar)
+      // Converter para formato OpenAI (últimas 50 mensagens para contexto completo)
       const history = messages
         .sort((a, b) => {
           const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
           const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
           return dateA - dateB;
         })
-        .slice(-10)
-        .map(msg => ({
-          role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
-          content: msg.content
-        }));
-      
+        .slice(-50)
+        .map(msg => {
+          console.log(`📝 [HISTORY] Mapeando mensagem - sender: "${msg.sender}", content: "${msg.content.substring(0, 50)}..."`);
+          return {
+            role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
+            content: msg.content
+          };
+        });
+
       console.log(`✅ [HISTORY] Histórico formatado com SUCESSO: ${history.length} mensagens`);
       if (history.length > 0) {
-        console.log(`📚 [HISTORY] Histórico formatado:`, history);
+        console.log(`📚 [HISTORY] Histórico completo formatado:`);
+        history.forEach((msg, index) => {
+          console.log(`  [${index}] ${msg.role}: ${msg.content.substring(0, 100)}${msg.content.length > 100 ? '...' : ''}`);
+        });
       }
-      
+
       return history;
       
     } catch (error) {
@@ -246,37 +253,41 @@ export class AIService {
     }
   }
 
-  async findDatabaseInstanceId(evolutionInstanceId: string): Promise<string | null> {
+  async findDatabaseInstanceId(evolutionInstanceIdOrName: string): Promise<string | null> {
     try {
+      console.log(`🔍 [FIND] Buscando instância do banco para: "${evolutionInstanceIdOrName}"`);
       const storage = getStorage();
       const companies = await storage.getAllCompanies();
-      
+
       for (const company of companies) {
         const instances = await storage.getWhatsappInstancesByCompany(company.id);
-        
-        // Buscar por evolutionInstanceId OU usar fallback
-        let found = instances.find(i => i.evolutionInstanceId === evolutionInstanceId);
-        
+
+        // Buscar por evolutionInstanceId OU nome da instância
+        let found = instances.find(i =>
+          i.evolutionInstanceId === evolutionInstanceIdOrName ||
+          i.name === evolutionInstanceIdOrName
+        );
+
         // Fallback específico para IDs conhecidos
-        if (!found && evolutionInstanceId === "e5b71c35-276b-417e-a1c3-267f904b2b98") {
+        if (!found && evolutionInstanceIdOrName === "e5b71c35-276b-417e-a1c3-267f904b2b98") {
           found = instances.find(i => i.name === "deploy2");
         }
-        
+
         // Fallback para o ID atual do deploy10
-        if (!found && evolutionInstanceId === "4d0f0895-9c71-4199-b48d-a3df4e3de3da") {
+        if (!found && evolutionInstanceIdOrName === "4d0f0895-9c71-4199-b48d-a3df4e3de3da") {
           found = instances.find(i => i.name === "deploy10");
         }
-        
+
         if (found) {
-          console.log(`🔍 Mapeamento encontrado: evolutionId=${evolutionInstanceId} -> dbId=${found.id}`);
+          console.log(`✅ [FIND] Mapeamento encontrado: input="${evolutionInstanceIdOrName}" -> dbId="${found.id}", name="${found.name}", evolutionId="${found.evolutionInstanceId}"`);
           return found.id;
         }
       }
-      
-      console.log(`❌ Nenhuma instância encontrada para evolutionId: ${evolutionInstanceId}`);
+
+      console.log(`❌ [FIND] Nenhuma instância encontrada para: "${evolutionInstanceIdOrName}"`);
       return null;
     } catch (error) {
-      console.error("❌ Erro ao buscar instância do banco:", error);
+      console.error("❌ [FIND] Erro ao buscar instância do banco:", error);
       return null;
     }
   }
@@ -337,19 +348,112 @@ export class AIService {
 
       // Construir o prompt do sistema baseado no agente (usando lógica do AiResponseService)
       let systemPrompt = agent.prompt || `Você é ${agent.name}, um assistente de IA especializado.`;
-      
+
+      // 👤 ADICIONAR INFORMAÇÃO SOBRE O NOME DO USUÁRIO
+      const isFirstMessage = !context.conversationHistory || context.conversationHistory.length === 0;
+      console.log(`👤 [NOME] ========================================`);
+      console.log(`👤 [NOME] pushName no context: "${context.pushName}"`);
+      console.log(`👤 [NOME] É primeira mensagem: ${isFirstMessage}`);
+
+      if (context.pushName) {
+        console.log(`✅ [NOME] Nome do usuário DISPONÍVEL: "${context.pushName}"`);
+
+        systemPrompt += `\n\n=== INFORMAÇÃO DO USUÁRIO ===\n`;
+        systemPrompt += `Nome do usuário: ${context.pushName}\n`;
+        systemPrompt += `=== FIM INFORMAÇÃO DO USUÁRIO ===\n\n`;
+
+        if (isFirstMessage) {
+          systemPrompt += `IMPORTANTE: Esta é a PRIMEIRA mensagem do usuário. Cumprimente-o DIRETAMENTE pelo nome "${context.pushName}" de forma calorosa e amigável. Use o nome real do usuário, NÃO use placeholders como {{contact_name}}. O nome é: ${context.pushName}\n\n`;
+          console.log(`👋 [SAUDAÇÃO] Instruindo agente a cumprimentar ${context.pushName} na primeira mensagem`);
+        } else {
+          systemPrompt += `Você pode e DEVE usar o nome "${context.pushName}" para se referir ao usuário de forma pessoal. NÃO use placeholders como {{contact_name}}, use diretamente: ${context.pushName}\n\n`;
+        }
+      } else {
+        console.log(`⚠️ [NOME] pushName NÃO DISPONÍVEL no contexto`);
+        if (isFirstMessage) {
+          systemPrompt += `\nIMPORTANTE: Esta é a PRIMEIRA mensagem do usuário. Cumprimente-o de forma calorosa e amigável. Seja acolhedor e demonstre que você está à disposição para ajudá-lo.\n\n`;
+        }
+      }
+
       // Adicionar conhecimento base se disponível
       if (agent.trainingContent && agent.trainingContent.trim()) {
         systemPrompt += `\n\n=== CONHECIMENTO BASE ===\n${agent.trainingContent}\n=== FIM CONHECIMENTO BASE ===\n\n`;
         systemPrompt += `Use as informações do CONHECIMENTO BASE acima para responder às perguntas do usuário de forma precisa e detalhada.`;
       }
-      
+
+      // 🏠 BUSCAR IMÓVEIS SE O USUÁRIO PERGUNTAR SOBRE PROPRIEDADES
+      let propertiesContext = '';
+      const storage = getStorage();
+
+      // Obter a instância para determinar a empresa
+      const instance = await storage.getWhatsappInstanceByEvolutionId(context.instanceId);
+      if (!instance && (context as any).databaseInstanceId) {
+        const dbInstance = await storage.getWhatsappInstance((context as any).databaseInstanceId);
+        if (dbInstance) {
+          Object.assign(instance || {}, dbInstance);
+        }
+      }
+
+      if (instance?.companyId && propertyService.isPropertySearchIntent(context.message)) {
+        console.log(`🏠 [AI] Detectada intenção de busca de imóveis!`);
+
+        try {
+          const properties = await propertyService.searchPropertiesFromMessage(context.message, instance.companyId);
+
+          if (properties.length > 0) {
+            console.log(`🏠 [AI] ${properties.length} imóveis encontrados, adicionando ao contexto`);
+
+            propertiesContext = `\n\n=== IMÓVEIS DISPONÍVEIS ===\n`;
+            propertiesContext += `Encontrei ${properties.length} imóvel(is) que corresponde(m) à busca:\n\n`;
+
+            properties.forEach((property, index) => {
+              propertiesContext += `--- IMÓVEL ${index + 1} ---\n`;
+              propertiesContext += propertyService.formatPropertyInfo(property);
+
+              // Adicionar informações sobre mídias disponíveis
+              if (property.images && Array.isArray(property.images) && property.images.length > 0) {
+                propertiesContext += `📸 Imagens disponíveis: ${property.images.length}\n`;
+              }
+              if (property.youtubeVideoUrl) {
+                propertiesContext += `🎥 Vídeo: ${property.youtubeVideoUrl}\n`;
+              }
+              propertiesContext += `\n`;
+            });
+
+            propertiesContext += `=== FIM IMÓVEIS DISPONÍVEIS ===\n\n`;
+            propertiesContext += `INSTRUÇÕES IMPORTANTES:\n`;
+            propertiesContext += `- Apresente os imóveis encontrados de forma clara e organizada\n`;
+            propertiesContext += `- Destaque as características principais de cada imóvel\n`;
+            propertiesContext += `- Informe que você pode enviar as fotos e vídeos dos imóveis\n`;
+            propertiesContext += `- Seja prestativo e ofereça ajuda adicional\n`;
+            propertiesContext += `- SEMPRE respeite o prompt original salvo no agente (${agent.name})\n`;
+            propertiesContext += `- Mantenha o tom e personalidade definidos no prompt do agente\n`;
+
+            systemPrompt += propertiesContext;
+          } else {
+            console.log(`🏠 [AI] Nenhum imóvel encontrado com os critérios da busca`);
+            systemPrompt += `\n\nINFORMAÇÃO: Não encontrei imóveis disponíveis que correspondam exatamente aos critérios mencionados. Informe isso educadamente ao usuário e pergunte se ele gostaria de ver outras opções ou ajustar os critérios de busca.`;
+          }
+        } catch (error) {
+          console.error(`❌ [AI] Erro ao buscar imóveis:`, error);
+        }
+      }
+
       // Adicionar contexto de delegação se for agente secundário
       if (agent.agentType === 'secondary') {
         systemPrompt += `\n\nVocê é um agente especializado. Responda com base em sua especialização e conhecimento específico.`;
       }
 
-      systemPrompt += `\n\nResponda sempre em português brasileiro de forma natural e helpful. Se a pergunta não puder ser respondida com o conhecimento fornecido, seja honesto sobre isso.`;
+      systemPrompt += `\n\n=== REGRAS FUNDAMENTAIS ===\n`;
+      systemPrompt += `1. MEMÓRIA DA CONVERSA: Você TEM acesso ao histórico completo da conversa acima. SEMPRE consulte o histórico antes de responder.\n`;
+      systemPrompt += `2. NÃO REPETIR PERGUNTAS: Se você JÁ perguntou algo ao usuário em mensagens anteriores, NÃO pergunte novamente. Use a resposta que ele já deu.\n`;
+      systemPrompt += `3. CONTEXTO: Se o usuário já forneceu informações (como número de quartos, tipo de imóvel, localização), NÃO peça essas informações novamente.\n`;
+      systemPrompt += `4. PROGRESSO: Continue a conversa do ponto onde parou. Não comece do zero a cada mensagem.\n`;
+      systemPrompt += `5. CONFIRMAÇÃO: Se você não tem certeza se o usuário já respondeu algo, verifique o histórico da conversa antes de perguntar.\n`;
+      systemPrompt += `=== FIM REGRAS FUNDAMENTAIS ===\n\n`;
+
+      systemPrompt += `Responda sempre em português brasileiro de forma natural e helpful. Se a pergunta não puder ser respondida com o conhecimento fornecido, seja honesto sobre isso.\n\n`;
+      systemPrompt += `IMPORTANTE: SEMPRE siga o prompt e personalidade definidos no início desta mensagem. Não mude seu comportamento ou tom.`;
 
       // Construir histórico da conversa
       const messages: any[] = [
@@ -357,8 +461,19 @@ export class AIService {
       ];
 
       // Adicionar histórico se disponível
+      console.log(`📚 [GENERATE] ========================================`);
+      console.log(`📚 [GENERATE] Verificando histórico da conversa`);
+      console.log(`📚 [GENERATE] context.conversationHistory existe: ${!!context.conversationHistory}`);
+      console.log(`📚 [GENERATE] context.conversationHistory.length: ${context.conversationHistory?.length || 0}`);
+
       if (context.conversationHistory && context.conversationHistory.length > 0) {
-        messages.push(...context.conversationHistory.slice(-10)); // Últimas 10 mensagens
+        console.log(`✅ [GENERATE] HISTÓRICO ENCONTRADO! Adicionando ${context.conversationHistory.length} mensagens`);
+        console.log(`📚 [GENERATE] Histórico completo:`, JSON.stringify(context.conversationHistory, null, 2));
+        messages.push(...context.conversationHistory.slice(-50)); // Últimas 50 mensagens
+        console.log(`📚 [GENERATE] Total de mensagens enviadas para OpenAI: ${messages.length} (1 system + ${Math.min(context.conversationHistory.length, 50)} histórico)`);
+      } else {
+        console.log(`❌ [GENERATE] NENHUM HISTÓRICO DISPONÍVEL - tratando como primeira mensagem`);
+        console.log(`❌ [GENERATE] Isso significa que o agente NÃO vai lembrar de mensagens anteriores!`);
       }
 
       // Adicionar mensagem atual (com suporte a imagem e áudio)
@@ -465,7 +580,7 @@ export class AIService {
     }
   }
 
-  async saveConversation(evolutionInstanceId: string, phone: string, userMessage: string, aiResponse: string, agentId: string, messageData?: {
+  async saveConversation(evolutionInstanceIdOrName: string, phone: string, userMessage: string, aiResponse: string, agentId: string, messageData?: {
     messageType?: string;
     mediaUrl?: string;
     mediaBase64?: string;
@@ -474,15 +589,23 @@ export class AIService {
   }) {
     try {
       const storage = getStorage();
-      
-      // PRIMEIRO: Encontrar a instância do nosso banco usando o evolutionInstanceId
-      const dbInstanceId = await this.findDatabaseInstanceId(evolutionInstanceId);
+
+      console.log(`💾 [SAVE] ========================================`);
+      console.log(`💾 [SAVE] saveConversation chamado`);
+      console.log(`💾 [SAVE] instanceIdOrName: "${evolutionInstanceIdOrName}"`);
+      console.log(`💾 [SAVE] phone: "${phone}"`);
+      console.log(`💾 [SAVE] userMessage: "${userMessage.substring(0, 50)}..."`);
+      console.log(`💾 [SAVE] messageData:`, JSON.stringify(messageData, null, 2));
+      console.log(`💾 [SAVE] pushName recebido: "${messageData?.pushName || 'NULL/UNDEFINED'}"`);
+
+      // PRIMEIRO: Encontrar a instância do nosso banco usando o evolutionInstanceId OU nome
+      const dbInstanceId = await this.findDatabaseInstanceId(evolutionInstanceIdOrName);
       if (!dbInstanceId) {
-        console.log(`💾 Erro: Instância do banco não encontrada para salvar conversa. EvolutionId: ${evolutionInstanceId}`);
+        console.log(`💾 Erro: Instância do banco não encontrada para salvar conversa. IdOrName: ${evolutionInstanceIdOrName}`);
         return null;
       }
-      
-      console.log(`💾 Salvando conversa na instância: ${dbInstanceId} (evolutionId: ${evolutionInstanceId})`);
+
+      console.log(`💾 Salvando conversa na instância: ${dbInstanceId} (input: ${evolutionInstanceIdOrName})`);
       
       // Buscar conversa existente usando o ID correto do banco
       const conversations = await storage.getConversationsByInstance(dbInstanceId);
@@ -490,19 +613,62 @@ export class AIService {
       
       let isNewConversation = false;
       if (!conversation) {
+        console.log(`💾 ========== NOVA CONVERSA DETECTADA ==========`);
         console.log(`💾 Criando nova conversa para ${phone}`);
+        console.log(`💾 Esta é a PRIMEIRA mensagem deste usuário!`);
+        console.log(`👤 [PUSHNAME] PushName recebido: ${messageData?.pushName || 'Não fornecido'}`);
         isNewConversation = true;
-        conversation = await storage.createConversation({
+
+        // Criar conversa com pushName se disponível
+        const conversationData = {
           whatsappInstanceId: dbInstanceId,
           contactPhone: phone,
+          contactName: messageData?.pushName || null,
           lastMessage: userMessage
-        });
+        };
 
-        // 🎯 FUNCIONALIDADE: Criar lead automaticamente quando alguém enviar a PRIMEIRA mensagem
-        console.log(`🚀 [PRIMEIRA MENSAGEM] Detectada primeira mensagem de ${phone}, criando lead automaticamente...`);
-        await this.createOrUpdateCustomerFromConversation(dbInstanceId, phone, conversation.id, messageData?.pushName);
+        console.log(`💾 [CREATE] Dados da conversa a serem criados:`, JSON.stringify(conversationData, null, 2));
+
+        conversation = await storage.createConversation(conversationData);
+
+        console.log(`✅ [CREATE] Conversa criada com sucesso!`);
+        console.log(`✅ [CREATE] ID: ${conversation.id}`);
+        console.log(`✅ [CREATE] contactName salvo: "${conversation.contactName}"`);
+        console.log(`✅ [CREATE] contactPhone: ${conversation.contactPhone}`);
+
+        // 🎯 FUNCIONALIDADE: Criar lead E customer automaticamente quando alguém enviar a PRIMEIRA mensagem
+        console.log(`🚀 [PRIMEIRA MENSAGEM] Detectada primeira mensagem de ${phone}, criando lead e customer automaticamente...`);
+        console.log(`🔍 [DEBUG] Parâmetros para createLeadAndCustomerFromNewMessage:`, {
+          whatsappInstanceId: dbInstanceId,
+          phone: phone,
+          conversationId: conversation.id,
+          pushName: messageData?.pushName
+        });
+        try {
+          await this.createLeadAndCustomerFromNewMessage(dbInstanceId, phone, conversation.id, messageData?.pushName);
+          console.log(`✅ [DEBUG] createLeadAndCustomerFromNewMessage executada com sucesso`);
+        } catch (error) {
+          console.error(`❌ [DEBUG] Erro ao executar createLeadAndCustomerFromNewMessage:`, error);
+        }
       } else {
         console.log(`💾 Usando conversa existente: ${conversation.id}`);
+
+        // 👤 ATUALIZAR contactName se pushName foi fornecido e é diferente do atual
+        if (messageData?.pushName && conversation.contactName !== messageData.pushName) {
+          console.log(`👤 [PUSHNAME] Atualizando contactName de "${conversation.contactName}" para "${messageData.pushName}"`);
+          try {
+            await storage.updateConversation(conversation.id, {
+              contactName: messageData.pushName
+            });
+            console.log(`✅ [PUSHNAME] ContactName atualizado com sucesso!`);
+          } catch (error) {
+            console.error(`❌ [PUSHNAME] Erro ao atualizar contactName:`, error);
+          }
+        } else if (messageData?.pushName) {
+          console.log(`👤 [PUSHNAME] ContactName já está correto: "${conversation.contactName}"`);
+        } else {
+          console.log(`👤 [PUSHNAME] Nenhum pushName fornecido para atualização`);
+        }
       }
 
       // Salvar mensagem do usuário (com dados de imagem se presente)
@@ -539,103 +705,108 @@ export class AIService {
     }
   }
 
-  // 🎯 FUNCIONALIDADE: Criar lead automaticamente quando alguém enviar a primeira mensagem
-  private async createOrUpdateCustomerFromConversation(whatsappInstanceId: string, phone: string, conversationId: string, pushName?: string) {
+  // 🎯 FUNCIONALIDADE: Criar lead E customer automaticamente quando alguém enviar a primeira mensagem
+  private async createLeadAndCustomerFromNewMessage(whatsappInstanceId: string, phone: string, conversationId: string, pushName?: string) {
     try {
-      console.log(`🎯🎯🎯 [LEAD AUTO] === INICIANDO CRIAÇÃO AUTOMÁTICA DE LEAD ===`);
-      console.log(`📞 [LEAD AUTO] Phone: ${phone}`);
-      console.log(`🆔 [LEAD AUTO] ConversationId: ${conversationId}`);
-      console.log(`👤 [LEAD AUTO] PushName: ${pushName || 'N/A'}`);
-      console.log(`🏢 [LEAD AUTO] WhatsApp Instance ID: ${whatsappInstanceId}`);
+      console.log(`🎯 [LEAD+CUSTOMER] === INICIANDO CRIAÇÃO DE LEAD E CUSTOMER ===`);
+      console.log(`📞 [LEAD+CUSTOMER] Phone: ${phone}`);
+      console.log(`👤 [LEAD+CUSTOMER] PushName: ${pushName || 'N/A'}`);
+      console.log(`🏢 [LEAD+CUSTOMER] WhatsApp Instance ID: ${whatsappInstanceId}`);
+      console.log(`💬 [LEAD+CUSTOMER] Conversation ID: ${conversationId}`);
 
       const storage = getStorage();
 
       // Obter a instância para determinar a empresa
-      console.log(`🔍 [LEAD AUTO] Buscando instância no banco de dados...`);
       const instance = await storage.getWhatsappInstance(whatsappInstanceId);
       if (!instance?.companyId) {
-        console.log(`❌ [LEAD AUTO] Instância ou companyId não encontrada para WhatsApp instance: ${whatsappInstanceId}`);
+        console.log(`❌ [LEAD+CUSTOMER] Instância ou companyId não encontrada`);
         return;
       }
 
-      console.log(`✅ [LEAD AUTO] Instância encontrada! Company ID: ${instance.companyId}`);
+      console.log(`✅ [LEAD+CUSTOMER] Company ID: ${instance.companyId}`);
 
       // Verificar se já existe um lead para este telefone na empresa
-      console.log(`🔍 [LEAD AUTO] Verificando se já existe lead para phone: ${phone} na empresa: ${instance.companyId}`);
       const existingLead = await storage.getLeadByPhone(phone, instance.companyId);
       if (existingLead) {
-        console.log(`⚠️ [LEAD AUTO] Lead já existe! ID: ${existingLead.id}, Status: ${existingLead.status}`);
-        return;
-      }
-      console.log(`✅ [LEAD AUTO] Nenhum lead existente encontrado - prosseguindo com criação`);
+        console.log(`⚠️ [LEAD+CUSTOMER] Lead já existe! ID: ${existingLead.id}`);
+      } else {
+        // Criar lead na tabela leads
+        console.log(`🚀 [LEAD+CUSTOMER] CRIANDO LEAD...`);
+        const leadName = pushName || phone;
+        console.log(`🔍 [LEAD+CUSTOMER] Dados do lead a ser criado:`, {
+          companyId: instance.companyId,
+          name: leadName,
+          phone: phone,
+          email: null,
+          source: 'WhatsApp',
+          status: 'new',
+          notes: 'Lead criado automaticamente através da primeira mensagem do WhatsApp',
+          convertedToCustomer: false,
+          customerId: null
+        });
 
-      // Verificar se já existe um customer com este telefone na empresa
-      console.log(`🔍 [LEAD AUTO] Verificando se já existe customer para phone: ${phone} na empresa: ${instance.companyId}`);
-      const existingCustomer = await storage.getCustomerByPhone(phone, instance.companyId);
-      if (existingCustomer) {
-        console.log(`⚠️ [LEAD AUTO] Customer já existe! ID: ${existingCustomer.id}, Nome: ${existingCustomer.name}`);
-
-        // Atualizar o lastContact e conversationId se necessário
-        if (existingCustomer.conversationId !== conversationId) {
-          console.log(`📝 [LEAD AUTO] Atualizando conversationId do customer existente`);
-          await storage.updateCustomer(existingCustomer.id, {
-            conversationId: conversationId,
-            lastContact: new Date().toISOString().slice(0, 19).replace('T', ' ')
-          });
-        }
-        return;
-      }
-      console.log(`✅ [LEAD AUTO] Nenhum customer existente encontrado - prosseguindo com criação do lead`);
-
-      // Usar pushName se disponível, senão usar o número completo
-      const leadName = pushName || phone;
-      console.log(`👤 [LEAD AUTO] Nome definido para o lead: "${leadName}" (pushName: ${pushName ? 'SIM' : 'NÃO'})`);
-
-      // Criar lead automaticamente para nova conversa
-      console.log(`🚀 [LEAD AUTO] CRIANDO LEAD AUTOMATICAMENTE...`);
-      console.log(`📋 [LEAD AUTO] Dados do lead:`, {
-        companyId: instance.companyId,
-        name: leadName,
-        phone: phone,
-        source: 'WhatsApp',
-        status: 'new',
-        notes: 'Lead criado automaticamente através da primeira mensagem do WhatsApp.',
-        convertedToCustomer: false,
-        customerId: undefined
-      });
-
-      try {
         const newLead = await storage.createLead({
           companyId: instance.companyId,
           name: leadName,
           phone: phone,
+          email: null,
           source: 'WhatsApp',
-          status: 'new', // Novo lead para ser qualificado
-          notes: `Lead criado automaticamente através da primeira mensagem do WhatsApp.`,
+          status: 'new',
+          notes: 'Lead criado automaticamente através da primeira mensagem do WhatsApp',
           convertedToCustomer: false,
-          customerId: undefined
+          customerId: null
         });
-
-        console.log(`🎉🎉🎉 [LEAD AUTO] LEAD CRIADO COM SUCESSO! 🎉🎉🎉`);
-        console.log(`✅ [LEAD AUTO] Detalhes do lead criado:`, {
-          id: newLead.id,
-          name: newLead.name,
-          phone: newLead.phone,
-          status: newLead.status,
-          source: newLead.source,
-          companyId: newLead.companyId
-        });
-
-      } catch (leadError) {
-        console.error("❌❌❌ [LEAD AUTO] ERRO CRÍTICO ao criar lead automaticamente:", leadError);
-        console.error("❌ [LEAD AUTO] Stack trace:", (leadError as Error).stack);
-        // Não interromper o fluxo se houver erro na criação do lead
+        console.log(`🎉 [LEAD+CUSTOMER] LEAD CRIADO COM SUCESSO!`);
+        console.log(`✅ [LEAD+CUSTOMER] Lead ID: ${newLead.id}`);
+        console.log(`✅ [LEAD+CUSTOMER] Lead Nome: ${newLead.name}`);
+        console.log(`✅ [LEAD+CUSTOMER] Lead Phone: ${newLead.phone}`);
       }
 
+      // Verificar se já existe um customer com este telefone na empresa
+      const existingCustomer = await storage.getCustomerByPhone(phone, instance.companyId);
+      if (existingCustomer) {
+        console.log(`⚠️ [LEAD+CUSTOMER] Customer já existe! ID: ${existingCustomer.id}`);
+        // Atualizar conversationId se necessário
+        if (existingCustomer.conversationId !== conversationId) {
+          await storage.updateCustomer(existingCustomer.id, {
+            conversationId: conversationId,
+            lastContact: new Date().toISOString().slice(0, 19).replace('T', ' ')
+          });
+          console.log(`📝 [LEAD+CUSTOMER] Customer conversationId atualizado`);
+        }
+      } else {
+        // Buscar primeiro estágio do funil para a empresa
+        const funnelStages = await storage.getFunnelStagesByCompany(instance.companyId);
+        const firstStage = funnelStages.find(stage => stage.order === 0) || funnelStages[0];
+
+        if (firstStage) {
+          // Criar customer na tabela customers
+          console.log(`🚀 [LEAD+CUSTOMER] CRIANDO CUSTOMER...`);
+          const customerName = pushName || phone;
+          const newCustomer = await storage.createCustomer({
+            companyId: instance.companyId,
+            name: customerName,
+            phone: phone,
+            email: null,
+            company: null,
+            funnelStageId: firstStage.id,
+            lastContact: new Date().toISOString().slice(0, 19).replace('T', ' '),
+            notes: 'Customer criado automaticamente através da primeira mensagem do WhatsApp',
+            value: null,
+            source: 'WhatsApp',
+            conversationId: conversationId
+          });
+          console.log(`🎉 [LEAD+CUSTOMER] CUSTOMER CRIADO! ID: ${newCustomer.id}, Nome: ${newCustomer.name}`);
+        } else {
+          console.log(`⚠️ [LEAD+CUSTOMER] Nenhum estágio do funil encontrado para a empresa`);
+        }
+      }
+
+      console.log(`✅ [LEAD+CUSTOMER] PROCESSO CONCLUÍDO COM SUCESSO!`);
+
     } catch (error) {
-      console.error("❌❌❌ [LEAD AUTO] ERRO CRÍTICO no processamento geral:", error);
-      console.error("❌ [LEAD AUTO] Stack trace:", (error as Error).stack);
-      // Não vamos interromper o fluxo principal por este erro
+      console.error("❌ [LEAD+CUSTOMER] ERRO ao criar lead e customer:", error);
+      console.error("❌ [LEAD+CUSTOMER] Stack:", (error as Error).stack);
     }
   }
 }
