@@ -31,6 +31,16 @@ export const companies = mysqlTable("companies", {
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });
 
+export const companyCustomDomains = mysqlTable("company_custom_domains", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  companyId: varchar("company_id", { length: 36 }).notNull(),
+  requestedDomain: varchar("requested_domain", { length: 255 }),
+  currentDomain: varchar("current_domain", { length: 255 }),
+  status: int("status").notNull().default(0), // 0=Pending, 1=Connected, 2=Rejected, 3=Removed
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
 export const globalConfigurations = mysqlTable("global_configurations", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
   logo: text("logo"),
@@ -238,6 +248,59 @@ export const properties = mysqlTable("properties", {
   hasTvRoom: boolean("has_tv_room").default(false),
   images: json("images").default([]), // Array of image file paths
   youtubeVideoUrl: varchar("youtube_video_url", { length: 500 }),
+  featured: boolean("featured").default(false), // Se é propriedade em destaque no website
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+// Website Templates System Tables
+
+export const websiteTemplates = mysqlTable("website_templates", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  thumbnail: varchar("thumbnail", { length: 500 }),
+  category: varchar("category", { length: 100 }),
+  features: json("features"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+export const companyWebsites = mysqlTable("company_websites", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  companyId: varchar("company_id", { length: 36 }).notNull(),
+  templateId: varchar("template_id", { length: 36 }).notNull(),
+  config: json("config").notNull(), // TemplateConfig completo
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+export const companyAgents = mysqlTable("company_agents", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  companyId: varchar("company_id", { length: 36 }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }),
+  phone: varchar("phone", { length: 50 }),
+  avatar: varchar("avatar", { length: 500 }),
+  role: varchar("role", { length: 100 }),
+  bio: text("bio"),
+  socialMedia: json("social_media"),
+  propertiesSold: int("properties_sold").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+export const companyTestimonials = mysqlTable("company_testimonials", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  companyId: varchar("company_id", { length: 36 }).notNull(),
+  clientName: varchar("client_name", { length: 255 }).notNull(),
+  clientAvatar: varchar("client_avatar", { length: 500 }),
+  rating: int("rating").notNull().default(5),
+  comment: text("comment").notNull(),
+  propertyType: varchar("property_type", { length: 100 }),
+  isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });
@@ -262,6 +325,13 @@ export const insertCompanySchema = createInsertSchema(companies).pick({
   responsibleName: true,
   responsiblePhone: true,
   responsibleEmail: true,
+});
+
+export const insertCompanyCustomDomainSchema = createInsertSchema(companyCustomDomains).pick({
+  companyId: true,
+  requestedDomain: true,
+  currentDomain: true,
+  status: true,
 });
 
 export const insertGlobalConfigSchema = createInsertSchema(globalConfigurations).pick({
@@ -424,6 +494,7 @@ export const insertPropertySchema = createInsertSchema(properties).pick({
   hasTvRoom: true,
   images: true,
   youtubeVideoUrl: true,
+  featured: true,
 }).extend({
   proximity: z.string().nullable().optional(),
   neighborhood: z.string().nullable().optional(),
@@ -439,11 +510,52 @@ export const insertPropertySchema = createInsertSchema(properties).pick({
   bedrooms: z.union([z.string(), z.number()]).transform(val => typeof val === 'number' ? Number(val) : Number(val)),
 });
 
+export const insertWebsiteTemplateSchema = createInsertSchema(websiteTemplates).pick({
+  id: true,
+  name: true,
+  description: true,
+  thumbnail: true,
+  category: true,
+  features: true,
+});
+
+export const insertCompanyWebsiteSchema = createInsertSchema(companyWebsites).pick({
+  companyId: true,
+  templateId: true,
+  config: true,
+  isActive: true,
+});
+
+export const insertCompanyAgentSchema = createInsertSchema(companyAgents).pick({
+  companyId: true,
+  name: true,
+  email: true,
+  phone: true,
+  avatar: true,
+  role: true,
+  bio: true,
+  socialMedia: true,
+  propertiesSold: true,
+  isActive: true,
+});
+
+export const insertCompanyTestimonialSchema = createInsertSchema(companyTestimonials).pick({
+  companyId: true,
+  clientName: true,
+  clientAvatar: true,
+  rating: true,
+  comment: true,
+  propertyType: true,
+  isActive: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Company = typeof companies.$inferSelect;
 export type InsertCompany = z.infer<typeof insertCompanySchema>;
+export type CompanyCustomDomain = typeof companyCustomDomains.$inferSelect;
+export type InsertCompanyCustomDomain = z.infer<typeof insertCompanyCustomDomainSchema>;
 export type GlobalConfiguration = typeof globalConfigurations.$inferSelect;
 export type InsertGlobalConfiguration = z.infer<typeof insertGlobalConfigSchema>;
 export type EvolutionApiConfiguration = typeof evolutionApiConfigurations.$inferSelect;
@@ -472,3 +584,11 @@ export type Lead = typeof leads.$inferSelect;
 export type InsertLead = z.infer<typeof insertLeadSchema>;
 export type Property = typeof properties.$inferSelect;
 export type InsertProperty = z.infer<typeof insertPropertySchema>;
+export type WebsiteTemplate = typeof websiteTemplates.$inferSelect;
+export type InsertWebsiteTemplate = z.infer<typeof insertWebsiteTemplateSchema>;
+export type CompanyWebsite = typeof companyWebsites.$inferSelect;
+export type InsertCompanyWebsite = z.infer<typeof insertCompanyWebsiteSchema>;
+export type CompanyAgent = typeof companyAgents.$inferSelect;
+export type InsertCompanyAgent = z.infer<typeof insertCompanyAgentSchema>;
+export type CompanyTestimonial = typeof companyTestimonials.$inferSelect;
+export type InsertCompanyTestimonial = z.infer<typeof insertCompanyTestimonialSchema>;

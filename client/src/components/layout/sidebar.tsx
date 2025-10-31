@@ -26,6 +26,7 @@ const adminNavItems: NavItem[] = [
   { href: "/admin/evolution-api", label: "Evolution API", icon: <Waypoints className="w-5 h-5" /> },
   { href: "/admin/ai-settings", label: "IA Global", icon: <Bot className="w-5 h-5" /> },
   { href: "/admin/companies", label: "Empresas", icon: <Building className="w-5 h-5" /> },
+  { href: "/admin/custom-domains", label: "Domínios Customizados", icon: <Globe className="w-5 h-5" /> },
 ];
 
 const clientNavItems: NavItem[] = [
@@ -50,14 +51,24 @@ const clientNavItems: NavItem[] = [
       { href: "/client/comercial/leads", label: "Leads", icon: <UserPlus className="w-4 h-4" /> },
     ]
   },
-  { 
-    label: "Imóveis", 
+  {
+    label: "Imóveis",
     icon: <Home className="w-5 h-5" />,
     children: [
       { href: "/client/imoveis/meus-imoveis", label: "Meus Imóveis", icon: <Home className="w-4 h-4" /> },
     ]
   },
+  {
+    label: "Website",
+    icon: <Globe className="w-5 h-5" />,
+    children: [
+      { href: "/client/website-config", label: "Configurar Website", icon: <Settings className="w-4 h-4" /> },
+      { href: "/client/agents", label: "Corretores", icon: <Users className="w-4 h-4" /> },
+      { href: "/client/testimonials", label: "Depoimentos", icon: <MessageSquare className="w-4 h-4" /> },
+    ]
+  },
   { href: "/client/ai-agents", label: "Agentes IA", icon: <Bot className="w-5 h-5" /> },
+  { href: "/client/domains", label: "Domínio Customizado", icon: <Globe className="w-5 h-5" /> },
 ];
 
 export function Sidebar() {
