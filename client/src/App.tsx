@@ -31,6 +31,8 @@ import ComercialFunil from "@/pages/client/comercial-funil";
 import ComercialAtendimentos from "@/pages/client/comercial-atendimentos";
 import ComercialLeads from "@/pages/client/comercial-leads";
 import MeusImoveis from "@/pages/client/meus-imoveis";
+import Amenities from "@/pages/client/amenities";
+import Cities from "@/pages/client/cities";
 import Domains from "@/pages/client/domains";
 import WebsiteConfig from "@/pages/client/website-config";
 import Agents from "@/pages/client/agents";
@@ -234,6 +236,22 @@ function Router() {
           requiredRole="client"
           title="Meus Imóveis"
           subtitle="Gerencie seus imóveis cadastrados"
+        />
+      </Route>
+      <Route path="/client/imoveis/comodidades">
+        <ProtectedRoute
+          component={Amenities}
+          requiredRole="client"
+          title="Comodidades"
+          subtitle="Gerencie as comodidades dos seus imóveis"
+        />
+      </Route>
+      <Route path="/client/imoveis/cidades">
+        <ProtectedRoute
+          component={Cities}
+          requiredRole="client"
+          title="Cidades"
+          subtitle="Gerencie as cidades para cadastro de imóveis"
         />
       </Route>
       <Route path="/client/domains">

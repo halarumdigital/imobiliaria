@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Building, Settings, Waypoints, Bot, Users,
   LayoutDashboard, User, MessageSquare,
-  MessageCircle, LogOut, ChevronDown, ChevronRight, Send, List, Globe, Home, UserPlus
+  MessageCircle, LogOut, ChevronDown, ChevronRight, Send, List, Globe, Home, UserPlus, Sparkles, MapPin
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GlobalConfiguration } from "@/types";
@@ -56,6 +56,8 @@ const clientNavItems: NavItem[] = [
     icon: <Home className="w-5 h-5" />,
     children: [
       { href: "/client/imoveis/meus-imoveis", label: "Meus Imóveis", icon: <Home className="w-4 h-4" /> },
+      { href: "/client/imoveis/comodidades", label: "Comodidades", icon: <Sparkles className="w-4 h-4" /> },
+      { href: "/client/imoveis/cidades", label: "Cidades", icon: <MapPin className="w-4 h-4" /> },
     ]
   },
   {

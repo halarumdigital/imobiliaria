@@ -8,10 +8,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
+import * as Icons from "lucide-react";
 import { Home, Plus, MoreVertical, Edit, Power, MapPin, Car, Bath, Bed, Search, Upload, X, Image as ImageIcon } from "lucide-react";
 
 interface Property {
@@ -34,11 +36,26 @@ interface Property {
   mapLocation?: string;
   transactionType: string;
   status: string;
-  hasServiceArea: boolean;
-  hasSocialBathroom: boolean;
-  hasTvRoom: boolean;
   images: string[];
   youtubeVideoUrl?: string;
+  amenities: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface City {
+  id: string;
+  companyId: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface Amenity {
+  id: string;
+  companyId: string;
+  name: string;
+  icon: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -60,11 +77,9 @@ interface PropertyFormData {
   description?: string;
   mapLocation?: string;
   transactionType: string;
-  hasServiceArea: boolean;
-  hasSocialBathroom: boolean;
-  hasTvRoom: boolean;
   images: string[];
   youtubeVideoUrl?: string;
+  amenities: string[]; // Array of amenity IDs
 }
 
 const brazilianStates = [
@@ -122,11 +137,9 @@ export default function MeusImoveis() {
     description: "",
     mapLocation: "",
     transactionType: "venda",
-    hasServiceArea: false,
-    hasSocialBathroom: false,
-    hasTvRoom: false,
     images: [],
-    youtubeVideoUrl: ""
+    youtubeVideoUrl: "",
+    amenities: []
   });
 
   // Fetch properties
@@ -138,14 +151,56 @@ export default function MeusImoveis() {
           Authorization: `Bearer ${localStorage.getItem("token")}`
         }
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch properties');
       }
-      
+
       const data = await response.json();
       return Array.isArray(data) ? data : [];
     },
+  });
+
+  // Fetch cities
+  const { data: cities = [], isLoading: isLoadingCities, error: citiesError } = useQuery<City[]>({
+    queryKey: ["/api/cities"],
+    queryFn: async () => {
+      const response = await fetch("/api/cities", {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch cities');
+      }
+
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
+    },
+    retry: 2,
+    staleTime: 5 * 60 * 1000, // Consider data stale after 5 minutes
+  });
+
+  // Fetch amenities
+  const { data: amenities = [], isLoading: isLoadingAmenities } = useQuery<Amenity[]>({
+    queryKey: ["/api/amenities"],
+    queryFn: async () => {
+      const response = await fetch("/api/amenities", {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch amenities');
+      }
+
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
+    },
+    retry: 2,
+    staleTime: 5 * 60 * 1000, // Consider data stale after 5 minutes
   });
 
   // Filter properties based on search term
@@ -278,32 +333,99 @@ export default function MeusImoveis() {
       description: "",
       mapLocation: "",
       transactionType: "venda",
-      hasServiceArea: false,
-      hasSocialBathroom: false,
-      hasTvRoom: false,
       images: [],
-      youtubeVideoUrl: ""
+      youtubeVideoUrl: "",
+      amenities: []
     });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    // Validação de campos obrigatórios
+    if (!formData.code.trim()) {
+      toast({
+        variant: "destructive",
+        description: "Por favor, preencha o código do imóvel."
+      });
+      return;
+    }
+
+    if (!formData.name.trim()) {
+      toast({
+        variant: "destructive",
+        description: "Por favor, preencha o nome do imóvel."
+      });
+      return;
+    }
+
+    if (!formData.street.trim()) {
+      toast({
+        variant: "destructive",
+        description: "Por favor, preencha o endereço (rua)."
+      });
+      return;
+    }
+
+    if (!formData.number.trim()) {
+      toast({
+        variant: "destructive",
+        description: "Por favor, preencha o número do endereço."
+      });
+      return;
+    }
+
+    if (!formData.neighborhood.trim()) {
+      toast({
+        variant: "destructive",
+        description: "Por favor, preencha o bairro."
+      });
+      return;
+    }
+
+    if (!formData.city) {
+      toast({
+        variant: "destructive",
+        description: "Por favor, selecione uma cidade. Caso não haja cidades disponíveis, cadastre-as em Imóveis → Cidades."
+      });
+      return;
+    }
+
+    if (!formData.state) {
+      toast({
+        variant: "destructive",
+        description: "Por favor, selecione um estado."
+      });
+      return;
+    }
+
+    if (!formData.privateArea || parseFloat(formData.privateArea) <= 0) {
+      toast({
+        variant: "destructive",
+        description: "Por favor, preencha a área privativa com um valor válido."
+      });
+      return;
+    }
+
     const propertyData = {
       ...formData,
       // Convert empty strings to null for optional fields
       proximity: formData.proximity || null,
-      neighborhood: formData.neighborhood || null,
-      city: formData.city || null,
-      state: formData.state || null,
       zipCode: formData.zipCode || null,
       description: formData.description || null,
       mapLocation: formData.mapLocation || null,
+      youtubeVideoUrl: formData.youtubeVideoUrl || null,
+      // Required fields - keep as is
+      neighborhood: formData.neighborhood,
+      city: formData.city,
+      state: formData.state,
       // Convert numeric fields
       privateArea: parseFloat(formData.privateArea),
       parkingSpaces: parseInt(formData.parkingSpaces),
       bathrooms: parseInt(formData.bathrooms),
       bedrooms: parseInt(formData.bedrooms),
+      // Include selected amenities
+      amenities: formData.amenities,
     };
 
     if (editingProperty) {
@@ -332,11 +454,9 @@ export default function MeusImoveis() {
       description: property.description || "",
       mapLocation: property.mapLocation || "",
       transactionType: property.transactionType || "venda",
-      hasServiceArea: property.hasServiceArea || false,
-      hasSocialBathroom: property.hasSocialBathroom || false,
-      hasTvRoom: property.hasTvRoom || false,
       images: property.images || [],
-      youtubeVideoUrl: property.youtubeVideoUrl || ""
+      youtubeVideoUrl: property.youtubeVideoUrl || "",
+      amenities: property.amenities || []
     });
     setIsAddDialogOpen(true);
   };
@@ -523,29 +643,74 @@ export default function MeusImoveis() {
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="neighborhood">Bairro</Label>
+                  <Label htmlFor="neighborhood">Bairro *</Label>
                   <Input
                     id="neighborhood"
                     value={formData.neighborhood}
                     onChange={(e) => setFormData({...formData, neighborhood: e.target.value})}
                     placeholder="Ex: Centro"
+                    required
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="city">Cidade</Label>
-                  <Input
-                    id="city"
-                    value={formData.city}
-                    onChange={(e) => setFormData({...formData, city: e.target.value})}
-                    placeholder="Ex: São Paulo"
-                  />
+                  <Label htmlFor="city">Cidade *</Label>
+                  {isLoadingCities ? (
+                    <Select disabled value="">
+                      <SelectTrigger>
+                        <SelectValue placeholder="Carregando cidades..." />
+                      </SelectTrigger>
+                    </Select>
+                  ) : citiesError ? (
+                    <div className="space-y-2">
+                      <Select disabled value="">
+                        <SelectTrigger className="border-destructive">
+                          <SelectValue placeholder="Erro ao carregar cidades" />
+                        </SelectTrigger>
+                      </Select>
+                      <p className="text-sm text-destructive">
+                        Não foi possível carregar as cidades. Tente novamente.
+                      </p>
+                    </div>
+                  ) : cities.length === 0 ? (
+                    <div className="space-y-2">
+                      <Select disabled value="">
+                        <SelectTrigger>
+                          <SelectValue placeholder="Nenhuma cidade cadastrada" />
+                        </SelectTrigger>
+                      </Select>
+                      <p className="text-sm text-muted-foreground">
+                        Cadastre cidades em <span className="font-medium">Imóveis → Cidades</span>
+                      </p>
+                    </div>
+                  ) : (
+                    <Select
+                      value={formData.city}
+                      onValueChange={(value) => setFormData({...formData, city: value})}
+                      required
+                    >
+                      <SelectTrigger className={!formData.city ? "border-muted-foreground" : ""}>
+                        <SelectValue placeholder="Selecione uma cidade" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {cities.map((city) => (
+                          <SelectItem key={city.id} value={city.name}>
+                            {city.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="state">Estado</Label>
-                  <Select value={formData.state} onValueChange={(value) => setFormData({...formData, state: value})}>
-                    <SelectTrigger>
+                  <Label htmlFor="state">Estado *</Label>
+                  <Select
+                    value={formData.state}
+                    onValueChange={(value) => setFormData({...formData, state: value})}
+                    required
+                  >
+                    <SelectTrigger className={!formData.state ? "border-muted-foreground" : ""}>
                       <SelectValue placeholder="Selecione o estado" />
                     </SelectTrigger>
                     <SelectContent>
@@ -651,50 +816,52 @@ export default function MeusImoveis() {
                 />
               </div>
 
-              {/* Campos de características adicionais */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>Área de Serviço</Label>
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="hasServiceArea"
-                      checked={formData.hasServiceArea}
-                      onCheckedChange={(checked) => setFormData({...formData, hasServiceArea: checked})}
-                    />
-                    <Label htmlFor="hasServiceArea" className="text-sm">
-                      {formData.hasServiceArea ? "Sim" : "Não"}
-                    </Label>
+              {/* Seção de Comodidades */}
+              <div className="space-y-2">
+                <Label>Comodidades</Label>
+                {isLoadingAmenities ? (
+                  <div className="text-sm text-muted-foreground">Carregando comodidades...</div>
+                ) : amenities.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">
+                    Nenhuma comodidade cadastrada. Cadastre em <span className="font-medium">Imóveis → Comodidades</span>
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Banheiro Social</Label>
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="hasSocialBathroom"
-                      checked={formData.hasSocialBathroom}
-                      onCheckedChange={(checked) => setFormData({...formData, hasSocialBathroom: checked})}
-                    />
-                    <Label htmlFor="hasSocialBathroom" className="text-sm">
-                      {formData.hasSocialBathroom ? "Sim" : "Não"}
-                    </Label>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 p-4 border rounded-md">
+                    {amenities.map((amenity) => {
+                      const IconComponent = (Icons as any)[amenity.icon];
+                      return (
+                        <div key={amenity.id} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`amenity-${amenity.id}`}
+                            checked={formData.amenities.includes(amenity.id)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setFormData({
+                                  ...formData,
+                                  amenities: [...formData.amenities, amenity.id]
+                                });
+                              } else {
+                                setFormData({
+                                  ...formData,
+                                  amenities: formData.amenities.filter(id => id !== amenity.id)
+                                });
+                              }
+                            }}
+                          />
+                          <Label
+                            htmlFor={`amenity-${amenity.id}`}
+                            className="flex items-center gap-2 cursor-pointer text-sm font-normal"
+                          >
+                            {IconComponent && <IconComponent className="w-4 h-4" />}
+                            {amenity.name}
+                          </Label>
+                        </div>
+                      );
+                    })}
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Sala TV</Label>
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="hasTvRoom"
-                      checked={formData.hasTvRoom}
-                      onCheckedChange={(checked) => setFormData({...formData, hasTvRoom: checked})}
-                    />
-                    <Label htmlFor="hasTvRoom" className="text-sm">
-                      {formData.hasTvRoom ? "Sim" : "Não"}
-                    </Label>
-                  </div>
-                </div>
+                )}
               </div>
+
 
               {/* Seção de Upload de Imagens */}
               <div className="space-y-4">

@@ -7,7 +7,7 @@ import {
   ContactList, InsertContactList, ContactListItem, InsertContactListItem,
   ScheduledMessage, InsertScheduledMessage, FunnelStage, InsertFunnelStage,
   Customer, InsertCustomer, Lead, InsertLead, Property, InsertProperty,
-  CompanyCustomDomain, InsertCompanyCustomDomain,
+  Amenity, InsertAmenity, City, InsertCity, CompanyCustomDomain, InsertCompanyCustomDomain,
   WebsiteTemplate, InsertWebsiteTemplate, CompanyWebsite, InsertCompanyWebsite,
   CompanyAgent, InsertCompanyAgent, CompanyTestimonial, InsertCompanyTestimonial
 } from "@shared/schema";
@@ -123,6 +123,20 @@ export interface IStorage {
   createProperty(property: InsertProperty): Promise<Property>;
   updateProperty(id: string, updates: Partial<Property>): Promise<Property>;
   deleteProperty(id: string): Promise<void>;
+
+  // Amenities (Comodidades)
+  getAmenity(id: string): Promise<Amenity | undefined>;
+  getAmenitiesByCompany(companyId: string): Promise<Amenity[]>;
+  createAmenity(amenity: InsertAmenity): Promise<Amenity>;
+  updateAmenity(id: string, updates: Partial<Amenity>): Promise<Amenity>;
+  deleteAmenity(id: string): Promise<void>;
+
+  // Cities (Cidades)
+  getCity(id: string): Promise<City | undefined>;
+  getCitiesByCompany(companyId: string): Promise<City[]>;
+  createCity(city: InsertCity): Promise<City>;
+  updateCity(id: string, updates: Partial<City>): Promise<City>;
+  deleteCity(id: string): Promise<void>;
 
   // Custom Domains
   getCustomDomain(id: string): Promise<CompanyCustomDomain | undefined>;
@@ -2313,8 +2327,182 @@ export class MySQLStorage implements IStorage {
 
   async deleteProperty(id: string): Promise<void> {
     if (!this.connection) throw new Error('No database connection');
-    
+
     await this.connection.execute('DELETE FROM properties WHERE id = ?', [id]);
+  }
+
+  // Amenities (Comodidades) methods
+  async getAmenity(id: string): Promise<Amenity | undefined> {
+    if (!this.connection) throw new Error('No database connection');
+
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM amenities WHERE id = ?',
+      [id]
+    );
+
+    if ((rows as any[]).length === 0) return undefined;
+
+    return this.parseAmenity((rows as any[])[0]);
+  }
+
+  async getAmenitiesByCompany(companyId: string): Promise<Amenity[]> {
+    if (!this.connection) throw new Error('No database connection');
+
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM amenities WHERE company_id = ? ORDER BY name ASC',
+      [companyId]
+    );
+
+    return (rows as any[]).map(row => this.parseAmenity(row));
+  }
+
+  async createAmenity(amenity: InsertAmenity): Promise<Amenity> {
+    if (!this.connection) throw new Error('No database connection');
+
+    const id = randomUUID();
+
+    await this.connection.execute(
+      'INSERT INTO amenities (id, company_id, name, icon, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW())',
+      [id, amenity.companyId, amenity.name, amenity.icon]
+    );
+
+    const newAmenity = await this.getAmenity(id);
+    if (!newAmenity) throw new Error('Failed to create amenity');
+
+    return newAmenity;
+  }
+
+  async updateAmenity(id: string, updates: Partial<Amenity>): Promise<Amenity> {
+    if (!this.connection) throw new Error('No database connection');
+
+    const fields = [];
+    const values = [];
+
+    if (updates.name !== undefined) {
+      fields.push('name = ?');
+      values.push(updates.name);
+    }
+
+    if (updates.icon !== undefined) {
+      fields.push('icon = ?');
+      values.push(updates.icon);
+    }
+
+    if (fields.length === 0) {
+      throw new Error('No fields to update');
+    }
+
+    fields.push('updated_at = NOW()');
+    values.push(id);
+
+    const query = `UPDATE amenities SET ${fields.join(', ')} WHERE id = ?`;
+    await this.connection.execute(query, values);
+
+    const updatedAmenity = await this.getAmenity(id);
+    if (!updatedAmenity) throw new Error('Amenity not found after update');
+
+    return updatedAmenity;
+  }
+
+  async deleteAmenity(id: string): Promise<void> {
+    if (!this.connection) throw new Error('No database connection');
+
+    await this.connection.execute('DELETE FROM amenities WHERE id = ?', [id]);
+  }
+
+  private parseAmenity(row: any): Amenity {
+    return {
+      id: row.id,
+      companyId: row.company_id,
+      name: row.name,
+      icon: row.icon,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
+  }
+
+  // Cities (Cidades) methods
+  async getCity(id: string): Promise<City | undefined> {
+    if (!this.connection) throw new Error('No database connection');
+
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM cities WHERE id = ?',
+      [id]
+    );
+
+    if ((rows as any[]).length === 0) return undefined;
+
+    return this.parseCity((rows as any[])[0]);
+  }
+
+  async getCitiesByCompany(companyId: string): Promise<City[]> {
+    if (!this.connection) throw new Error('No database connection');
+
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM cities WHERE company_id = ? ORDER BY name ASC',
+      [companyId]
+    );
+
+    return (rows as any[]).map(row => this.parseCity(row));
+  }
+
+  async createCity(city: InsertCity): Promise<City> {
+    if (!this.connection) throw new Error('No database connection');
+
+    const id = randomUUID();
+
+    await this.connection.execute(
+      'INSERT INTO cities (id, company_id, name, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())',
+      [id, city.companyId, city.name]
+    );
+
+    const newCity = await this.getCity(id);
+    if (!newCity) throw new Error('Failed to create city');
+
+    return newCity;
+  }
+
+  async updateCity(id: string, updates: Partial<City>): Promise<City> {
+    if (!this.connection) throw new Error('No database connection');
+
+    const fields = [];
+    const values = [];
+
+    if (updates.name !== undefined) {
+      fields.push('name = ?');
+      values.push(updates.name);
+    }
+
+    if (fields.length === 0) {
+      throw new Error('No fields to update');
+    }
+
+    fields.push('updated_at = NOW()');
+    values.push(id);
+
+    const query = `UPDATE cities SET ${fields.join(', ')} WHERE id = ?`;
+    await this.connection.execute(query, values);
+
+    const updatedCity = await this.getCity(id);
+    if (!updatedCity) throw new Error('City not found after update');
+
+    return updatedCity;
+  }
+
+  async deleteCity(id: string): Promise<void> {
+    if (!this.connection) throw new Error('No database connection');
+
+    await this.connection.execute('DELETE FROM cities WHERE id = ?', [id]);
+  }
+
+  private parseCity(row: any): City {
+    return {
+      id: row.id,
+      companyId: row.company_id,
+      name: row.name,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
   }
 
   private parseProperty(row: any): Property {

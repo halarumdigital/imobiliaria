@@ -4119,6 +4119,158 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Amenities (Comodidades) routes
+  app.get("/api/amenities", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(400).json({ error: "Company ID não encontrado" });
+      }
+
+      const amenities = await storage.getAmenitiesByCompany(req.user.companyId);
+      res.json(amenities);
+    } catch (error) {
+      console.error("Error fetching amenities:", error);
+      res.status(500).json({ error: "Erro ao buscar comodidades" });
+    }
+  });
+
+  app.post("/api/amenities", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(400).json({ error: "Company ID não encontrado" });
+      }
+
+      const amenityData = {
+        ...req.body,
+        companyId: req.user.companyId
+      };
+
+      const amenity = await storage.createAmenity(amenityData);
+      res.json(amenity);
+    } catch (error) {
+      console.error("Error creating amenity:", error);
+      res.status(500).json({ error: "Erro ao criar comodidade" });
+    }
+  });
+
+  app.put("/api/amenities/:id", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+
+      const amenity = await storage.getAmenity(id);
+      if (!amenity) {
+        return res.status(404).json({ error: "Comodidade não encontrada" });
+      }
+
+      if (amenity.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Não autorizado" });
+      }
+
+      const updated = await storage.updateAmenity(id, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating amenity:", error);
+      res.status(500).json({ error: "Erro ao atualizar comodidade" });
+    }
+  });
+
+  app.delete("/api/amenities/:id", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+
+      const amenity = await storage.getAmenity(id);
+      if (!amenity) {
+        return res.status(404).json({ error: "Comodidade não encontrada" });
+      }
+
+      if (amenity.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Não autorizado" });
+      }
+
+      await storage.deleteAmenity(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting amenity:", error);
+      res.status(500).json({ error: "Erro ao deletar comodidade" });
+    }
+  });
+
+  // Cities (Cidades) routes
+  app.get("/api/cities", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(400).json({ error: "Company ID não encontrado" });
+      }
+
+      const cities = await storage.getCitiesByCompany(req.user.companyId);
+      res.json(cities);
+    } catch (error) {
+      console.error("Error fetching cities:", error);
+      res.status(500).json({ error: "Erro ao buscar cidades" });
+    }
+  });
+
+  app.post("/api/cities", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(400).json({ error: "Company ID não encontrado" });
+      }
+
+      const cityData = {
+        ...req.body,
+        companyId: req.user.companyId
+      };
+
+      const city = await storage.createCity(cityData);
+      res.json(city);
+    } catch (error) {
+      console.error("Error creating city:", error);
+      res.status(500).json({ error: "Erro ao criar cidade" });
+    }
+  });
+
+  app.put("/api/cities/:id", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+
+      const city = await storage.getCity(id);
+      if (!city) {
+        return res.status(404).json({ error: "Cidade não encontrada" });
+      }
+
+      if (city.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Não autorizado" });
+      }
+
+      const updated = await storage.updateCity(id, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating city:", error);
+      res.status(500).json({ error: "Erro ao atualizar cidade" });
+    }
+  });
+
+  app.delete("/api/cities/:id", authenticate, requireClient, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+
+      const city = await storage.getCity(id);
+      if (!city) {
+        return res.status(404).json({ error: "Cidade não encontrada" });
+      }
+
+      if (city.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "Não autorizado" });
+      }
+
+      await storage.deleteCity(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting city:", error);
+      res.status(500).json({ error: "Erro ao deletar cidade" });
+    }
+  });
+
   // Debug route to check customers table and data
   app.get("/api/debug/customers", async (req, res) => {
     try {

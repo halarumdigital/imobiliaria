@@ -243,12 +243,27 @@ export const properties = mysqlTable("properties", {
   mapLocation: varchar("map_location", { length: 500 }), // Google Maps URL or coordinates
   transactionType: varchar("transaction_type", { length: 20 }).notNull().default("venda"), // 'venda' | 'locacao'
   status: varchar("status", { length: 20 }).default("active"), // 'active' | 'inactive'
-  hasServiceArea: boolean("has_service_area").default(false),
-  hasSocialBathroom: boolean("has_social_bathroom").default(false),
-  hasTvRoom: boolean("has_tv_room").default(false),
   images: json("images").default([]), // Array of image file paths
   youtubeVideoUrl: varchar("youtube_video_url", { length: 500 }),
+  amenities: json("amenities").default([]), // Array of amenity IDs
   featured: boolean("featured").default(false), // Se é propriedade em destaque no website
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+export const amenities = mysqlTable("amenities", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  companyId: varchar("company_id", { length: 36 }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  icon: varchar("icon", { length: 100 }).notNull(), // Lucide icon name
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+export const cities = mysqlTable("cities", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  companyId: varchar("company_id", { length: 36 }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });
@@ -510,6 +525,17 @@ export const insertPropertySchema = createInsertSchema(properties).pick({
   bedrooms: z.union([z.string(), z.number()]).transform(val => typeof val === 'number' ? Number(val) : Number(val)),
 });
 
+export const insertAmenitySchema = createInsertSchema(amenities).pick({
+  companyId: true,
+  name: true,
+  icon: true,
+});
+
+export const insertCitySchema = createInsertSchema(cities).pick({
+  companyId: true,
+  name: true,
+});
+
 export const insertWebsiteTemplateSchema = createInsertSchema(websiteTemplates).pick({
   id: true,
   name: true,
@@ -584,6 +610,10 @@ export type Lead = typeof leads.$inferSelect;
 export type InsertLead = z.infer<typeof insertLeadSchema>;
 export type Property = typeof properties.$inferSelect;
 export type InsertProperty = z.infer<typeof insertPropertySchema>;
+export type Amenity = typeof amenities.$inferSelect;
+export type InsertAmenity = z.infer<typeof insertAmenitySchema>;
+export type City = typeof cities.$inferSelect;
+export type InsertCity = z.infer<typeof insertCitySchema>;
 export type WebsiteTemplate = typeof websiteTemplates.$inferSelect;
 export type InsertWebsiteTemplate = z.infer<typeof insertWebsiteTemplateSchema>;
 export type CompanyWebsite = typeof companyWebsites.$inferSelect;
