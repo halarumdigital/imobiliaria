@@ -444,7 +444,29 @@ export class AIService {
         systemPrompt += `\n\nVocê é um agente especializado. Responda com base em sua especialização e conhecimento específico.`;
       }
 
-      systemPrompt += `\n\n=== REGRAS FUNDAMENTAIS DE MEMÓRIA ===\n`;
+      systemPrompt += `\n\n=== PROTOCOLO DE BUSCA DE IMÓVEIS (REGRA PRIORITÁRIA) ===\n`;
+      systemPrompt += `VOCÊ TEM ACESSO À FUNÇÃO busca_imoveis PARA CONSULTAR IMÓVEIS NO SISTEMA.\n\n`;
+      systemPrompt += `REGRA DE OURO: "BUSCAR PRIMEIRO, REFINAR DEPOIS"\n\n`;
+      systemPrompt += `GATILHO AUTOMÁTICO - Chame busca_imoveis IMEDIATAMENTE quando identificar:\n`;
+      systemPrompt += `  • Localização (cidade ou bairro) + Tipo de imóvel (casa/apartamento/sala/etc)\n`;
+      systemPrompt += `  • Exemplos: "apartamentos em Campinas", "casas na Vila Mariana", "imóveis em São Paulo"\n\n`;
+      systemPrompt += `O QUE FAZER:\n`;
+      systemPrompt += `  ✅ EXECUTE a função busca_imoveis assim que tiver localização + tipo\n`;
+      systemPrompt += `  ✅ Mostre os resultados encontrados\n`;
+      systemPrompt += `  ✅ DEPOIS ofereça refinar a busca (preço, quartos, etc)\n\n`;
+      systemPrompt += `O QUE NÃO FAZER:\n`;
+      systemPrompt += `  ❌ NÃO pergunte sobre preço, quartos ou garagem ANTES de buscar\n`;
+      systemPrompt += `  ❌ NÃO peça confirmação "Quer que eu busque?"\n`;
+      systemPrompt += `  ❌ NÃO faça perguntas desnecessárias quando já tem dados suficientes\n\n`;
+      systemPrompt += `EXEMPLOS:\n`;
+      systemPrompt += `  Usuário: "me mostre o que voce tem"\n`;
+      systemPrompt += `  Ação: CHAME busca_imoveis() SEM FILTROS para mostrar todos os imóveis\n\n`;
+      systemPrompt += `  Usuário: "apartamentos em Campinas"\n`;
+      systemPrompt += `  Ação: CHAME busca_imoveis(cidade="Campinas", tipo_imovel="apartamento")\n\n`;
+      systemPrompt += `  Usuário: "tem casas?"\n`;
+      systemPrompt += `  Ação: CHAME busca_imoveis(tipo_imovel="casa")\n\n`;
+      systemPrompt += `=== FIM PROTOCOLO DE BUSCA ===\n\n`;
+      systemPrompt += `=== REGRAS FUNDAMENTAIS DE MEMÓRIA ===\n`;
       systemPrompt += `1. MEMÓRIA DA CONVERSA: Você TEM acesso ao histórico completo da conversa acima. SEMPRE consulte o histórico antes de responder.\n`;
       systemPrompt += `2. NÃO REPETIR PERGUNTAS: Se você JÁ perguntou algo ao usuário em mensagens anteriores, NÃO pergunte novamente. Use a resposta que ele já deu.\n`;
       systemPrompt += `3. CONTEXTO: Se o usuário já forneceu informações (como número de quartos, tipo de imóvel, localização, cidade), NÃO peça essas informações novamente.\n`;
@@ -559,18 +581,18 @@ export class AIService {
           type: "function" as const,
           function: {
             name: "busca_imoveis",
-            description: "Busca imóveis cadastrados no sistema com filtros opcionais por cidade, tipo de transação (venda/aluguel) e tipo de imóvel (casa/apartamento/sala)",
+            description: "Busca imóveis cadastrados no sistema. DEVE SER CHAMADA IMEDIATAMENTE quando o usuário mencionar localização (cidade ou bairro) E tipo de imóvel (casa/apartamento/sala). NÃO pergunte nada antes de buscar - apenas execute a busca e mostre os resultados.",
             parameters: {
               type: "object",
               properties: {
                 cidade: {
                   type: "string",
-                  description: "Nome da cidade para filtrar os imóveis (opcional)"
+                  description: "Nome da cidade para filtrar os imóveis"
                 },
                 tipo_transacao: {
                   type: "string",
                   enum: ["venda", "aluguel", "locacao"],
-                  description: "Tipo de transação: venda, aluguel ou locacao"
+                  description: "Tipo de transação: venda, aluguel ou locacao. Se não mencionado, assuma 'venda'"
                 },
                 tipo_imovel: {
                   type: "string",
@@ -593,8 +615,13 @@ export class AIService {
       });
 
       console.log(`✅ [OPENAI] OpenAI call successful`);
+      console.log(`🔍 [OPENAI_DEBUG] Response object:`, JSON.stringify(response, null, 2));
 
       const responseMessage = response.choices[0].message;
+      console.log(`🔍 [OPENAI_DEBUG] Response message:`, JSON.stringify(responseMessage, null, 2));
+      console.log(`🔍 [OPENAI_DEBUG] Has tool_calls: ${!!responseMessage.tool_calls}`);
+      console.log(`🔍 [OPENAI_DEBUG] Tool_calls length: ${responseMessage.tool_calls?.length || 0}`);
+      console.log(`🔍 [OPENAI_DEBUG] Message content: ${responseMessage.content?.substring(0, 100) || 'null'}`);
 
       // Verificar se o modelo quer chamar uma função
       if (responseMessage.tool_calls && responseMessage.tool_calls.length > 0) {
