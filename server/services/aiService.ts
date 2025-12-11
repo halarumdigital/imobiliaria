@@ -481,8 +481,13 @@ Responda sempre em português brasileiro de forma natural e helpful.\n\n`;
       systemPrompt += `IMPORTANTE: SEMPRE siga o prompt e personalidade definidos no início desta mensagem. Não mude seu comportamento ou tom.`;
 
       // PRÉ-PROCESSAR: Detectar cidade e tipo no histórico para evitar loops
+      // MAS: NÃO fazer busca automática se mensagem atual for cumprimento
       let contextInfo = "";
-      if (context.conversationHistory && context.conversationHistory.length > 0) {
+      const mensagemAtual = context.message.toLowerCase().trim();
+      const cumprimentos = ['oi', 'olá', 'ola', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hello', 'opa'];
+      const ehCumprimento = cumprimentos.some(c => mensagemAtual === c || mensagemAtual.startsWith(c + ' '));
+
+      if (context.conversationHistory && context.conversationHistory.length > 0 && !ehCumprimento) {
         const conversationText = context.conversationHistory
           .map(m => m.content.toLowerCase())
           .join(' ');
@@ -518,6 +523,8 @@ Responda sempre em português brasileiro de forma natural e helpful.\n\n`;
           contextInfo = `\n\nCONTEXTO DA CONVERSA: O usuário já informou que procura "${tipoDetectado}".`;
           console.log(`🔍 [PRE-PROCESS] Detectado no histórico: tipo ${tipoDetectado}`);
         }
+      } else if (ehCumprimento) {
+        console.log(`👋 [PRE-PROCESS] Mensagem atual é cumprimento - NÃO fazer busca automática`);
       }
 
       // Construir histórico da conversa
