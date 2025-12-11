@@ -444,46 +444,15 @@ export class AIService {
         systemPrompt += `\n\nVocê é um agente especializado. Responda com base em sua especialização e conhecimento específico.`;
       }
 
-      systemPrompt += `\n\n=== ⚠️ REGRA NÚMERO 1: MEMÓRIA DA CONVERSA (PRIORIDADE MÁXIMA) ===\n`;
-      systemPrompt += `ANTES DE FAZER QUALQUER COISA, VERIFIQUE O HISTÓRICO DA CONVERSA!\n\n`;
-      systemPrompt += `REGRAS ABSOLUTAS DE MEMÓRIA:\n`;
-      systemPrompt += `1. CONSULTE O HISTÓRICO: Você TEM acesso ao histórico completo acima. SEMPRE leia antes de responder.\n`;
-      systemPrompt += `2. ZERO REPETIÇÃO: Se você JÁ perguntou algo, NUNCA pergunte novamente. Use a resposta anterior.\n`;
-      systemPrompt += `3. USE O CONTEXTO: Se o usuário JÁ informou cidade, tipo, quartos, etc - USE essa informação!\n`;
-      systemPrompt += `4. NÃO RECOMECE: Continue do ponto onde parou. Não trate cada mensagem como nova conversa.\n\n`;
-      systemPrompt += `EXEMPLOS DE VIOLAÇÃO (NUNCA FAÇA ISSO):\n`;
-      systemPrompt += `  ❌ Usuário disse "joaçaba" → Você pergunta "Em qual cidade?"\n`;
-      systemPrompt += `  ❌ Usuário disse "apartamento" → Você pergunta "Que tipo de imóvel?"\n`;
-      systemPrompt += `  ❌ Já perguntou a cidade 3 vezes e usuário respondeu → Você pergunta pela 4ª vez\n\n`;
-      systemPrompt += `COMO USAR A MEMÓRIA CORRETAMENTE:\n`;
-      systemPrompt += `  ✅ Verifique: O usuário já mencionou cidade? SIM → Use essa cidade na busca\n`;
-      systemPrompt += `  ✅ Verifique: O usuário já mencionou tipo? SIM → Use esse tipo na busca\n`;
-      systemPrompt += `  ✅ Tem AMBOS no histórico? → BUSQUE IMEDIATAMENTE sem perguntar nada\n`;
-      systemPrompt += `=== FIM REGRAS DE MEMÓRIA ===\n\n`;
-
-      systemPrompt += `=== PROTOCOLO DE BUSCA DE IMÓVEIS ===\n`;
-      systemPrompt += `VOCÊ TEM ACESSO À FUNÇÃO busca_imoveis PARA CONSULTAR IMÓVEIS NO SISTEMA.\n\n`;
-      systemPrompt += `CRITÉRIO MÍNIMO PARA BUSCA:\n`;
-      systemPrompt += `Para chamar a função busca_imoveis, você PRECISA de:\n`;
-      systemPrompt += `  1. CIDADE/LOCALIZAÇÃO\n`;
-      systemPrompt += `  2. TIPO DE IMÓVEL (apartamento, casa, sala, terreno, etc)\n\n`;
-      systemPrompt += `PASSO A PASSO OBRIGATÓRIO:\n`;
-      systemPrompt += `  PASSO 1: Verifique o HISTÓRICO - O usuário já informou cidade? E tipo?\n`;
-      systemPrompt += `  PASSO 2: Se TEM ambos no histórico → CHAME busca_imoveis AGORA\n`;
-      systemPrompt += `  PASSO 3: Se FALTA algo → Pergunte APENAS o que falta (não repita perguntas)\n`;
-      systemPrompt += `  PASSO 4: Quando tiver ambos → BUSQUE sem mais perguntas\n\n`;
-      systemPrompt += `CENÁRIO REAL (O QUE ACONTECEU AGORA):\n`;
-      systemPrompt += `  Usuário: "quero um ap"\n`;
-      systemPrompt += `  Você: "Em qual cidade?"\n`;
-      systemPrompt += `  Usuário: "joaçaba"\n`;
-      systemPrompt += `  Você: "Que tipo?" ❌ ERRADO! Ele já disse "ap" = apartamento\n`;
-      systemPrompt += `  CORRETO: [CHAMA busca_imoveis(cidade="Joaçaba", tipo_imovel="apartamento")]\n\n`;
-      systemPrompt += `IMPORTANTE:\n`;
-      systemPrompt += `  • "ap" = apartamento\n`;
-      systemPrompt += `  • Se o usuário disse o tipo antes, NÃO pergunte de novo\n`;
-      systemPrompt += `  • Se o usuário disse a cidade antes, NÃO pergunte de novo\n`;
-      systemPrompt += `  • Cada pergunta só pode ser feita UMA VEZ\n`;
-      systemPrompt += `=== FIM PROTOCOLO DE BUSCA ===\n\n`;
+      systemPrompt += `\n\n=== REGRAS CRÍTICAS (LEIA O HISTÓRICO SEMPRE) ===\n`;
+      systemPrompt += `1. HISTÓRICO DISPONÍVEL: Todas as mensagens anteriores estão disponíveis acima.\n`;
+      systemPrompt += `2. NUNCA REPITA PERGUNTAS: Se você já perguntou algo, o usuário já respondeu. USE a resposta.\n`;
+      systemPrompt += `3. BUSCA DE IMÓVEIS: Você tem a função busca_imoveis(cidade, tipo_imovel)\n`;
+      systemPrompt += `   - Verifique o histórico: Usuário mencionou cidade? Tipo de imóvel?\n`;
+      systemPrompt += `   - Se TEM ambos (ex: "Joaçaba" + "apartamento") → CHAME a função AGORA\n`;
+      systemPrompt += `   - Se FALTA dados → Pergunte o que falta (sem repetir)\n`;
+      systemPrompt += `4. ABREVIAÇÕES: "ap" = apartamento\n`;
+      systemPrompt += `=== FIM REGRAS ===\n\n`;
 
       systemPrompt += `Responda sempre em português brasileiro de forma natural e helpful. Se a pergunta não puder ser respondida com o conhecimento fornecido, seja honesto sobre isso.\n\n`;
       systemPrompt += `IMPORTANTE: SEMPRE siga o prompt e personalidade definidos no início desta mensagem. Não mude seu comportamento ou tom.`;
@@ -590,22 +559,22 @@ export class AIService {
           type: "function" as const,
           function: {
             name: "busca_imoveis",
-            description: "Busca imóveis cadastrados no sistema. IMPORTANTE: Esta função REQUER cidade E tipo de imóvel. SÓ chame quando tiver AMBAS informações. Se o usuário não informou cidade ou tipo, PERGUNTE primeiro antes de chamar esta função.",
+            description: "Busca imóveis cadastrados. ANTES de chamar: (1) VERIFIQUE o histórico da conversa - o usuário JÁ informou cidade e tipo? Se SIM, USE essas informações e chame a função AGORA. (2) Se FALTAM dados, pergunte APENAS o que falta. NUNCA repita perguntas. Exemplos: 'ap'='apartamento', 'casa'='casa'. Se usuário disse 'Joaçaba' no histórico, NÃO pergunte cidade de novo.",
             parameters: {
               type: "object",
               properties: {
                 cidade: {
                   type: "string",
-                  description: "Nome da cidade para filtrar os imóveis (OBRIGATÓRIO - pergunte se não souber)"
+                  description: "Cidade (verifique histórico primeiro - usuário pode ter informado)"
                 },
                 tipo_transacao: {
                   type: "string",
                   enum: ["venda", "aluguel", "locacao"],
-                  description: "Tipo de transação: venda, aluguel ou locacao. Se não mencionado, assuma 'venda'"
+                  description: "Tipo de transação (opcional - assuma 'venda' se não mencionado)"
                 },
                 tipo_imovel: {
                   type: "string",
-                  description: "Tipo do imóvel: casa, apartamento, sala, terreno, sobrado, etc (OBRIGATÓRIO - pergunte se não souber)"
+                  description: "Tipo do imóvel: apartamento, casa, sala, etc (verifique histórico primeiro)"
                 }
               },
               required: ["cidade", "tipo_imovel"]
