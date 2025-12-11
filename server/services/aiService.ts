@@ -450,9 +450,49 @@ export class AIService {
       systemPrompt += `Responda sempre em português brasileiro de forma natural e helpful. Se a pergunta não puder ser respondida com o conhecimento fornecido, seja honesto sobre isso.\n\n`;
       systemPrompt += `IMPORTANTE: SEMPRE siga o prompt e personalidade definidos no início desta mensagem. Não mude seu comportamento ou tom.`;
 
+      // PRÉ-PROCESSAR: Detectar cidade e tipo no histórico para evitar loops
+      let contextInfo = "";
+      if (context.conversationHistory && context.conversationHistory.length > 0) {
+        const conversationText = context.conversationHistory
+          .map(m => m.content.toLowerCase())
+          .join(' ');
+
+        // Detectar cidade
+        const cidades = ['joaçaba', 'joacaba', 'campinas', 'são paulo', 'sao paulo', 'curitiba', 'florianópolis', 'florianopolis'];
+        let cidadeDetectada = null;
+        for (const c of cidades) {
+          if (conversationText.includes(c)) {
+            cidadeDetectada = c.charAt(0).toUpperCase() + c.slice(1);
+            break;
+          }
+        }
+
+        // Detectar tipo de imóvel
+        const tiposImovel = ['apartamento', 'ap', 'apto', 'casa', 'sobrado', 'sala', 'terreno', 'chácara', 'chacara'];
+        let tipoDetectado = null;
+        for (const tipo of tiposImovel) {
+          if (conversationText.includes(tipo)) {
+            tipoDetectado = tipo === 'ap' || tipo === 'apto' ? 'apartamento' : tipo;
+            break;
+          }
+        }
+
+        // Se detectou cidade E tipo, adicionar ao contexto
+        if (cidadeDetectada && tipoDetectado) {
+          contextInfo = `\n\nCONTEXTO DA CONVERSA: O usuário já informou que procura "${tipoDetectado}" em "${cidadeDetectada}". Use a função busca_imoveis com esses parâmetros IMEDIATAMENTE, sem fazer mais perguntas.`;
+          console.log(`🔍 [PRE-PROCESS] Detectado no histórico: ${tipoDetectado} em ${cidadeDetectada}`);
+        } else if (cidadeDetectada) {
+          contextInfo = `\n\nCONTEXTO DA CONVERSA: O usuário já informou a cidade "${cidadeDetectada}".`;
+          console.log(`🔍 [PRE-PROCESS] Detectado no histórico: cidade ${cidadeDetectada}`);
+        } else if (tipoDetectado) {
+          contextInfo = `\n\nCONTEXTO DA CONVERSA: O usuário já informou que procura "${tipoDetectado}".`;
+          console.log(`🔍 [PRE-PROCESS] Detectado no histórico: tipo ${tipoDetectado}`);
+        }
+      }
+
       // Construir histórico da conversa
       const messages: any[] = [
-        { role: "system", content: systemPrompt }
+        { role: "system", content: systemPrompt + contextInfo }
       ];
 
       // Adicionar histórico se disponível
