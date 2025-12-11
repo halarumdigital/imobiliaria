@@ -459,7 +459,15 @@ export class AIService {
       // Instruções sobre busca de imóveis são definidas no prompt do agente
       // Não adicionar regras conflitantes aqui
 
-      systemPrompt += `Responda sempre em português brasileiro de forma natural e helpful. Se a pergunta não puder ser respondida com o conhecimento fornecido, seja honesto sobre isso.\n\n`;
+      systemPrompt += `\n\n⚠️⚠️⚠️ REGRA CRÍTICA SOBRE busca_imoveis ⚠️⚠️⚠️
+QUANDO você chamar a função busca_imoveis:
+- Responda APENAS com uma mensagem curta de introdução (ex: "Encontrei X imóveis!")
+- NÃO liste os imóveis no seu texto de resposta
+- NÃO inclua endereços, quartos, banheiros, descrições, ou links de imagens
+- O SISTEMA enviará automaticamente cada imóvel com fotos de forma organizada
+- Sua resposta deve ter NO MÁXIMO 2 linhas após chamar busca_imoveis
+
+Responda sempre em português brasileiro de forma natural e helpful. Se a pergunta não puder ser respondida com o conhecimento fornecido, seja honesto sobre isso.\n\n`;
       systemPrompt += `IMPORTANTE: SEMPRE siga o prompt e personalidade definidos no início desta mensagem. Não mude seu comportamento ou tom.`;
 
       // PRÉ-PROCESSAR: Detectar cidade e tipo no histórico para evitar loops
