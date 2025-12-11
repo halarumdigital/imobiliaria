@@ -241,7 +241,7 @@ export default function AiSettings() {
               <Input
                 id="numeroTokens"
                 type="number"
-                min="100"
+                min="1"
                 max="8000"
                 value={formData.numeroTokens || 1000}
                 onChange={(e) => handleInputChange("numeroTokens", parseInt(e.target.value))}
