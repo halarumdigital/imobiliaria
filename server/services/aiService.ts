@@ -461,13 +461,23 @@ export class AIService {
 
       systemPrompt += `\n\n⚠️⚠️⚠️ REGRA CRÍTICA SOBRE busca_imoveis ⚠️⚠️⚠️
 QUANDO você chamar a função busca_imoveis:
-- Responda APENAS com uma mensagem curta de introdução (ex: "Encontrei X imóveis!")
-- NÃO liste os imóveis no seu texto de resposta
-- NÃO inclua endereços, quartos, banheiros, descrições, ou links de imagens
-- O SISTEMA enviará automaticamente cada imóvel com fotos de forma organizada
-- Sua resposta deve ter NO MÁXIMO 2 linhas após chamar busca_imoveis
+- Responda APENAS: "Encontrei X imóveis! Vou te mostrar:" (NO MÁXIMO 1-2 linhas)
+- NÃO LISTE OS IMÓVEIS
+- NÃO MENCIONE nomes, endereços, quartos, banheiros, vagas, área, preços
+- NÃO INCLUA detalhes, descrições ou características
+- NÃO MOSTRE links de imagens
+- O SISTEMA enviará automaticamente cada imóvel completo com suas fotos
+- Sua resposta após busca_imoveis = APENAS mensagem de introdução
 
-Responda sempre em português brasileiro de forma natural e helpful. Se a pergunta não puder ser respondida com o conhecimento fornecido, seja honesto sobre isso.\n\n`;
+EXEMPLOS CORRETOS:
+✅ "Encontrei 5 apartamentos! Vou te mostrar:"
+✅ "Achei 12 imóveis! Mostrando os primeiros 5:"
+
+EXEMPLOS ERRADOS:
+❌ "Encontrei 5 apartamentos: 1. Apto Centro - 3 quartos..."
+❌ "Veja esses imóveis: Apartamento tal, Casa tal..."
+
+Responda sempre em português brasileiro de forma natural e helpful.\n\n`;
       systemPrompt += `IMPORTANTE: SEMPRE siga o prompt e personalidade definidos no início desta mensagem. Não mude seu comportamento ou tom.`;
 
       // PRÉ-PROCESSAR: Detectar cidade e tipo no histórico para evitar loops
@@ -801,25 +811,15 @@ Responda sempre em português brasileiro de forma natural e helpful. Se a pergun
               images: (p.images || []).slice(0, 5) // Limitar a 5 imagens por imóvel
             }));
 
-            // Formatar resultado para o modelo
+            // Formatar resultado SIMPLIFICADO para o modelo
+            // NÃO enviar detalhes dos imóveis, apenas estatísticas
+            // Isso evita que o modelo liste os imóveis no texto da resposta
             const functionResult = {
               total: totalEncontrados,
               total_retornado: properties.length,
               limite_aplicado: limite,
               tem_mais_resultados: totalEncontrados > limite,
-              imoveis: properties.map(p => ({
-                codigo: p.code,
-                nome: p.name,
-                endereco: `${p.street}, ${p.number} - ${p.neighborhood || ''}, ${p.city || ''} - ${p.state || ''}`,
-                quartos: p.bedrooms,
-                banheiros: p.bathrooms,
-                vagas: p.parkingSpaces,
-                area: p.privateArea,
-                descricao: p.description,
-                tipo_transacao: p.transactionType,
-                imagens: p.images || [],
-                quantidade_imagens: (p.images && p.images.length) || 0
-              }))
+              mensagem: `Encontrei ${totalEncontrados} imóveis. Retornando os primeiros ${properties.length}.${totalEncontrados > limite ? ` Há mais ${totalEncontrados - limite} imóveis disponíveis.` : ''} O sistema enviará cada imóvel automaticamente com suas fotos.`
             };
 
             // Adicionar a resposta da função ao contexto e fazer nova chamada
@@ -836,11 +836,12 @@ Responda sempre em português brasileiro de forma natural e helpful. Se a pergun
 
             // Fazer nova chamada para o modelo processar o resultado
             // Mantendo TODO o histórico para que o agente não perca memória
+            // max_tokens baixo para forçar resposta CURTA
             const finalResponse = await openai.chat.completions.create({
               model: "gpt-4o",
               messages: messages, // Inclui: system + histórico + mensagem atual + tool_call + tool_result
-              max_tokens: 1000,
-              temperature: 0.7,
+              max_tokens: 100, // BAIXO para forçar resposta curta (apenas introdução)
+              temperature: 0.3, // BAIXO para ser mais determinístico
             });
 
             console.log(`✅ [FUNCTION_CALL] Resposta final gerada COM memória preservada`);
