@@ -550,17 +550,117 @@ export class AIService {
       console.log(`🔧 [OPENAI] Pre-OpenAI call - numeroTokens: ${aiConfig.numeroTokens}, type: ${typeof aiConfig.numeroTokens}`);
       console.log(`🔧 [OPENAI] Messages count: ${messages.length}, has image: ${context.messageType === 'image' || context.messageType === 'imageMessage'}`);
       console.log(`🔧 [OPENAI] About to call OpenAI API...`);
-      
+
+      // Definir tools disponíveis
+      const tools = [
+        {
+          type: "function" as const,
+          function: {
+            name: "busca_imoveis",
+            description: "Busca imóveis cadastrados no sistema com filtros opcionais por cidade, tipo de transação (venda/aluguel) e tipo de imóvel (casa/apartamento/sala)",
+            parameters: {
+              type: "object",
+              properties: {
+                cidade: {
+                  type: "string",
+                  description: "Nome da cidade para filtrar os imóveis (opcional)"
+                },
+                tipo_transacao: {
+                  type: "string",
+                  enum: ["venda", "aluguel", "locacao"],
+                  description: "Tipo de transação: venda, aluguel ou locacao"
+                },
+                tipo_imovel: {
+                  type: "string",
+                  description: "Tipo do imóvel: casa, apartamento, sala, terreno, sobrado, etc"
+                }
+              },
+              required: []
+            }
+          }
+        }
+      ];
+
       const response = await openai.chat.completions.create({
         model: "gpt-4o", // Hardcode para garantir - gpt-4o suporta imagens
         messages: messages,
         max_tokens: 1000, // Hardcode para garantir
         temperature: 0.7, // Hardcode para garantir
+        tools: tools,
+        tool_choice: "auto" // O modelo decide quando usar a tool
       });
-      
-      console.log(`✅ [OPENAI] OpenAI call successful, response length: ${response.choices[0]?.message?.content?.length || 0}`);
 
-      return response.choices[0].message.content || "Desculpe, não consegui gerar uma resposta.";
+      console.log(`✅ [OPENAI] OpenAI call successful`);
+
+      const responseMessage = response.choices[0].message;
+
+      // Verificar se o modelo quer chamar uma função
+      if (responseMessage.tool_calls && responseMessage.tool_calls.length > 0) {
+        console.log(`🛠️ [FUNCTION_CALL] Modelo solicitou chamada de função!`);
+
+        const toolCall = responseMessage.tool_calls[0];
+        const functionName = toolCall.function.name;
+        const functionArgs = JSON.parse(toolCall.function.arguments);
+
+        console.log(`🛠️ [FUNCTION_CALL] Função: ${functionName}`);
+        console.log(`🛠️ [FUNCTION_CALL] Argumentos:`, functionArgs);
+
+        if (functionName === "busca_imoveis") {
+          try {
+            // Buscar imóveis usando o companyId da instância
+            const properties = await storage.searchProperties(instance.companyId, {
+              city: functionArgs.cidade,
+              transactionType: functionArgs.tipo_transacao === 'aluguel' ? 'locacao' : functionArgs.tipo_transacao,
+              propertyType: functionArgs.tipo_imovel
+            });
+
+            console.log(`🏠 [FUNCTION_CALL] Encontrados ${properties.length} imóveis`);
+
+            // Formatar resultado para o modelo
+            const functionResult = {
+              total: properties.length,
+              imoveis: properties.map(p => ({
+                codigo: p.code,
+                nome: p.name,
+                endereco: `${p.street}, ${p.number} - ${p.neighborhood || ''}, ${p.city || ''} - ${p.state || ''}`,
+                quartos: p.bedrooms,
+                banheiros: p.bathrooms,
+                vagas: p.parkingSpaces,
+                area: p.privateArea,
+                descricao: p.description,
+                tipo_transacao: p.transactionType,
+                tem_imagens: p.images && p.images.length > 0
+              }))
+            };
+
+            // Adicionar a resposta da função ao contexto e fazer nova chamada
+            messages.push(responseMessage);
+            messages.push({
+              role: "tool" as const,
+              tool_call_id: toolCall.id,
+              content: JSON.stringify(functionResult)
+            });
+
+            // Fazer nova chamada para o modelo processar o resultado
+            const finalResponse = await openai.chat.completions.create({
+              model: "gpt-4o",
+              messages: messages,
+              max_tokens: 1000,
+              temperature: 0.7,
+            });
+
+            console.log(`✅ [FUNCTION_CALL] Resposta final gerada`);
+            return finalResponse.choices[0].message.content || "Encontrei os imóveis mas não consegui formatá-los.";
+
+          } catch (error) {
+            console.error(`❌ [FUNCTION_CALL] Erro ao executar busca_imoveis:`, error);
+            return "Desculpe, ocorreu um erro ao buscar os imóveis. Tente novamente.";
+          }
+        }
+      }
+
+      console.log(`✅ [OPENAI] Response length: ${responseMessage.content?.length || 0}`);
+      return responseMessage.content || "Desculpe, não consegui gerar uma resposta.";
 
     } catch (error) {
       console.error("❌ Error generating AI response - DETAILED:", {

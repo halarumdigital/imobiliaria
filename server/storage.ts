@@ -120,6 +120,11 @@ export interface IStorage {
   // Properties
   getProperty(id: string): Promise<Property | undefined>;
   getPropertiesByCompany(companyId: string): Promise<Property[]>;
+  searchProperties(companyId: string, filters: {
+    city?: string;
+    transactionType?: string;
+    propertyType?: string;
+  }): Promise<Property[]>;
   createProperty(property: InsertProperty): Promise<Property>;
   updateProperty(id: string, updates: Partial<Property>): Promise<Property>;
   deleteProperty(id: string): Promise<void>;
@@ -2200,12 +2205,45 @@ export class MySQLStorage implements IStorage {
 
   async getPropertiesByCompany(companyId: string): Promise<Property[]> {
     if (!this.connection) throw new Error('No database connection');
-    
+
     const [rows] = await this.connection.execute(
       'SELECT * FROM properties WHERE company_id = ? ORDER BY created_at DESC',
       [companyId]
     ) as [any[], mysql.FieldPacket[]];
-    
+
+    return rows.map(row => this.parseProperty(row));
+  }
+
+  async searchProperties(companyId: string, filters: {
+    city?: string;
+    transactionType?: string;
+    propertyType?: string;
+  }): Promise<Property[]> {
+    if (!this.connection) throw new Error('No database connection');
+
+    let query = 'SELECT * FROM properties WHERE company_id = ? AND status = ?';
+    const params: any[] = [companyId, 'active'];
+
+    if (filters.city) {
+      query += ' AND city = ?';
+      params.push(filters.city);
+    }
+
+    if (filters.transactionType) {
+      query += ' AND transaction_type = ?';
+      params.push(filters.transactionType);
+    }
+
+    if (filters.propertyType) {
+      // Busca por tipo de imóvel no campo name (casa, apartamento, sala, etc.)
+      query += ' AND LOWER(name) LIKE ?';
+      params.push(`%${filters.propertyType.toLowerCase()}%`);
+    }
+
+    query += ' ORDER BY created_at DESC';
+
+    const [rows] = await this.connection.execute(query, params) as [any[], mysql.FieldPacket[]];
+
     return rows.map(row => this.parseProperty(row));
   }
 
@@ -2526,6 +2564,10 @@ export class MySQLStorage implements IStorage {
       mapLocation: row.map_location || "",
       transactionType: row.transaction_type || "venda",
       status: row.status,
+      images: row.images ? (typeof row.images === 'string' ? JSON.parse(row.images) : row.images) : [],
+      youtubeVideoUrl: row.youtube_video_url || "",
+      amenities: row.amenities ? (typeof row.amenities === 'string' ? JSON.parse(row.amenities) : row.amenities) : [],
+      featured: row.featured || false,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };

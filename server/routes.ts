@@ -4097,7 +4097,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/properties/images", authenticate, requireClient, async (req: AuthRequest, res) => {
     try {
       const { imagePath } = req.body;
-      
+
       if (!imagePath) {
         return res.status(400).json({ error: "Caminho da imagem é obrigatório" });
       }
@@ -4116,6 +4116,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Delete image error:", error);
       res.status(500).json({ error: "Erro ao excluir imagem" });
+    }
+  });
+
+  // ========== TOOLS FOR CHATGPT INTEGRATION ==========
+
+  // Search properties tool for ChatGPT
+  app.post("/api/tools/busca_imoveis", async (req, res) => {
+    try {
+      const { agentId, cidade, tipo_transacao, tipo_imovel } = req.body;
+
+      if (!agentId) {
+        return res.status(400).json({
+          error: "agentId é obrigatório",
+          description: "O campo agentId identifica o agente de IA que está fazendo a busca. Este ID é fornecido automaticamente no prompt do agente."
+        });
+      }
+
+      // Buscar o agente para obter o companyId
+      const agent = await storage.getAiAgent(agentId);
+      if (!agent) {
+        return res.status(404).json({
+          error: "Agente não encontrado",
+          description: `Nenhum agente encontrado com o ID: ${agentId}`
+        });
+      }
+
+      const companyId = agent.companyId;
+      console.log(`🤖 [BUSCA_IMOVEIS] Agent: ${agent.name} (${agentId})`);
+      console.log(`🏢 [BUSCA_IMOVEIS] Company: ${companyId}`);
+
+      // Build filters object
+      const filters: any = {};
+
+      if (cidade) {
+        filters.city = cidade;
+      }
+
+      if (tipo_transacao) {
+        // Normalize transaction type (aluguel -> locacao, venda -> venda)
+        if (tipo_transacao.toLowerCase() === 'aluguel') {
+          filters.transactionType = 'locacao';
+        } else if (tipo_transacao.toLowerCase() === 'venda') {
+          filters.transactionType = 'venda';
+        } else {
+          filters.transactionType = tipo_transacao;
+        }
+      }
+
+      if (tipo_imovel) {
+        filters.propertyType = tipo_imovel;
+      }
+
+      console.log(`🔍 [BUSCA_IMOVEIS] Searching properties with filters:`, { companyId, filters });
+
+      const properties = await storage.searchProperties(companyId, filters);
+
+      console.log(`✅ [BUSCA_IMOVEIS] Found ${properties.length} properties`);
+
+      // Return properties with full details
+      res.json({
+        total: properties.length,
+        imoveis: properties.map(p => ({
+          id: p.id,
+          codigo: p.code,
+          nome: p.name,
+          endereco: {
+            rua: p.street,
+            numero: p.number,
+            proximidade: p.proximity,
+            bairro: p.neighborhood,
+            cidade: p.city,
+            estado: p.state,
+            cep: p.zipCode,
+            localizacao_mapa: p.mapLocation
+          },
+          caracteristicas: {
+            area_privada: p.privateArea,
+            vagas_garagem: p.parkingSpaces,
+            banheiros: p.bathrooms,
+            quartos: p.bedrooms,
+            comodidades: p.amenities || []
+          },
+          descricao: p.description,
+          tipo_transacao: p.transactionType,
+          imagens: p.images || [],
+          video_youtube: p.youtubeVideoUrl,
+          destaque: p.featured,
+          status: p.status,
+          criado_em: p.createdAt,
+          atualizado_em: p.updatedAt
+        }))
+      });
+    } catch (error) {
+      console.error("❌ [BUSCA_IMOVEIS] Error searching properties:", error);
+      res.status(500).json({
+        error: "Erro ao buscar imóveis",
+        details: error.message
+      });
     }
   });
 
