@@ -444,15 +444,7 @@ export class AIService {
         systemPrompt += `\n\nVocê é um agente especializado. Responda com base em sua especialização e conhecimento específico.`;
       }
 
-      systemPrompt += `\n\n=== REGRAS CRÍTICAS (LEIA O HISTÓRICO SEMPRE) ===\n`;
-      systemPrompt += `1. HISTÓRICO DISPONÍVEL: Todas as mensagens anteriores estão disponíveis acima.\n`;
-      systemPrompt += `2. NUNCA REPITA PERGUNTAS: Se você já perguntou algo, o usuário já respondeu. USE a resposta.\n`;
-      systemPrompt += `3. BUSCA DE IMÓVEIS: Você tem a função busca_imoveis(cidade, tipo_imovel)\n`;
-      systemPrompt += `   - Verifique o histórico: Usuário mencionou cidade? Tipo de imóvel?\n`;
-      systemPrompt += `   - Se TEM ambos (ex: "Joaçaba" + "apartamento") → CHAME a função AGORA\n`;
-      systemPrompt += `   - Se FALTA dados → Pergunte o que falta (sem repetir)\n`;
-      systemPrompt += `4. ABREVIAÇÕES: "ap" = apartamento\n`;
-      systemPrompt += `=== FIM REGRAS ===\n\n`;
+      systemPrompt += `\n\nVocê tem acesso à função busca_imoveis para consultar imóveis. Quando o usuário mencionar interesse em imóveis, consulte o histórico da conversa para ver se ele já informou a cidade e o tipo de imóvel desejado. Se sim, use essas informações. Nunca repita perguntas que já fez.\n\n`;
 
       systemPrompt += `Responda sempre em português brasileiro de forma natural e helpful. Se a pergunta não puder ser respondida com o conhecimento fornecido, seja honesto sobre isso.\n\n`;
       systemPrompt += `IMPORTANTE: SEMPRE siga o prompt e personalidade definidos no início desta mensagem. Não mude seu comportamento ou tom.`;
@@ -559,25 +551,25 @@ export class AIService {
           type: "function" as const,
           function: {
             name: "busca_imoveis",
-            description: "Busca imóveis cadastrados. ANTES de chamar: (1) VERIFIQUE o histórico da conversa - o usuário JÁ informou cidade e tipo? Se SIM, USE essas informações e chame a função AGORA. (2) Se FALTAM dados, pergunte APENAS o que falta. NUNCA repita perguntas. Exemplos: 'ap'='apartamento', 'casa'='casa'. Se usuário disse 'Joaçaba' no histórico, NÃO pergunte cidade de novo.",
+            description: "Busca imóveis cadastrados no sistema com filtros opcionais. Use informações do histórico da conversa quando disponíveis.",
             parameters: {
               type: "object",
               properties: {
                 cidade: {
                   type: "string",
-                  description: "Cidade (verifique histórico primeiro - usuário pode ter informado)"
+                  description: "Nome da cidade"
                 },
                 tipo_transacao: {
                   type: "string",
                   enum: ["venda", "aluguel", "locacao"],
-                  description: "Tipo de transação (opcional - assuma 'venda' se não mencionado)"
+                  description: "Tipo de transação"
                 },
                 tipo_imovel: {
                   type: "string",
-                  description: "Tipo do imóvel: apartamento, casa, sala, etc (verifique histórico primeiro)"
+                  description: "Tipo do imóvel: apartamento, casa, sala, terreno, sobrado"
                 }
               },
-              required: ["cidade", "tipo_imovel"]
+              required: []
             }
           }
         }
