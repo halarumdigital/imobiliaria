@@ -790,7 +790,7 @@ export class AIService {
               name: p.name || 'Imóvel sem nome',
               endereco: `${p.street}, ${p.number} - ${p.neighborhood || ''}, ${p.city || ''} - ${p.state || ''}`,
               description: `${p.name}\n📍 ${p.street}, ${p.number} - ${p.neighborhood || ''}, ${p.city || ''} - ${p.state || ''}\n🛏️ ${p.bedrooms} quartos | 🚿 ${p.bathrooms} banheiros | 🚗 ${p.parkingSpaces} vagas\n📐 ${p.privateArea}m²\n💰 ${p.transactionType === 'locacao' ? 'Aluguel' : 'Venda'}\n${p.description ? '\n' + p.description : ''}`,
-              images: p.images || []
+              images: (p.images || []).slice(0, 5) // Limitar a 5 imagens por imóvel
             }));
 
             // Formatar resultado para o modelo
