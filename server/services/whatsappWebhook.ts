@@ -477,17 +477,20 @@ export class WhatsAppWebhookService {
         if (aiResponse.propertyImages && aiResponse.propertyImages.length > 0) {
           console.log(`📸 [IMAGES] Enviando ${aiResponse.propertyImages.length} imagens de imóveis...`);
 
-          // Buscar URL global do sistema
+          // Buscar configuração global da Evolution API
           const evolutionConfig = await storage.getEvolutionApiConfiguration();
           if (!evolutionConfig?.urlGlobalSistema) {
             console.error(`❌ [IMAGES] URL Global do Sistema não configurada`);
+          } else if (!evolutionConfig?.evolutionURL || !evolutionConfig?.evolutionToken) {
+            console.error(`❌ [IMAGES] Configuração da Evolution API incompleta`);
           } else {
             const baseUrl = evolutionConfig.urlGlobalSistema.replace(/\/$/, ''); // Remove trailing slash
             console.log(`🌐 [IMAGES] URL Base: ${baseUrl}`);
+            console.log(`🔧 [IMAGES] Evolution API URL: ${evolutionConfig.evolutionURL}`);
 
             const evolutionApi = new EvolutionApiService({
-              baseURL: dbInstance.evolutionApiUrl!,
-              token: dbInstance.evolutionApiKey!
+              baseURL: evolutionConfig.evolutionURL,
+              token: evolutionConfig.evolutionToken
             });
 
             for (const imagePath of aiResponse.propertyImages) {
