@@ -705,6 +705,14 @@ export class AIService {
 
             console.log(`🏠 [FUNCTION_CALL] Encontrados ${properties.length} imóveis`);
 
+            // Log detalhado das imagens
+            properties.forEach((p, idx) => {
+              console.log(`📸 [FUNCTION_CALL] Imóvel ${idx + 1} (${p.code}): ${p.images?.length || 0} imagens`);
+              if (p.images && p.images.length > 0) {
+                console.log(`   URLs: ${p.images.join(', ')}`);
+              }
+            });
+
             // Formatar resultado para o modelo
             const functionResult = {
               total: properties.length,
