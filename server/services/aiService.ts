@@ -446,25 +446,39 @@ export class AIService {
 
       systemPrompt += `\n\n=== PROTOCOLO DE BUSCA DE IMÓVEIS (REGRA PRIORITÁRIA) ===\n`;
       systemPrompt += `VOCÊ TEM ACESSO À FUNÇÃO busca_imoveis PARA CONSULTAR IMÓVEIS NO SISTEMA.\n\n`;
-      systemPrompt += `REGRA DE OURO: "BUSCAR PRIMEIRO, REFINAR DEPOIS"\n\n`;
-      systemPrompt += `GATILHO AUTOMÁTICO - Chame busca_imoveis IMEDIATAMENTE quando identificar:\n`;
-      systemPrompt += `  • Localização (cidade ou bairro) + Tipo de imóvel (casa/apartamento/sala/etc)\n`;
-      systemPrompt += `  • Exemplos: "apartamentos em Campinas", "casas na Vila Mariana", "imóveis em São Paulo"\n\n`;
-      systemPrompt += `O QUE FAZER:\n`;
-      systemPrompt += `  ✅ EXECUTE a função busca_imoveis assim que tiver localização + tipo\n`;
-      systemPrompt += `  ✅ Mostre os resultados encontrados\n`;
-      systemPrompt += `  ✅ DEPOIS ofereça refinar a busca (preço, quartos, etc)\n\n`;
-      systemPrompt += `O QUE NÃO FAZER:\n`;
-      systemPrompt += `  ❌ NÃO pergunte sobre preço, quartos ou garagem ANTES de buscar\n`;
-      systemPrompt += `  ❌ NÃO peça confirmação "Quer que eu busque?"\n`;
-      systemPrompt += `  ❌ NÃO faça perguntas desnecessárias quando já tem dados suficientes\n\n`;
-      systemPrompt += `EXEMPLOS:\n`;
-      systemPrompt += `  Usuário: "me mostre o que voce tem"\n`;
-      systemPrompt += `  Ação: CHAME busca_imoveis() SEM FILTROS para mostrar todos os imóveis\n\n`;
-      systemPrompt += `  Usuário: "apartamentos em Campinas"\n`;
-      systemPrompt += `  Ação: CHAME busca_imoveis(cidade="Campinas", tipo_imovel="apartamento")\n\n`;
-      systemPrompt += `  Usuário: "tem casas?"\n`;
-      systemPrompt += `  Ação: CHAME busca_imoveis(tipo_imovel="casa")\n\n`;
+      systemPrompt += `CRITÉRIO MÍNIMO PARA BUSCA:\n`;
+      systemPrompt += `Para chamar a função busca_imoveis, você PRECISA de pelo menos:\n`;
+      systemPrompt += `  1. CIDADE/LOCALIZAÇÃO (obrigatório)\n`;
+      systemPrompt += `  2. TIPO DE IMÓVEL (obrigatório) - apartamento, casa, sala, terreno, etc\n\n`;
+      systemPrompt += `QUANDO CHAMAR A FUNÇÃO:\n`;
+      systemPrompt += `  ✅ "apartamentos em Campinas" → TEM cidade + tipo → BUSQUE IMEDIATAMENTE\n`;
+      systemPrompt += `  ✅ "casas em São Paulo" → TEM cidade + tipo → BUSQUE IMEDIATAMENTE\n`;
+      systemPrompt += `  ✅ "imóveis em Joacaba" → TEM cidade → mas FALTA tipo → PERGUNTE o tipo primeiro\n\n`;
+      systemPrompt += `QUANDO NÃO CHAMAR (PERGUNTE ANTES):\n`;
+      systemPrompt += `  ❌ "quero um ap" → FALTA cidade → PERGUNTE: "Em qual cidade você procura?"\n`;
+      systemPrompt += `  ❌ "tem casas?" → FALTA cidade → PERGUNTE: "Em qual cidade você procura casas?"\n`;
+      systemPrompt += `  ❌ "quero alugar" → FALTA cidade E tipo → PERGUNTE ambos\n`;
+      systemPrompt += `  ❌ "me mostre imóveis" → FALTA especificação → PERGUNTE cidade e tipo\n\n`;
+      systemPrompt += `FLUXO CORRETO:\n`;
+      systemPrompt += `  1. Usuário menciona interesse em imóveis\n`;
+      systemPrompt += `  2. VERIFIQUE: Tenho CIDADE + TIPO?\n`;
+      systemPrompt += `     - SIM → Chame busca_imoveis(cidade="X", tipo_imovel="Y")\n`;
+      systemPrompt += `     - NÃO → Pergunte o que falta (cidade e/ou tipo)\n`;
+      systemPrompt += `  3. Após ter ambos, BUSQUE sem mais perguntas\n`;
+      systemPrompt += `  4. Mostre os resultados\n`;
+      systemPrompt += `  5. DEPOIS ofereça refinar (preço, quartos, etc)\n\n`;
+      systemPrompt += `EXEMPLOS PRÁTICOS:\n`;
+      systemPrompt += `  Usuário: "quero um apartamento"\n`;
+      systemPrompt += `  Você: "Ótimo! Em qual cidade você está procurando apartamento?"\n`;
+      systemPrompt += `  Usuário: "em Joaçaba"\n`;
+      systemPrompt += `  Você: [CHAMA busca_imoveis(cidade="Joaçaba", tipo_imovel="apartamento")]\n\n`;
+      systemPrompt += `  Usuário: "casas em Campinas"\n`;
+      systemPrompt += `  Você: [CHAMA busca_imoveis(cidade="Campinas", tipo_imovel="casa")] - SEM perguntar nada\n\n`;
+      systemPrompt += `IMPORTANTE:\n`;
+      systemPrompt += `  • NÃO busque sem cidade - isso retorna imóveis de todas as cidades\n`;
+      systemPrompt += `  • NÃO busque sem tipo - foque na necessidade específica do cliente\n`;
+      systemPrompt += `  • NÃO pergunte sobre preço, quartos ou vagas ANTES de buscar\n`;
+      systemPrompt += `  • Tipo de transação (venda/aluguel) é opcional - pode assumir "venda"\n`;
       systemPrompt += `=== FIM PROTOCOLO DE BUSCA ===\n\n`;
       systemPrompt += `=== REGRAS FUNDAMENTAIS DE MEMÓRIA ===\n`;
       systemPrompt += `1. MEMÓRIA DA CONVERSA: Você TEM acesso ao histórico completo da conversa acima. SEMPRE consulte o histórico antes de responder.\n`;
@@ -581,13 +595,13 @@ export class AIService {
           type: "function" as const,
           function: {
             name: "busca_imoveis",
-            description: "Busca imóveis cadastrados no sistema. DEVE SER CHAMADA IMEDIATAMENTE quando o usuário mencionar localização (cidade ou bairro) E tipo de imóvel (casa/apartamento/sala). NÃO pergunte nada antes de buscar - apenas execute a busca e mostre os resultados.",
+            description: "Busca imóveis cadastrados no sistema. IMPORTANTE: Esta função REQUER cidade E tipo de imóvel. SÓ chame quando tiver AMBAS informações. Se o usuário não informou cidade ou tipo, PERGUNTE primeiro antes de chamar esta função.",
             parameters: {
               type: "object",
               properties: {
                 cidade: {
                   type: "string",
-                  description: "Nome da cidade para filtrar os imóveis"
+                  description: "Nome da cidade para filtrar os imóveis (OBRIGATÓRIO - pergunte se não souber)"
                 },
                 tipo_transacao: {
                   type: "string",
@@ -596,10 +610,10 @@ export class AIService {
                 },
                 tipo_imovel: {
                   type: "string",
-                  description: "Tipo do imóvel: casa, apartamento, sala, terreno, sobrado, etc"
+                  description: "Tipo do imóvel: casa, apartamento, sala, terreno, sobrado, etc (OBRIGATÓRIO - pergunte se não souber)"
                 }
               },
-              required: []
+              required: ["cidade", "tipo_imovel"]
             }
           }
         }
