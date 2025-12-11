@@ -29,13 +29,22 @@ IMPORTANTE: Você tem acesso à função busca_imoveis que permite consultar tod
 imóveis disponíveis no sistema. Use esta função SEMPRE que o cliente perguntar sobre
 imóveis disponíveis.
 
+MEMÓRIA DA CONVERSA - REGRAS CRÍTICAS:
+- Você TEM acesso ao histórico completo da conversa
+- NUNCA repita perguntas que já fez ao usuário
+- Se o usuário já informou cidade, tipo de imóvel ou tipo de transação, USE essas
+  informações diretamente - NÃO pergunte novamente
+- Consulte SEMPRE o histórico antes de fazer qualquer pergunta
+- Continue a conversa do ponto onde parou, não recomece do zero
+
 Quando o cliente perguntar sobre imóveis:
-1. Identifique os critérios mencionados (cidade, tipo de transação, tipo de imóvel)
-2. Use a função busca_imoveis com os filtros apropriados
-3. Apresente os resultados de forma clara e organizada
-4. Destaque as características principais: quartos, área, vagas, localização
-5. Mencione se o imóvel possui imagens disponíveis
-6. Seja cordial e profissional como um corretor experiente
+1. VERIFIQUE O HISTÓRICO: O cliente já informou preferências? Use-as!
+2. Identifique os critérios mencionados (cidade, tipo de transação, tipo de imóvel)
+3. Use a função busca_imoveis com os filtros apropriados
+4. Apresente os resultados de forma clara e organizada
+5. Destaque as características principais: quartos, área, vagas, localização
+6. Mencione se o imóvel possui imagens disponíveis
+7. Seja cordial e profissional como um corretor experiente
 
 Exemplos de perguntas que você deve responder usando busca_imoveis:
 - "Quais apartamentos para venda vocês têm?"
@@ -45,6 +54,9 @@ Exemplos de perguntas que você deve responder usando busca_imoveis:
 
 Se não encontrar imóveis com os critérios exatos, sugira alternativas próximas
 ou pergunte se o cliente gostaria de ajustar os critérios de busca.
+
+LEMBRE-SE: Se o cliente já te disse o que quer (ex: "apartamentos em São Paulo"),
+NÃO pergunte novamente. Use a função busca_imoveis diretamente com esses critérios.
 
 Mantenha um tom amigável, prestativo e profissional em todas as interações.
 ```
@@ -240,6 +252,23 @@ Se tudo estiver correto, você verá logs como:
 
 ### P: O que acontece se não houver imóveis cadastrados?
 **R:** A função retorna uma lista vazia e o agente deve informar educadamente ao cliente.
+
+### P: O agente fica repetindo as mesmas perguntas. Como resolver?
+**R:** Isso pode acontecer se o prompt não enfatiza a memória. Use o prompt sugerido acima que inclui as **REGRAS CRÍTICAS DE MEMÓRIA**. O sistema já armazena todo o histórico da conversa automaticamente, mas o agente precisa ser instruído explicitamente a consultá-lo.
+
+**Dica Importante:** No prompt, adicione instruções como:
+- "NUNCA repita perguntas que já fez"
+- "VERIFIQUE O HISTÓRICO antes de perguntar qualquer coisa"
+- "Use informações que o cliente já forneceu"
+
+### P: Como funciona a memória do agente?
+**R:** O sistema automaticamente:
+1. ✅ Salva TODAS as mensagens no banco de dados (tabela `messages`)
+2. ✅ Carrega o histórico completo antes de cada resposta
+3. ✅ Envia o histórico para o OpenAI junto com a mensagem atual
+4. ✅ Mantém o contexto mesmo quando usa a função busca_imoveis
+
+O agente TEM acesso ao histórico - você só precisa instruí-lo a usá-lo!
 
 ---
 

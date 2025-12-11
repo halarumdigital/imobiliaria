@@ -444,12 +444,14 @@ export class AIService {
         systemPrompt += `\n\nVocê é um agente especializado. Responda com base em sua especialização e conhecimento específico.`;
       }
 
-      systemPrompt += `\n\n=== REGRAS FUNDAMENTAIS ===\n`;
+      systemPrompt += `\n\n=== REGRAS FUNDAMENTAIS DE MEMÓRIA ===\n`;
       systemPrompt += `1. MEMÓRIA DA CONVERSA: Você TEM acesso ao histórico completo da conversa acima. SEMPRE consulte o histórico antes de responder.\n`;
       systemPrompt += `2. NÃO REPETIR PERGUNTAS: Se você JÁ perguntou algo ao usuário em mensagens anteriores, NÃO pergunte novamente. Use a resposta que ele já deu.\n`;
-      systemPrompt += `3. CONTEXTO: Se o usuário já forneceu informações (como número de quartos, tipo de imóvel, localização), NÃO peça essas informações novamente.\n`;
+      systemPrompt += `3. CONTEXTO: Se o usuário já forneceu informações (como número de quartos, tipo de imóvel, localização, cidade), NÃO peça essas informações novamente.\n`;
       systemPrompt += `4. PROGRESSO: Continue a conversa do ponto onde parou. Não comece do zero a cada mensagem.\n`;
       systemPrompt += `5. CONFIRMAÇÃO: Se você não tem certeza se o usuário já respondeu algo, verifique o histórico da conversa antes de perguntar.\n`;
+      systemPrompt += `6. BUSCA DE IMÓVEIS: Quando você usar a função busca_imoveis, LEMBRE-SE dos critérios que o usuário já mencionou. NÃO peça novamente informações que ele já forneceu.\n`;
+      systemPrompt += `7. RESPOSTAS JÁ DADAS: Se o usuário já disse que quer "apartamentos em São Paulo", NÃO pergunte novamente qual cidade ou tipo. Use essas informações diretamente.\n`;
       systemPrompt += `=== FIM REGRAS FUNDAMENTAIS ===\n\n`;
 
       systemPrompt += `Responda sempre em português brasileiro de forma natural e helpful. Se a pergunta não puder ser respondida com o conhecimento fornecido, seja honesto sobre isso.\n\n`;
@@ -634,6 +636,7 @@ export class AIService {
             };
 
             // Adicionar a resposta da função ao contexto e fazer nova chamada
+            // IMPORTANTE: Manter TODO o histórico da conversa para preservar memória
             messages.push(responseMessage);
             messages.push({
               role: "tool" as const,
@@ -641,15 +644,19 @@ export class AIService {
               content: JSON.stringify(functionResult)
             });
 
+            console.log(`📚 [FUNCTION_CALL] Fazendo chamada final COM histórico completo (${messages.length} mensagens)`);
+            console.log(`📚 [FUNCTION_CALL] Composição: 1 system + ${context.conversationHistory?.length || 0} histórico + mensagem atual + tool_call + tool_result`);
+
             // Fazer nova chamada para o modelo processar o resultado
+            // Mantendo TODO o histórico para que o agente não perca memória
             const finalResponse = await openai.chat.completions.create({
               model: "gpt-4o",
-              messages: messages,
+              messages: messages, // Inclui: system + histórico + mensagem atual + tool_call + tool_result
               max_tokens: 1000,
               temperature: 0.7,
             });
 
-            console.log(`✅ [FUNCTION_CALL] Resposta final gerada`);
+            console.log(`✅ [FUNCTION_CALL] Resposta final gerada COM memória preservada`);
             return finalResponse.choices[0].message.content || "Encontrei os imóveis mas não consegui formatá-los.";
 
           } catch (error) {
