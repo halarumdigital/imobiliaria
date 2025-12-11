@@ -426,6 +426,8 @@ export default function MeusImoveis() {
       bedrooms: parseInt(formData.bedrooms),
       // Include selected amenities
       amenities: formData.amenities,
+      // Include images array
+      images: formData.images,
     };
 
     if (editingProperty) {

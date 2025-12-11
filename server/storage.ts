@@ -2345,6 +2345,22 @@ export class MySQLStorage implements IStorage {
       fields.push('status = ?');
       values.push(updates.status);
     }
+    if (updates.images !== undefined) {
+      fields.push('images = ?');
+      values.push(JSON.stringify(updates.images));
+    }
+    if (updates.youtubeVideoUrl !== undefined) {
+      fields.push('youtube_video_url = ?');
+      values.push(updates.youtubeVideoUrl);
+    }
+    if (updates.amenities !== undefined) {
+      fields.push('amenities = ?');
+      values.push(JSON.stringify(updates.amenities));
+    }
+    if (updates.featured !== undefined) {
+      fields.push('featured = ?');
+      values.push(updates.featured);
+    }
 
     if (fields.length === 0) {
       throw new Error('No fields to update');

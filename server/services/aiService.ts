@@ -618,11 +618,88 @@ export class AIService {
 
             console.log(`🏢 [FUNCTION_CALL] CompanyId encontrado: ${instanceForSearch.companyId}`);
 
+            // Extrair parâmetros do histórico se não fornecidos pelo modelo
+            let cidade = functionArgs.cidade;
+            let tipo_imovel = functionArgs.tipo_imovel;
+            let tipo_transacao = functionArgs.tipo_transacao;
+
+            // Se cidade ou tipo não foram fornecidos, tentar extrair do histórico
+            if (!cidade || !tipo_imovel) {
+              console.log(`🔍 [FUNCTION_CALL] Tentando extrair parâmetros do histórico...`);
+
+              // Mapas de variações
+              const tiposImovel: Record<string, string> = {
+                'apartamento': 'apartamento',
+                'ap': 'apartamento',
+                'apto': 'apartamento',
+                'casa': 'casa',
+                'sobrado': 'sobrado',
+                'sala': 'sala',
+                'terreno': 'terreno',
+                'chácara': 'chácara',
+                'chacara': 'chácara'
+              };
+
+              const tiposTransacao: Record<string, string> = {
+                'alugar': 'aluguel',
+                'aluguel': 'aluguel',
+                'locação': 'aluguel',
+                'locacao': 'aluguel',
+                'venda': 'venda',
+                'vender': 'venda',
+                'comprar': 'venda'
+              };
+
+              // Percorrer histórico de trás para frente (mensagens mais recentes primeiro)
+              const conversationText = context.conversationHistory
+                ?.slice()
+                .reverse()
+                .map(m => m.content.toLowerCase())
+                .join(' ') || '';
+
+              // Buscar cidade no histórico
+              if (!cidade) {
+                // Lista de cidades comuns (pode ser expandida)
+                const cidades = ['joaçaba', 'joacaba', 'campinas', 'são paulo', 'sao paulo', 'curitiba', 'florianópolis', 'florianopolis'];
+                for (const c of cidades) {
+                  if (conversationText.includes(c)) {
+                    cidade = c.charAt(0).toUpperCase() + c.slice(1);
+                    console.log(`📍 [FUNCTION_CALL] Cidade extraída do histórico: ${cidade}`);
+                    break;
+                  }
+                }
+              }
+
+              // Buscar tipo de imóvel no histórico
+              if (!tipo_imovel) {
+                for (const [variacao, tipo] of Object.entries(tiposImovel)) {
+                  if (conversationText.includes(variacao)) {
+                    tipo_imovel = tipo;
+                    console.log(`🏠 [FUNCTION_CALL] Tipo de imóvel extraído do histórico: ${tipo_imovel}`);
+                    break;
+                  }
+                }
+              }
+
+              // Buscar tipo de transação no histórico
+              if (!tipo_transacao) {
+                for (const [variacao, tipo] of Object.entries(tiposTransacao)) {
+                  if (conversationText.includes(variacao)) {
+                    tipo_transacao = tipo;
+                    console.log(`💰 [FUNCTION_CALL] Tipo de transação extraído do histórico: ${tipo_transacao}`);
+                    break;
+                  }
+                }
+              }
+            }
+
+            console.log(`🔎 [FUNCTION_CALL] Parâmetros finais - Cidade: ${cidade || 'não especificada'}, Tipo: ${tipo_imovel || 'não especificado'}, Transação: ${tipo_transacao || 'não especificada'}`);
+
             // Buscar imóveis usando o companyId da instância
             const properties = await storage.searchProperties(instanceForSearch.companyId, {
-              city: functionArgs.cidade,
-              transactionType: functionArgs.tipo_transacao === 'aluguel' ? 'locacao' : functionArgs.tipo_transacao,
-              propertyType: functionArgs.tipo_imovel
+              city: cidade,
+              transactionType: tipo_transacao === 'aluguel' ? 'locacao' : tipo_transacao,
+              propertyType: tipo_imovel
             });
 
             console.log(`🏠 [FUNCTION_CALL] Encontrados ${properties.length} imóveis`);

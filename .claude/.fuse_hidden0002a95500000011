@@ -43,8 +43,7 @@
       "Bash(find:*)",
       "Bash(npx tsx:*)",
       "Bash(ls:*)",
-      "Bash(xargs:*)",
-      "Bash(npm --version:*)"
+      "Bash(xargs:*)"
     ],
     "deny": [],
     "ask": []
