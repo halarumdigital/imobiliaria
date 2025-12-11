@@ -477,24 +477,37 @@ export class WhatsAppWebhookService {
         if (aiResponse.propertyImages && aiResponse.propertyImages.length > 0) {
           console.log(`📸 [IMAGES] Enviando ${aiResponse.propertyImages.length} imagens de imóveis...`);
 
-          const evolutionApi = new EvolutionApiService({
-            baseURL: dbInstance.evolutionApiUrl!,
-            token: dbInstance.evolutionApiKey!
-          });
+          // Buscar URL global do sistema
+          const evolutionConfig = await storage.getEvolutionApiConfiguration();
+          if (!evolutionConfig?.urlGlobalSistema) {
+            console.error(`❌ [IMAGES] URL Global do Sistema não configurada`);
+          } else {
+            const baseUrl = evolutionConfig.urlGlobalSistema.replace(/\/$/, ''); // Remove trailing slash
+            console.log(`🌐 [IMAGES] URL Base: ${baseUrl}`);
 
-          for (const imageUrl of aiResponse.propertyImages) {
-            try {
-              console.log(`📸 [IMAGES] Enviando imagem: ${imageUrl}`);
-              await evolutionApi.sendMediaUrl(instanceName, senderPhone, imageUrl);
-              console.log(`✅ [IMAGES] Imagem enviada com sucesso`);
-              // Aguardar um pouco entre os envios para não sobrecarregar
-              await new Promise(resolve => setTimeout(resolve, 500));
-            } catch (imageError) {
-              console.error(`❌ [IMAGES] Erro ao enviar imagem ${imageUrl}:`, imageError);
+            const evolutionApi = new EvolutionApiService({
+              baseURL: dbInstance.evolutionApiUrl!,
+              token: dbInstance.evolutionApiKey!
+            });
+
+            for (const imagePath of aiResponse.propertyImages) {
+              try {
+                // Construir URL completa da imagem
+                const fullImageUrl = `${baseUrl}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
+                console.log(`📸 [IMAGES] Enviando imagem: ${fullImageUrl}`);
+
+                await evolutionApi.sendMediaUrl(instanceName, senderPhone, fullImageUrl);
+                console.log(`✅ [IMAGES] Imagem enviada com sucesso`);
+
+                // Aguardar um pouco entre os envios para não sobrecarregar
+                await new Promise(resolve => setTimeout(resolve, 500));
+              } catch (imageError) {
+                console.error(`❌ [IMAGES] Erro ao enviar imagem ${imagePath}:`, imageError);
+              }
             }
-          }
 
-          console.log(`✅ [IMAGES] Todas as imagens foram processadas`);
+            console.log(`✅ [IMAGES] Todas as imagens foram processadas`);
+          }
         }
       } catch (sendError) {
         console.error(`❌ Error sending response to ${senderPhone}:`, sendError);
