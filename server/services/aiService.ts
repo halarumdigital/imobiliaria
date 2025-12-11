@@ -29,6 +29,7 @@ export interface AgentResponse {
   activeAgentId?: string;
   activeAgentName?: string;
   activeAgentType?: string;
+  propertyImages?: string[]; // URLs das imagens dos imóveis encontrados
 }
 
 export class AIService {
@@ -153,16 +154,17 @@ export class AIService {
       // Gerar resposta usando OpenAI
       console.log(`🤖 Gerando resposta com agente ativo: ${activeAgent.name} (Tipo: ${activeAgent.agentType || 'main'})`);
       console.log(`🔑 Testando inicialização OpenAI com chave: ${aiConfig.apiKey ? aiConfig.apiKey.substring(0, 8) + '...' : 'MISSING'}`);
-      
-      const response = await this.generateResponse(activeAgent, contextWithHistory, aiConfig);
+
+      const responseData = await this.generateResponse(activeAgent, contextWithHistory, aiConfig);
 
       return {
-        response,
+        response: responseData.text,
         shouldDelegate: !!delegatedAgent,
         delegatedAgentId: delegatedAgent?.id,
         activeAgentId: activeAgent.id, // ID do agente que realmente respondeu
         activeAgentName: activeAgent.name,
-        activeAgentType: activeAgent.agentType || 'main'
+        activeAgentType: activeAgent.agentType || 'main',
+        propertyImages: responseData.propertyImages
       };
 
     } catch (error) {
@@ -331,14 +333,14 @@ export class AIService {
     }
   }
 
-  private async generateResponse(agent: any, context: MessageContext, aiConfig: any): Promise<string> {
+  private async generateResponse(agent: any, context: MessageContext, aiConfig: any): Promise<{text: string, propertyImages?: string[]}> {
     try {
       console.log(`🤖 [GENERATE] Starting generateResponse for agent: ${agent.name}`);
       console.log(`🔑 [GENERATE] API Key exists: ${!!aiConfig.apiKey}, length: ${aiConfig.apiKey?.length || 0}`);
       
       // Verificar se temos a chave OpenAI na configuração do administrador
       if (!aiConfig.apiKey) {
-        return "Desculpe, o serviço de IA não está configurado. Entre em contato com o administrador.";
+        return { text: "Desculpe, o serviço de IA não está configurado. Entre em contato com o administrador." };
       }
 
       // Criar instância do OpenAI com a chave da configuração
@@ -753,6 +755,15 @@ export class AIService {
               }
             });
 
+            // Coletar todas as imagens dos imóveis encontrados
+            const allPropertyImages: string[] = [];
+            properties.forEach(p => {
+              if (p.images && Array.isArray(p.images)) {
+                allPropertyImages.push(...p.images);
+              }
+            });
+            console.log(`📸 [FUNCTION_CALL] Total de imagens coletadas: ${allPropertyImages.length}`);
+
             // Formatar resultado para o modelo
             const functionResult = {
               total: properties.length,
@@ -793,17 +804,20 @@ export class AIService {
             });
 
             console.log(`✅ [FUNCTION_CALL] Resposta final gerada COM memória preservada`);
-            return finalResponse.choices[0].message.content || "Encontrei os imóveis mas não consegui formatá-los.";
+            return {
+              text: finalResponse.choices[0].message.content || "Encontrei os imóveis mas não consegui formatá-los.",
+              propertyImages: allPropertyImages.length > 0 ? allPropertyImages : undefined
+            };
 
           } catch (error) {
             console.error(`❌ [FUNCTION_CALL] Erro ao executar busca_imoveis:`, error);
-            return "Desculpe, ocorreu um erro ao buscar os imóveis. Tente novamente.";
+            return { text: "Desculpe, ocorreu um erro ao buscar os imóveis. Tente novamente." };
           }
         }
       }
 
       console.log(`✅ [OPENAI] Response length: ${responseMessage.content?.length || 0}`);
-      return responseMessage.content || "Desculpe, não consegui gerar uma resposta.";
+      return { text: responseMessage.content || "Desculpe, não consegui gerar uma resposta." };
 
     } catch (error) {
       console.error("❌ Error generating AI response - DETAILED:", {
@@ -818,8 +832,8 @@ export class AIService {
         console.error("🔑 OpenAI API Error detected - checking configuration...");
         console.error("🔑 Error details:", error.message);
       }
-      
-      return "Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente em alguns instantes.";
+
+      return { text: "Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente em alguns instantes." };
     }
   }
 

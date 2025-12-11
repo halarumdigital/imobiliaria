@@ -381,17 +381,35 @@ export class EvolutionApiService {
 
   async sendVideoMessage(instanceName: string, phoneNumber: string, base64: string, caption?: string): Promise<any> {
     const endpoint = `/message/sendMedia/${instanceName}`;
-    
+
     // Format phone number with @s.whatsapp.net
     const remoteJid = phoneNumber.includes('@') ? phoneNumber : `${phoneNumber}@s.whatsapp.net`;
-    
+
     // Add data URL prefix if not present
     const mediaBase64 = base64.startsWith('data:') ? base64 : `data:video/mp4;base64,${base64}`;
-    
+
     return this.makeRequest(endpoint, 'POST', {
       number: remoteJid,
       mediatype: 'video',
       media: mediaBase64,
+      caption: caption || '',
+      delay: 1000
+    });
+  }
+
+  async sendMediaUrl(instanceName: string, phoneNumber: string, mediaUrl: string, caption?: string, mediaType: 'image' | 'video' = 'image'): Promise<any> {
+    const endpoint = `/message/sendMedia/${instanceName}`;
+
+    // Format phone number with @s.whatsapp.net
+    const remoteJid = phoneNumber.includes('@') ? phoneNumber : `${phoneNumber}@s.whatsapp.net`;
+
+    console.log(`📸 [Evolution API] Sending ${mediaType} URL to ${phoneNumber}`);
+    console.log(`📸 [Evolution API] URL: ${mediaUrl}`);
+
+    return this.makeRequest(endpoint, 'POST', {
+      number: remoteJid,
+      mediatype: mediaType,
+      media: mediaUrl,
       caption: caption || '',
       delay: 1000
     });

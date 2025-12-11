@@ -472,6 +472,30 @@ export class WhatsAppWebhookService {
       try {
         await this.sendResponse(instanceName, senderPhone, aiResponse.response, messageText, dbInstance.companyId);
         console.log(`✅ Response sent successfully to ${senderPhone}`);
+
+        // Se há imagens de imóveis para enviar, enviar cada uma
+        if (aiResponse.propertyImages && aiResponse.propertyImages.length > 0) {
+          console.log(`📸 [IMAGES] Enviando ${aiResponse.propertyImages.length} imagens de imóveis...`);
+
+          const evolutionApi = new EvolutionApiService({
+            baseURL: dbInstance.evolutionApiUrl!,
+            token: dbInstance.evolutionApiKey!
+          });
+
+          for (const imageUrl of aiResponse.propertyImages) {
+            try {
+              console.log(`📸 [IMAGES] Enviando imagem: ${imageUrl}`);
+              await evolutionApi.sendMediaUrl(instanceName, senderPhone, imageUrl);
+              console.log(`✅ [IMAGES] Imagem enviada com sucesso`);
+              // Aguardar um pouco entre os envios para não sobrecarregar
+              await new Promise(resolve => setTimeout(resolve, 500));
+            } catch (imageError) {
+              console.error(`❌ [IMAGES] Erro ao enviar imagem ${imageUrl}:`, imageError);
+            }
+          }
+
+          console.log(`✅ [IMAGES] Todas as imagens foram processadas`);
+        }
       } catch (sendError) {
         console.error(`❌ Error sending response to ${senderPhone}:`, sendError);
         console.log(`⚠️ Continuing to save conversation despite send error...`);
