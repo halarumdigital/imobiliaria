@@ -173,7 +173,8 @@ export class AIService {
         activeAgentId: activeAgent.id, // ID do agente que realmente respondeu
         activeAgentName: activeAgent.name,
         activeAgentType: activeAgent.agentType || 'main',
-        propertyImages: responseData.propertyImages
+        propertyImages: responseData.propertyImages, // deprecated
+        properties: responseData.properties // novo formato estruturado
       };
 
     } catch (error) {
@@ -342,7 +343,7 @@ export class AIService {
     }
   }
 
-  private async generateResponse(agent: any, context: MessageContext, aiConfig: any): Promise<{text: string, propertyImages?: string[]}> {
+  private async generateResponse(agent: any, context: MessageContext, aiConfig: any): Promise<{text: string, propertyImages?: string[], properties?: PropertyData[]}> {
     try {
       console.log(`🤖 [GENERATE] Starting generateResponse for agent: ${agent.name}`);
       console.log(`🔑 [GENERATE] API Key exists: ${!!aiConfig.apiKey}, length: ${aiConfig.apiKey?.length || 0}`);
