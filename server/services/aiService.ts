@@ -444,7 +444,15 @@ export class AIService {
         systemPrompt += `\n\nVocê é um agente especializado. Responda com base em sua especialização e conhecimento específico.`;
       }
 
-      systemPrompt += `\n\nVocê tem acesso à função busca_imoveis para consultar imóveis. Quando o usuário mencionar interesse em imóveis, consulte o histórico da conversa para ver se ele já informou a cidade e o tipo de imóvel desejado. Se sim, use essas informações. Nunca repita perguntas que já fez.\n\n`;
+      systemPrompt += `\n\n=== REGRA CRÍTICA DE BUSCA DE IMÓVEIS ===
+ANTES de chamar busca_imoveis, você DEVE ter:
+1. CIDADE (obrigatório)
+2. TIPO DE IMÓVEL (obrigatório) - apartamento, casa, sala, terreno, etc.
+
+Se o usuário não forneceu cidade OU tipo, PERGUNTE primeiro.
+Se já forneceu, use busca_imoveis com esses parâmetros.
+NUNCA chame busca_imoveis sem cidade E tipo.
+\n\n`;
 
       systemPrompt += `Responda sempre em português brasileiro de forma natural e helpful. Se a pergunta não puder ser respondida com o conhecimento fornecido, seja honesto sobre isso.\n\n`;
       systemPrompt += `IMPORTANTE: SEMPRE siga o prompt e personalidade definidos no início desta mensagem. Não mude seu comportamento ou tom.`;
@@ -551,25 +559,25 @@ export class AIService {
           type: "function" as const,
           function: {
             name: "busca_imoveis",
-            description: "Busca imóveis cadastrados no sistema com filtros opcionais. Use informações do histórico da conversa quando disponíveis.",
+            description: "Busca imóveis cadastrados. IMPORTANTE: Só chame esta função quando tiver CIDADE e TIPO_IMOVEL. Se não tiver, pergunte ao usuário primeiro.",
             parameters: {
               type: "object",
               properties: {
                 cidade: {
                   type: "string",
-                  description: "Nome da cidade"
+                  description: "Nome da cidade (OBRIGATÓRIO - se não tiver, pergunte ao usuário)"
                 },
                 tipo_transacao: {
                   type: "string",
                   enum: ["venda", "aluguel", "locacao"],
-                  description: "Tipo de transação"
+                  description: "Tipo de transação (opcional)"
                 },
                 tipo_imovel: {
                   type: "string",
-                  description: "Tipo do imóvel: apartamento, casa, sala, terreno, sobrado"
+                  description: "Tipo do imóvel: apartamento, casa, sala, terreno, sobrado (OBRIGATÓRIO - se não tiver, pergunte ao usuário)"
                 }
               },
-              required: []
+              required: ["cidade", "tipo_imovel"]
             }
           }
         }
@@ -717,7 +725,8 @@ export class AIService {
                 area: p.privateArea,
                 descricao: p.description,
                 tipo_transacao: p.transactionType,
-                tem_imagens: p.images && p.images.length > 0
+                imagens: p.images || [],
+                quantidade_imagens: (p.images && p.images.length) || 0
               }))
             };
 
