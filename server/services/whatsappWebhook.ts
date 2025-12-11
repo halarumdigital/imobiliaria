@@ -470,46 +470,115 @@ export class WhatsAppWebhookService {
       console.log(`🚀 About to call sendResponse with instance: ${instanceName}, phone: ${senderPhone}`);
       console.log(`🔍 Instance details for sending: name=${instanceName}, evolutionId=${dbInstance.evolutionInstanceId}`);
       try {
-        await this.sendResponse(instanceName, senderPhone, aiResponse.response, messageText, dbInstance.companyId);
-        console.log(`✅ Response sent successfully to ${senderPhone}`);
+        // Buscar configuração global da Evolution API para envio de imóveis
+        const evolutionConfig = await storage.getEvolutionApiConfiguration();
 
-        // Se há imagens de imóveis para enviar, enviar cada uma
-        if (aiResponse.propertyImages && aiResponse.propertyImages.length > 0) {
-          console.log(`📸 [IMAGES] Enviando ${aiResponse.propertyImages.length} imagens de imóveis...`);
+        // Se há propriedades estruturadas (novo formato), enviar cada uma com suas imagens
+        if (aiResponse.properties && aiResponse.properties.length > 0) {
+          console.log(`🏠 [PROPERTIES] Enviando ${aiResponse.properties.length} imóveis com suas imagens sequencialmente...`);
 
-          // Buscar configuração global da Evolution API
-          const evolutionConfig = await storage.getEvolutionApiConfiguration();
           if (!evolutionConfig?.urlGlobalSistema) {
-            console.error(`❌ [IMAGES] URL Global do Sistema não configurada`);
+            console.error(`❌ [PROPERTIES] URL Global do Sistema não configurada`);
           } else if (!evolutionConfig?.evolutionURL || !evolutionConfig?.evolutionToken) {
-            console.error(`❌ [IMAGES] Configuração da Evolution API incompleta`);
+            console.error(`❌ [PROPERTIES] Configuração da Evolution API incompleta`);
           } else {
-            const baseUrl = evolutionConfig.urlGlobalSistema.replace(/\/$/, ''); // Remove trailing slash
-            console.log(`🌐 [IMAGES] URL Base: ${baseUrl}`);
-            console.log(`🔧 [IMAGES] Evolution API URL: ${evolutionConfig.evolutionURL}`);
+            const baseUrl = evolutionConfig.urlGlobalSistema.replace(/\/$/, '');
+            console.log(`🌐 [PROPERTIES] URL Base: ${baseUrl}`);
 
             const evolutionApi = new EvolutionApiService({
               baseURL: evolutionConfig.evolutionURL,
               token: evolutionConfig.evolutionToken
             });
 
-            for (const imagePath of aiResponse.propertyImages) {
+            // Enviar mensagem de introdução do agente
+            await this.sendResponse(instanceName, senderPhone, aiResponse.response, messageText, dbInstance.companyId);
+            console.log(`✅ Mensagem de introdução enviada`);
+            await new Promise(resolve => setTimeout(resolve, 800));
+
+            // Para cada imóvel, enviar a descrição seguida das imagens
+            for (let i = 0; i < aiResponse.properties.length; i++) {
+              const property = aiResponse.properties[i];
+              console.log(`\n🏠 [PROPERTY ${i + 1}] Processando: ${property.code}`);
+
               try {
-                // Construir URL completa da imagem
-                const fullImageUrl = `${baseUrl}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
-                console.log(`📸 [IMAGES] Enviando imagem: ${fullImageUrl}`);
+                // 1. Enviar descrição do imóvel
+                console.log(`📝 [PROPERTY ${i + 1}] Enviando descrição...`);
+                await this.sendResponse(instanceName, senderPhone, property.description, '', dbInstance.companyId);
+                console.log(`✅ [PROPERTY ${i + 1}] Descrição enviada`);
 
-                await evolutionApi.sendMediaUrl(instanceName, senderPhone, fullImageUrl);
-                console.log(`✅ [IMAGES] Imagem enviada com sucesso`);
+                // Aguardar entre descrição e imagens
+                await new Promise(resolve => setTimeout(resolve, 800));
 
-                // Aguardar um pouco entre os envios para não sobrecarregar
-                await new Promise(resolve => setTimeout(resolve, 500));
-              } catch (imageError) {
-                console.error(`❌ [IMAGES] Erro ao enviar imagem ${imagePath}:`, imageError);
+                // 2. Enviar imagens do imóvel (se houver)
+                if (property.images && property.images.length > 0) {
+                  console.log(`📸 [PROPERTY ${i + 1}] Enviando ${property.images.length} imagens...`);
+
+                  for (let j = 0; j < property.images.length; j++) {
+                    const imagePath = property.images[j];
+                    try {
+                      const fullImageUrl = `${baseUrl}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
+                      console.log(`📸 [PROPERTY ${i + 1}] Imagem ${j + 1}/${property.images.length}: ${fullImageUrl}`);
+
+                      await evolutionApi.sendMediaUrl(instanceName, senderPhone, fullImageUrl);
+                      console.log(`✅ [PROPERTY ${i + 1}] Imagem ${j + 1} enviada`);
+
+                      // Aguardar entre imagens
+                      await new Promise(resolve => setTimeout(resolve, 600));
+                    } catch (imageError) {
+                      console.error(`❌ [PROPERTY ${i + 1}] Erro ao enviar imagem ${j + 1}:`, imageError);
+                    }
+                  }
+                } else {
+                  console.log(`ℹ️ [PROPERTY ${i + 1}] Sem imagens para enviar`);
+                }
+
+                // Aguardar entre imóveis
+                if (i < aiResponse.properties.length - 1) {
+                  await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+              } catch (propertyError) {
+                console.error(`❌ [PROPERTY ${i + 1}] Erro ao processar imóvel ${property.code}:`, propertyError);
               }
             }
 
-            console.log(`✅ [IMAGES] Todas as imagens foram processadas`);
+            console.log(`✅ [PROPERTIES] Todos os ${aiResponse.properties.length} imóveis foram processados`);
+          }
+        } else {
+          // Fallback para o formato antigo (apenas texto sem imóveis estruturados)
+          await this.sendResponse(instanceName, senderPhone, aiResponse.response, messageText, dbInstance.companyId);
+          console.log(`✅ Response sent successfully to ${senderPhone}`);
+
+          // Se há imagens de imóveis para enviar (formato antigo - deprecated)
+          if (aiResponse.propertyImages && aiResponse.propertyImages.length > 0) {
+            console.log(`📸 [IMAGES] Enviando ${aiResponse.propertyImages.length} imagens de imóveis (formato antigo)...`);
+
+            if (!evolutionConfig?.urlGlobalSistema) {
+              console.error(`❌ [IMAGES] URL Global do Sistema não configurada`);
+            } else if (!evolutionConfig?.evolutionURL || !evolutionConfig?.evolutionToken) {
+              console.error(`❌ [IMAGES] Configuração da Evolution API incompleta`);
+            } else {
+              const baseUrl = evolutionConfig.urlGlobalSistema.replace(/\/$/, '');
+              const evolutionApi = new EvolutionApiService({
+                baseURL: evolutionConfig.evolutionURL,
+                token: evolutionConfig.evolutionToken
+              });
+
+              for (const imagePath of aiResponse.propertyImages) {
+                try {
+                  const fullImageUrl = `${baseUrl}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
+                  console.log(`📸 [IMAGES] Enviando imagem: ${fullImageUrl}`);
+
+                  await evolutionApi.sendMediaUrl(instanceName, senderPhone, fullImageUrl);
+                  console.log(`✅ [IMAGES] Imagem enviada com sucesso`);
+
+                  await new Promise(resolve => setTimeout(resolve, 500));
+                } catch (imageError) {
+                  console.error(`❌ [IMAGES] Erro ao enviar imagem ${imagePath}:`, imageError);
+                }
+              }
+
+              console.log(`✅ [IMAGES] Todas as imagens foram processadas`);
+            }
           }
         }
       } catch (sendError) {

@@ -22,6 +22,14 @@ export interface MessageContext {
   pushName?: string; // Nome do contato no WhatsApp
 }
 
+export interface PropertyData {
+  code: string;
+  name: string;
+  endereco: string;
+  description: string;
+  images: string[];
+}
+
 export interface AgentResponse {
   response: string;
   shouldDelegate?: boolean;
@@ -29,7 +37,8 @@ export interface AgentResponse {
   activeAgentId?: string;
   activeAgentName?: string;
   activeAgentType?: string;
-  propertyImages?: string[]; // URLs das imagens dos imóveis encontrados
+  propertyImages?: string[]; // URLs das imagens dos imóveis encontrados (deprecated - usar properties)
+  properties?: PropertyData[]; // Dados estruturados dos imóveis para envio sequencial
 }
 
 export class AIService {
@@ -594,7 +603,7 @@ export class AIService {
           type: "function" as const,
           function: {
             name: "busca_imoveis",
-            description: "Busca imóveis cadastrados no banco de dados da empresa. Utilize as informações fornecidas pelo usuário no histórico da conversa.",
+            description: "Busca imóveis cadastrados no banco de dados da empresa. Utilize as informações fornecidas pelo usuário no histórico da conversa. Por padrão retorna 5 imóveis, mas pode retornar mais se o usuário solicitar explicitamente.",
             parameters: {
               type: "object",
               properties: {
@@ -610,6 +619,10 @@ export class AIService {
                 tipo_imovel: {
                   type: "string",
                   description: "Tipo do imóvel: apartamento, casa, sala, terreno, sobrado, chácara"
+                },
+                limite: {
+                  type: "number",
+                  description: "Número máximo de imóveis a retornar. Padrão: 5. Use um valor maior apenas se o usuário pedir explicitamente mais resultados."
                 }
               },
               required: []
@@ -665,6 +678,7 @@ export class AIService {
             let cidade = functionArgs.cidade;
             let tipo_imovel = functionArgs.tipo_imovel;
             let tipo_transacao = functionArgs.tipo_transacao;
+            let limite = functionArgs.limite || 5; // Padrão: 5 resultados
 
             // Se cidade ou tipo não foram fornecidos, tentar extrair do histórico
             if (!cidade || !tipo_imovel) {
@@ -736,16 +750,21 @@ export class AIService {
               }
             }
 
-            console.log(`🔎 [FUNCTION_CALL] Parâmetros finais - Cidade: ${cidade || 'não especificada'}, Tipo: ${tipo_imovel || 'não especificado'}, Transação: ${tipo_transacao || 'não especificada'}`);
+            console.log(`🔎 [FUNCTION_CALL] Parâmetros finais - Cidade: ${cidade || 'não especificada'}, Tipo: ${tipo_imovel || 'não especificado'}, Transação: ${tipo_transacao || 'não especificada'}, Limite: ${limite}`);
 
             // Buscar imóveis usando o companyId da instância
-            const properties = await storage.searchProperties(instanceForSearch.companyId, {
+            let properties = await storage.searchProperties(instanceForSearch.companyId, {
               city: cidade,
               transactionType: tipo_transacao === 'aluguel' ? 'locacao' : tipo_transacao,
               propertyType: tipo_imovel
             });
 
-            console.log(`🏠 [FUNCTION_CALL] Encontrados ${properties.length} imóveis`);
+            const totalEncontrados = properties.length;
+
+            // Aplicar limite (padrão: 5)
+            properties = properties.slice(0, limite);
+
+            console.log(`🏠 [FUNCTION_CALL] Encontrados ${totalEncontrados} imóveis, retornando ${properties.length} (limite: ${limite})`);
 
             // Log detalhado das imagens
             properties.forEach((p, idx) => {
@@ -764,9 +783,21 @@ export class AIService {
             });
             console.log(`📸 [FUNCTION_CALL] Total de imagens coletadas: ${allPropertyImages.length}`);
 
+            // Preparar dados estruturados dos imóveis para envio sequencial
+            const structuredProperties: PropertyData[] = properties.map(p => ({
+              code: p.code || 'SEM-CÓDIGO',
+              name: p.name || 'Imóvel sem nome',
+              endereco: `${p.street}, ${p.number} - ${p.neighborhood || ''}, ${p.city || ''} - ${p.state || ''}`,
+              description: `${p.name}\n📍 ${p.street}, ${p.number} - ${p.neighborhood || ''}, ${p.city || ''} - ${p.state || ''}\n🛏️ ${p.bedrooms} quartos | 🚿 ${p.bathrooms} banheiros | 🚗 ${p.parkingSpaces} vagas\n📐 ${p.privateArea}m²\n💰 ${p.transactionType === 'locacao' ? 'Aluguel' : 'Venda'}\n${p.description ? '\n' + p.description : ''}`,
+              images: p.images || []
+            }));
+
             // Formatar resultado para o modelo
             const functionResult = {
-              total: properties.length,
+              total: totalEncontrados,
+              total_retornado: properties.length,
+              limite_aplicado: limite,
+              tem_mais_resultados: totalEncontrados > limite,
               imoveis: properties.map(p => ({
                 codigo: p.code,
                 nome: p.name,
@@ -804,9 +835,12 @@ export class AIService {
             });
 
             console.log(`✅ [FUNCTION_CALL] Resposta final gerada COM memória preservada`);
+            console.log(`📦 [FUNCTION_CALL] Retornando ${structuredProperties.length} imóveis estruturados`);
+
             return {
               text: finalResponse.choices[0].message.content || "Encontrei os imóveis mas não consegui formatá-los.",
-              propertyImages: allPropertyImages.length > 0 ? allPropertyImages : undefined
+              propertyImages: allPropertyImages.length > 0 ? allPropertyImages : undefined, // deprecated
+              properties: structuredProperties.length > 0 ? structuredProperties : undefined
             };
 
           } catch (error) {

@@ -23,13 +23,16 @@ Ao criar seu agente no painel, use um prompt como este:
 ```
 Você é um assistente de imóveis da [NOME DA SUA IMOBILIÁRIA].
 
-Você tem a função busca_imoveis(cidade, tipo_imovel, tipo_transacao) para consultar nosso banco de dados.
+Você tem a função busca_imoveis(cidade, tipo_imovel, tipo_transacao, limite) para consultar nosso banco de dados.
 
-INSTRUÇÕES SIMPLES:
+INSTRUÇÕES IMPORTANTES:
 - Quando souber a CIDADE e o TIPO de imóvel que o cliente quer, chame busca_imoveis
+- Por padrão, mostre 5 imóveis. Se o cliente pedir mais, use o parâmetro 'limite'
 - Não faça a mesma pergunta duas vezes
-- Apresente os imóveis com código, endereço, quartos, banheiros, vagas, área e tipo de transação
-- NÃO inclua links de imagens no texto - as fotos serão enviadas automaticamente pelo sistema
+- Apresente APENAS uma mensagem de introdução curta (ex: "Encontrei alguns imóveis para você!")
+- NÃO liste os imóveis detalhadamente no texto - o sistema enviará cada imóvel separadamente com suas fotos
+- NÃO inclua links de imagens no texto - as fotos serão enviadas automaticamente
+- Quando houver mais resultados disponíveis, informe ao cliente que ele pode pedir para ver mais
 
 Seja amigável e direto.
 ```
@@ -38,33 +41,44 @@ Seja amigável e direto.
 
 ## 💬 Exemplos de Conversas
 
-### Exemplo 1: Busca Simples
+### Exemplo 1: Busca Simples (Novo Formato - Sequencial)
 
 **Cliente:** "Quais apartamentos para venda vocês têm?"
 
-**Agente:**
+**Sistema:**
 ```
-[O agente chama automaticamente: busca_imoveis(tipo_imovel="apartamento", tipo_transacao="venda")]
+[O agente chama automaticamente: busca_imoveis(tipo_imovel="apartamento", tipo_transacao="venda", limite=5)]
 
-Olá! Encontrei 12 apartamentos disponíveis para venda:
+📱 Mensagem 1 (Agente):
+"Encontrei 12 apartamentos para venda! Vou te mostrar os primeiros 5:"
 
-🏢 Apartamento 3 Quartos - Centro (Código: AP001)
+📱 Mensagem 2 (Sistema - Imóvel 1):
+Apartamento 3 Quartos - Centro
 📍 Rua Principal, 123 - Centro, São Paulo - SP
 🛏️ 3 quartos | 🚿 2 banheiros | 🚗 2 vagas
 📐 85m²
 💰 Venda
-📸 Possui imagens disponíveis
 
-🏢 Apartamento 2 Quartos - Jardins (Código: AP002)
+📱 Mensagem 3-5 (Sistema - Fotos do Imóvel 1):
+[Foto 1 do apartamento]
+[Foto 2 do apartamento]
+[Foto 3 do apartamento]
+
+📱 Mensagem 6 (Sistema - Imóvel 2):
+Apartamento 2 Quartos - Jardins
 📍 Avenida Paulista, 456 - Jardins, São Paulo - SP
 🛏️ 2 quartos | 🚿 1 banheiro | 🚗 1 vaga
 📐 65m²
 💰 Venda
-📸 Possui imagens disponíveis
 
-[... mais apartamentos ...]
+📱 Mensagem 7-8 (Sistema - Fotos do Imóvel 2):
+[Foto 1 do apartamento]
+[Foto 2 do apartamento]
 
-Gostaria de saber mais detalhes sobre algum imóvel específico?
+[... e assim por diante para cada imóvel ...]
+
+Cliente pode responder: "Quero ver mais apartamentos"
+[O agente então chama: busca_imoveis(tipo_imovel="apartamento", tipo_transacao="venda", limite=10)]
 ```
 
 ---
@@ -117,13 +131,37 @@ O que você prefere?
 
 A função `busca_imoveis` aceita os seguintes parâmetros (todos opcionais):
 
-| Parâmetro | Tipo | Descrição | Exemplo |
-|-----------|------|-----------|---------|
-| `cidade` | string | Nome da cidade | "São Paulo", "Campinas" |
-| `tipo_transacao` | string | Tipo de negócio | "venda", "aluguel", "locacao" |
-| `tipo_imovel` | string | Tipo do imóvel | "casa", "apartamento", "sala", "terreno" |
+| Parâmetro | Tipo | Descrição | Padrão | Exemplo |
+|-----------|------|-----------|--------|---------|
+| `cidade` | string | Nome da cidade | - | "São Paulo", "Campinas" |
+| `tipo_transacao` | string | Tipo de negócio | - | "venda", "aluguel", "locacao" |
+| `tipo_imovel` | string | Tipo do imóvel | - | "casa", "apartamento", "sala", "terreno" |
+| `limite` | number | Número máximo de resultados | **5** | 5, 10, 20 |
 
-**Nota**: Se nenhum parâmetro for fornecido, retorna todos os imóveis ativos da empresa.
+**Notas Importantes**:
+- ✅ **Limite padrão**: A função retorna **5 imóveis** por padrão
+- ✅ **Como pedir mais**: O cliente pode pedir "mostre mais" e o agente deve aumentar o limite
+- ✅ **Informação sobre mais resultados**: O sistema informa ao agente quando há mais resultados disponíveis
+- ✅ Se nenhum parâmetro for fornecido, retorna os primeiros 5 imóveis ativos da empresa
+
+---
+
+## 📤 Como o Sistema Envia os Resultados
+
+O sistema utiliza um formato **sequencial e organizado** para enviar os imóveis:
+
+1. **Mensagem de Introdução**: O agente envia uma mensagem curta de introdução
+2. **Para cada imóvel** (em sequência):
+   - Envia a **descrição completa** do imóvel
+   - Envia **todas as fotos** daquele imóvel
+   - Aguarda antes de enviar o próximo imóvel
+3. **Organização clara**: Cada imóvel fica agrupado com suas próprias fotos
+
+**Benefícios desta abordagem**:
+- ✅ Cliente vê cada imóvel completo (texto + fotos) antes do próximo
+- ✅ Não há confusão sobre qual foto pertence a qual imóvel
+- ✅ Melhor experiência de navegação no WhatsApp
+- ✅ Cliente pode responder sobre um imóvel específico facilmente
 
 ---
 
@@ -252,6 +290,9 @@ O agente TEM acesso ao histórico - você só precisa instruí-lo a usá-lo!
 ✅ **Seguro**: Cada empresa vê apenas seus imóveis
 ✅ **Rápido**: Busca direta no banco de dados
 ✅ **Flexível**: Aceita múltiplos filtros combinados
+✅ **Limite Inteligente**: Mostra 5 resultados por padrão, evitando sobrecarga
+✅ **Envio Organizado**: Cada imóvel enviado sequencialmente com suas fotos
+✅ **Escalável**: Cliente pode pedir mais resultados quando quiser
 
 ---
 
