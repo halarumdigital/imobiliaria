@@ -617,12 +617,12 @@ export class AIService {
       ];
 
       const response = await openai.chat.completions.create({
-        model: "gpt-4o", // Hardcode para garantir - gpt-4o suporta imagens
+        model: "gpt-4", // GPT-4 clássico
         messages: messages,
-        max_tokens: 1000, // Hardcode para garantir
-        temperature: 0.7, // Hardcode para garantir
+        max_tokens: 2000,
+        temperature: 0.5,
         tools: tools,
-        tool_choice: "auto" // O modelo decide quando usar a tool
+        tool_choice: "auto"
       });
 
       console.log(`✅ [OPENAI] OpenAI call successful`);
