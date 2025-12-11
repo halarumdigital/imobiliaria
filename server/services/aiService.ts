@@ -636,8 +636,20 @@ export class AIService {
 
         if (functionName === "busca_imoveis") {
           try {
+            // Buscar instância para obter companyId
+            let instanceForSearch = await storage.getWhatsappInstanceByEvolutionId(context.instanceId);
+            if (!instanceForSearch && (context as any).databaseInstanceId) {
+              instanceForSearch = await storage.getWhatsappInstance((context as any).databaseInstanceId);
+            }
+
+            if (!instanceForSearch?.companyId) {
+              throw new Error('Instância ou companyId não encontrado');
+            }
+
+            console.log(`🏢 [FUNCTION_CALL] CompanyId encontrado: ${instanceForSearch.companyId}`);
+
             // Buscar imóveis usando o companyId da instância
-            const properties = await storage.searchProperties(instance.companyId, {
+            const properties = await storage.searchProperties(instanceForSearch.companyId, {
               city: functionArgs.cidade,
               transactionType: functionArgs.tipo_transacao === 'aluguel' ? 'locacao' : functionArgs.tipo_transacao,
               propertyType: functionArgs.tipo_imovel
