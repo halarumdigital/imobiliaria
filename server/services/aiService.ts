@@ -684,7 +684,10 @@ Responda sempre em português brasileiro de forma natural e helpful.\n\n`;
         const functionArgs = JSON.parse(toolCall.function.arguments);
 
         console.log(`🛠️ [FUNCTION_CALL] Função: ${functionName}`);
-        console.log(`🛠️ [FUNCTION_CALL] Argumentos:`, functionArgs);
+        console.log(`🛠️ [FUNCTION_CALL] Argumentos RAW (do OpenAI):`, JSON.stringify(functionArgs, null, 2));
+        console.log(`🛠️ [FUNCTION_CALL] tipo_imovel do OpenAI:`, functionArgs.tipo_imovel, '(type:', typeof functionArgs.tipo_imovel, ')');
+        console.log(`🛠️ [FUNCTION_CALL] cidade do OpenAI:`, functionArgs.cidade, '(type:', typeof functionArgs.cidade, ')');
+        console.log(`🛠️ [FUNCTION_CALL] tipo_transacao do OpenAI:`, functionArgs.tipo_transacao, '(type:', typeof functionArgs.tipo_transacao, ')');
 
         if (functionName === "busca_imoveis") {
           try {
@@ -794,12 +797,24 @@ Responda sempre em português brasileiro de forma natural e helpful.\n\n`;
 
             console.log(`🔎 [FUNCTION_CALL] Parâmetros finais - Cidade: ${cidade || 'não especificada'}, Tipo: ${tipo_imovel || 'não especificado'}, Transação: ${tipo_transacao || 'não especificada'}, Limite: ${limite}, Offset: ${offset}`);
 
-            // Buscar imóveis usando o companyId da instância
-            let properties = await storage.searchProperties(instanceForSearch.companyId, {
+            // LOGS DETALHADOS DOS FILTROS
+            console.log('🔍 [FUNCTION_CALL] ========== FILTROS ENVIADOS PARA searchProperties ==========');
+            console.log(`🔍 [FUNCTION_CALL] functionArgs RAW:`, JSON.stringify(functionArgs, null, 2));
+            console.log(`🔍 [FUNCTION_CALL] tipo_imovel ANTES de enviar: "${tipo_imovel}" (type: ${typeof tipo_imovel})`);
+            console.log(`🔍 [FUNCTION_CALL] cidade ANTES de enviar: "${cidade}" (type: ${typeof cidade})`);
+            console.log(`🔍 [FUNCTION_CALL] tipo_transacao ANTES de enviar: "${tipo_transacao}" (type: ${typeof tipo_transacao})`);
+
+            const searchFilters = {
               city: cidade,
               transactionType: tipo_transacao === 'aluguel' ? 'locacao' : tipo_transacao,
               propertyType: tipo_imovel
-            });
+            };
+
+            console.log(`🔍 [FUNCTION_CALL] Objeto searchFilters completo:`, JSON.stringify(searchFilters, null, 2));
+            console.log('🔍 [FUNCTION_CALL] ================================================================');
+
+            // Buscar imóveis usando o companyId da instância
+            let properties = await storage.searchProperties(instanceForSearch.companyId, searchFilters);
 
             const totalEncontrados = properties.length;
 

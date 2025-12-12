@@ -2221,17 +2221,27 @@ export class MySQLStorage implements IStorage {
   }): Promise<Property[]> {
     if (!this.connection) throw new Error('No database connection');
 
+    console.log('🔍 [SEARCH_PROPERTIES] ========== INÍCIO DA BUSCA ==========');
+    console.log('🔍 [SEARCH_PROPERTIES] CompanyId:', companyId);
+    console.log('🔍 [SEARCH_PROPERTIES] Filtros recebidos:', JSON.stringify(filters, null, 2));
+    console.log('🔍 [SEARCH_PROPERTIES] filters.propertyType:', filters.propertyType, '(type:', typeof filters.propertyType, ')');
+    console.log('🔍 [SEARCH_PROPERTIES] filters.propertyType is undefined?', filters.propertyType === undefined);
+    console.log('🔍 [SEARCH_PROPERTIES] filters.propertyType is null?', filters.propertyType === null);
+    console.log('🔍 [SEARCH_PROPERTIES] filters.propertyType is empty string?', filters.propertyType === '');
+
     let query = 'SELECT * FROM properties WHERE company_id = ? AND status = ?';
     const params: any[] = [companyId, 'active'];
 
     if (filters.city) {
       query += ' AND city = ?';
       params.push(filters.city);
+      console.log('🔍 [SEARCH_PROPERTIES] Adicionando filtro de cidade:', filters.city);
     }
 
     if (filters.transactionType) {
       query += ' AND transaction_type = ?';
       params.push(filters.transactionType);
+      console.log('🔍 [SEARCH_PROPERTIES] Adicionando filtro de transação:', filters.transactionType);
     }
 
     if (filters.propertyType) {
@@ -2239,25 +2249,35 @@ export class MySQLStorage implements IStorage {
       // Converter para lowercase para comparação case-insensitive
       query += ' AND LOWER(property_type) = ?';
       params.push(filters.propertyType.toLowerCase());
+      console.log('🔍 [SEARCH_PROPERTIES] Adicionando filtro de tipo de imóvel:', filters.propertyType.toLowerCase());
+    } else {
+      console.log('⚠️ [SEARCH_PROPERTIES] ATENÇÃO: propertyType NÃO foi fornecido! Filtro de tipo NÃO será aplicado!');
     }
 
     query += ' ORDER BY created_at DESC';
 
-    console.log('🔍 [SEARCH_PROPERTIES] SQL Query:', query);
-    console.log('🔍 [SEARCH_PROPERTIES] Parameters:', params);
+    console.log('🔍 [SEARCH_PROPERTIES] SQL Query Final:', query);
+    console.log('🔍 [SEARCH_PROPERTIES] Parameters Final:', params);
 
     const [rows] = await this.connection.execute(query, params) as [any[], mysql.FieldPacket[]];
 
     console.log(`🔍 [SEARCH_PROPERTIES] Found ${rows.length} properties`);
     if (rows.length > 0) {
-      console.log('🔍 [SEARCH_PROPERTIES] First 3 results:', rows.slice(0, 3).map((r: any) => ({
-        name: r.name,
-        property_type: r.property_type,
-        transaction_type: r.transaction_type
-      })));
+      console.log('🔍 [SEARCH_PROPERTIES] First 5 results (RAW from DB):');
+      rows.slice(0, 5).forEach((r: any, idx: number) => {
+        console.log(`  [${idx + 1}] code: ${r.code}, name: ${r.name}, property_type: "${r.property_type}", transaction_type: "${r.transaction_type}"`);
+      });
     }
 
-    return rows.map(row => this.parseProperty(row));
+    const parsedProperties = rows.map(row => this.parseProperty(row));
+
+    console.log('🔍 [SEARCH_PROPERTIES] Parsed properties (first 3):');
+    parsedProperties.slice(0, 3).forEach((p: any, idx: number) => {
+      console.log(`  [${idx + 1}] code: ${p.code}, name: ${p.name}, propertyType: "${p.propertyType}"`);
+    });
+    console.log('🔍 [SEARCH_PROPERTIES] ========== FIM DA BUSCA ==========');
+
+    return parsedProperties;
   }
 
   async createProperty(property: InsertProperty): Promise<Property> {
