@@ -721,11 +721,12 @@ Responda sempre em português brasileiro de forma natural e helpful.\n\n`;
             let offset = 0; // Quantos resultados pular
 
             // Percorrer histórico de trás para frente (mensagens mais recentes primeiro)
-            const conversationText = context.conversationHistory
+            // IMPORTANTE: Incluir a mensagem ATUAL também para extração de parâmetros
+            const conversationText = (context.conversationHistory
               ?.slice()
               .reverse()
               .map(m => m.content.toLowerCase())
-              .join(' ') || '';
+              .join(' ') || '') + ' ' + context.message.toLowerCase();
 
             // Detectar se o usuário está pedindo "mais" resultados
             const currentMessage = context.message.toLowerCase();
@@ -742,67 +743,82 @@ Responda sempre em português brasileiro de forma natural e helpful.\n\n`;
               console.log(`📊 [FUNCTION_CALL] Offset calculado: ${offset} (chamadas anteriores: ${functionCallsCount})`);
             }
 
-            // Se cidade ou tipo não foram fornecidos, tentar extrair do histórico
-            if (!cidade || !tipo_imovel) {
-              console.log(`🔍 [FUNCTION_CALL] Tentando extrair parâmetros do histórico...`);
+            // SEMPRE tentar extrair parâmetros do histórico + mensagem atual (fallback robusto)
+            console.log(`🔍 [FUNCTION_CALL] Verificando parâmetros...`);
+            console.log(`🔍 [FUNCTION_CALL] cidade do OpenAI: ${cidade || 'NÃO FORNECIDO'}`);
+            console.log(`🔍 [FUNCTION_CALL] tipo_imovel do OpenAI: ${tipo_imovel || 'NÃO FORNECIDO'}`);
+            console.log(`🔍 [FUNCTION_CALL] tipo_transacao do OpenAI: ${tipo_transacao || 'NÃO FORNECIDO'}`);
+            console.log(`🔍 [FUNCTION_CALL] conversationText (histórico + atual): "${conversationText.substring(0, 200)}..."`);
 
-              // Mapas de variações
-              const tiposImovel: Record<string, string> = {
-                'apartamento': 'apartamento',
-                'ap': 'apartamento',
-                'apto': 'apartamento',
-                'casa': 'casa',
-                'sobrado': 'sobrado',
-                'sala': 'sala',
-                'terreno': 'terreno',
-                'chácara': 'chácara',
-                'chacara': 'chácara'
-              };
+            // Mapas de variações (definir fora do if para usar sempre)
+            const tiposImovel: Record<string, string> = {
+              'apartamento': 'apartamento',
+              'ap': 'apartamento',
+              'apto': 'apartamento',
+              'casa': 'casa',
+              'sobrado': 'sobrado',
+              'sala': 'sala',
+              'terreno': 'terreno',
+              'chácara': 'chácara',
+              'chacara': 'chácara'
+            };
 
-              const tiposTransacao: Record<string, string> = {
-                'alugar': 'aluguel',
-                'aluguel': 'aluguel',
-                'locação': 'aluguel',
-                'locacao': 'aluguel',
-                'venda': 'venda',
-                'vender': 'venda',
-                'comprar': 'venda'
-              };
+            const tiposTransacao: Record<string, string> = {
+              'alugar': 'aluguel',
+              'aluguel': 'aluguel',
+              'locação': 'aluguel',
+              'locacao': 'aluguel',
+              'venda': 'venda',
+              'vender': 'venda',
+              'comprar': 'venda'
+            };
 
-              // Buscar cidade no histórico
-              if (!cidade) {
-                // Lista de cidades comuns (pode ser expandida)
-                const cidades = ['joaçaba', 'joacaba', 'campinas', 'são paulo', 'sao paulo', 'curitiba', 'florianópolis', 'florianopolis'];
-                for (const c of cidades) {
-                  if (conversationText.includes(c)) {
-                    cidade = c.charAt(0).toUpperCase() + c.slice(1);
-                    console.log(`📍 [FUNCTION_CALL] Cidade extraída do histórico: ${cidade}`);
-                    break;
-                  }
+            // Buscar cidade no histórico se não fornecida
+            if (!cidade) {
+              console.log(`🔍 [FUNCTION_CALL] Cidade NÃO foi fornecida pelo OpenAI, tentando extrair...`);
+              const cidades = ['joaçaba', 'joacaba', 'campinas', 'são paulo', 'sao paulo', 'curitiba', 'florianópolis', 'florianopolis'];
+              for (const c of cidades) {
+                if (conversationText.includes(c)) {
+                  cidade = c.charAt(0).toUpperCase() + c.slice(1);
+                  console.log(`✅ [FUNCTION_CALL] Cidade extraída do histórico: ${cidade}`);
+                  break;
                 }
               }
+            } else {
+              console.log(`✅ [FUNCTION_CALL] Cidade fornecida pelo OpenAI: ${cidade}`);
+            }
 
-              // Buscar tipo de imóvel no histórico
+            // Buscar tipo de imóvel no histórico se não fornecido
+            if (!tipo_imovel) {
+              console.log(`⚠️ [FUNCTION_CALL] CRÍTICO: tipo_imovel NÃO foi fornecido pelo OpenAI!`);
+              console.log(`🔍 [FUNCTION_CALL] Tentando extrair tipo_imovel do histórico...`);
+              for (const [variacao, tipo] of Object.entries(tiposImovel)) {
+                if (conversationText.includes(variacao)) {
+                  tipo_imovel = tipo;
+                  console.log(`✅ [FUNCTION_CALL] Tipo de imóvel extraído do histórico: ${tipo_imovel} (encontrou: "${variacao}")`);
+                  break;
+                }
+              }
               if (!tipo_imovel) {
-                for (const [variacao, tipo] of Object.entries(tiposImovel)) {
-                  if (conversationText.includes(variacao)) {
-                    tipo_imovel = tipo;
-                    console.log(`🏠 [FUNCTION_CALL] Tipo de imóvel extraído do histórico: ${tipo_imovel}`);
-                    break;
-                  }
-                }
+                console.log(`❌ [FUNCTION_CALL] FALHA: Não foi possível extrair tipo_imovel do histórico!`);
+                console.log(`❌ [FUNCTION_CALL] A busca retornará TODOS os tipos de imóveis!`);
               }
+            } else {
+              console.log(`✅ [FUNCTION_CALL] Tipo de imóvel fornecido pelo OpenAI: ${tipo_imovel}`);
+            }
 
-              // Buscar tipo de transação no histórico
-              if (!tipo_transacao) {
-                for (const [variacao, tipo] of Object.entries(tiposTransacao)) {
-                  if (conversationText.includes(variacao)) {
-                    tipo_transacao = tipo;
-                    console.log(`💰 [FUNCTION_CALL] Tipo de transação extraído do histórico: ${tipo_transacao}`);
-                    break;
-                  }
+            // Buscar tipo de transação no histórico se não fornecido
+            if (!tipo_transacao) {
+              console.log(`🔍 [FUNCTION_CALL] Tipo de transação NÃO foi fornecido, tentando extrair...`);
+              for (const [variacao, tipo] of Object.entries(tiposTransacao)) {
+                if (conversationText.includes(variacao)) {
+                  tipo_transacao = tipo;
+                  console.log(`✅ [FUNCTION_CALL] Tipo de transação extraído do histórico: ${tipo_transacao}`);
+                  break;
                 }
               }
+            } else {
+              console.log(`✅ [FUNCTION_CALL] Tipo de transação fornecido pelo OpenAI: ${tipo_transacao}`);
             }
 
             // NORMALIZAR tipo_imovel SEMPRE (não apenas quando não fornecido)
