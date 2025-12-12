@@ -743,6 +743,21 @@ Responda sempre em português brasileiro de forma natural e helpful.\n\n`;
             let limite = functionArgs.limite || 3; // Padrão: 3 resultados
             let offset = 0; // Quantos resultados pular
 
+            // LOG DETALHADO DO HISTÓRICO PARA DEBUG
+            console.log(`📚 [FUNCTION_CALL] ========== DEBUG HISTÓRICO ==========`);
+            console.log(`📚 [FUNCTION_CALL] Mensagem ATUAL: "${context.message}"`);
+            console.log(`📚 [FUNCTION_CALL] Histórico existe: ${!!context.conversationHistory}`);
+            console.log(`📚 [FUNCTION_CALL] Histórico length: ${context.conversationHistory?.length || 0}`);
+            if (context.conversationHistory && context.conversationHistory.length > 0) {
+              console.log(`📚 [FUNCTION_CALL] Histórico completo:`);
+              context.conversationHistory.forEach((m, idx) => {
+                console.log(`   [${idx}] ${m.role}: "${m.content.substring(0, 100)}${m.content.length > 100 ? '...' : ''}"`);
+              });
+            } else {
+              console.log(`⚠️ [FUNCTION_CALL] ATENÇÃO: Histórico está VAZIO! A extração de parâmetros depende apenas da mensagem atual.`);
+            }
+            console.log(`📚 [FUNCTION_CALL] ====================================`);
+
             // Percorrer histórico de trás para frente (mensagens mais recentes primeiro)
             // IMPORTANTE: Incluir a mensagem ATUAL também para extração de parâmetros
             const conversationText = (context.conversationHistory
@@ -759,7 +774,7 @@ Responda sempre em português brasileiro de forma natural e helpful.\n\n`;
               console.log(`🔄 [FUNCTION_CALL] Usuário pediu MAIS resultados!`);
               // Contar quantas vezes a função foi chamada nesta conversa
               const functionCallsCount = context.conversationHistory?.filter(m =>
-                m.sender === 'ai' && m.content.includes('Encontrei')
+                m.role === 'assistant' && m.content.includes('Encontrei')
               ).length || 0;
 
               offset = functionCallsCount * 3; // Pular os já mostrados
@@ -773,7 +788,21 @@ Responda sempre em português brasileiro de forma natural e helpful.\n\n`;
             console.log(`🔍 [FUNCTION_CALL] tipo_transacao do OpenAI: ${tipo_transacao || 'NÃO FORNECIDO'}`);
             console.log(`🔍 [FUNCTION_CALL] conversationText (histórico + atual): "${conversationText.substring(0, 200)}..."`);
 
-            // Mapas de variações (definir fora do if para usar sempre)
+            // Mapas de variações - ORDENADOS POR TAMANHO (maior primeiro para evitar match parcial)
+            // Exemplo: "apartamento" deve ser buscado antes de "ap" para não encontrar "ap" dentro de "apartamento"
+            const tiposImovelOrdenados: Array<[string, string]> = [
+              ['apartamento', 'apartamento'],
+              ['chácara', 'chácara'],
+              ['chacara', 'chácara'],
+              ['sobrado', 'sobrado'],
+              ['terreno', 'terreno'],
+              ['apto', 'apartamento'],
+              ['casa', 'casa'],
+              ['sala', 'sala'],
+              ['ap', 'apartamento'],  // "ap" por último pois é substring de "apartamento"
+            ];
+
+            // Mapa para lookup rápido (usado na normalização)
             const tiposImovel: Record<string, string> = {
               'apartamento': 'apartamento',
               'ap': 'apartamento',
@@ -815,15 +844,23 @@ Responda sempre em português brasileiro de forma natural e helpful.\n\n`;
             if (!tipo_imovel) {
               console.log(`⚠️ [FUNCTION_CALL] CRÍTICO: tipo_imovel NÃO foi fornecido pelo OpenAI!`);
               console.log(`🔍 [FUNCTION_CALL] Tentando extrair tipo_imovel do histórico...`);
-              for (const [variacao, tipo] of Object.entries(tiposImovel)) {
-                if (conversationText.includes(variacao)) {
+              console.log(`🔍 [FUNCTION_CALL] Histórico disponível: ${context.conversationHistory?.length || 0} mensagens`);
+
+              // Usar array ordenado (palavras maiores primeiro) com regex word boundary
+              for (const [variacao, tipo] of tiposImovelOrdenados) {
+                // Usar regex com word boundary para match exato da palavra
+                // \b não funciona bem com acentos, então usar alternativa
+                const regex = new RegExp(`(^|\\s|[^a-záàâãéèêíìîóòôõúùûç])${variacao}($|\\s|[^a-záàâãéèêíìîóòôõúùûç])`, 'i');
+                if (regex.test(conversationText)) {
                   tipo_imovel = tipo;
                   console.log(`✅ [FUNCTION_CALL] Tipo de imóvel extraído do histórico: ${tipo_imovel} (encontrou: "${variacao}")`);
                   break;
                 }
               }
+
               if (!tipo_imovel) {
                 console.log(`❌ [FUNCTION_CALL] FALHA: Não foi possível extrair tipo_imovel do histórico!`);
+                console.log(`❌ [FUNCTION_CALL] conversationText completo: "${conversationText}"`);
                 console.log(`❌ [FUNCTION_CALL] A busca retornará TODOS os tipos de imóveis!`);
               }
             } else {
