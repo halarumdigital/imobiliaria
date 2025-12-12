@@ -2235,9 +2235,10 @@ export class MySQLStorage implements IStorage {
     }
 
     if (filters.propertyType) {
-      // Busca por tipo de imóvel no campo property_type
-      query += ' AND property_type = ?';
+      // Busca por tipo de imóvel no campo property_type OU no nome (fallback para imóveis sem property_type)
+      query += ' AND (property_type = ? OR (property_type IS NULL AND LOWER(name) LIKE ?))';
       params.push(filters.propertyType.toLowerCase());
+      params.push(`%${filters.propertyType.toLowerCase()}%`);
     }
 
     query += ' ORDER BY created_at DESC';
