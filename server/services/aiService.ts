@@ -429,12 +429,11 @@ export class AIService {
         }
       }
 
-      // DESABILITADO: Busca automática conflitava com o function calling da tool busca_imoveis
-      // Quando esta busca automática estava ativa, os imóveis eram adicionados ao prompt ANTES de chamar o OpenAI,
-      // fazendo com que o modelo NÃO chamasse a tool busca_imoveis (pois já tinha os resultados).
-      // A tool busca_imoveis é mais robusta pois extrai parâmetros do histórico da conversa (cidade, tipo, etc.)
+      // REABILITADO: Busca automática como fallback quando function calling não funciona
+      // Quando o function calling do OpenAI não funciona ou não extrai parâmetros corretamente,
+      // esta busca automática garante que o usuário ainda receba os imóveis.
+      // A tool busca_imoveis continua sendo a opção preferencial quando funciona corretamente.
       // Data: 2025-12-12
-      /*
       if (instance?.companyId && propertyService.isPropertySearchIntent(context.message)) {
         console.log(`🏠 [AI] Detectada intenção de busca de imóveis!`);
 
@@ -479,7 +478,6 @@ export class AIService {
           console.error(`❌ [AI] Erro ao buscar imóveis:`, error);
         }
       }
-      */
 
       // Adicionar contexto de delegação se for agente secundário
       if (agent.agentType === 'secondary') {
