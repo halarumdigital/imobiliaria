@@ -433,15 +433,32 @@ export class AIService {
       // IMPORTANTE: Verificar tanto a mensagem atual quanto o HISTÓRICO
       // Exemplo: Se usuário disse "apartamento" antes e agora diz "joaçaba", ainda é busca de imóveis!
 
-      // Lista de cidades conhecidas
-      const cidadesConhecidas = ['joaçaba', 'joacaba', 'campinas', 'são paulo', 'sao paulo', 'curitiba',
+      // Lista de cidades conhecidas (expandida)
+      const cidadesConhecidas = [
+        'joaçaba', 'joacaba', 'joaçabas', 'campinas', 'são paulo', 'sao paulo', 'curitiba',
         'florianópolis', 'florianopolis', 'joinville', 'blumenau', 'chapecó', 'chapeco', 'lages',
-        'criciúma', 'criciuma', 'itajaí', 'itajai', 'jaraguá', 'jaragua', 'balneário', 'balneario'];
+        'criciúma', 'criciuma', 'itajaí', 'itajai', 'jaraguá', 'jaragua', 'balneário', 'balneario',
+        'herval', "herval d'oeste", 'herval do oeste', 'catanduvas', 'ibicaré', 'ibicare',
+        'treze tílias', 'treze tilias', 'água doce', 'agua doce', 'lacerdópolis', 'lacerdopolis',
+        'ouro', 'capinzal', 'erval velho', 'vargem bonita', 'tangará', 'tangara',
+        'piratuba', 'ipira', 'peritiba', 'presidente castelo branco', 'jaborá', 'jabora',
+        'concórdia', 'concordia', 'videira', 'fraiburgo', 'caçador', 'cacador'
+      ];
 
-      // Lista de tipos de imóvel
-      const tiposImovelKeywords = ['apartamento', 'apartamentos', 'ap', 'apto', 'casa', 'casas',
-        'sobrado', 'sobrados', 'sala', 'salas', 'terreno', 'terrenos', 'chácara', 'chacara',
-        'chácaras', 'chacaras', 'imovel', 'imóvel', 'imoveis', 'imóveis'];
+      // Lista de tipos de imóvel (expandida)
+      const tiposImovelKeywords = [
+        'apartamento', 'apartamentos', 'ap', 'apto', 'aptos',
+        'casa', 'casas',
+        'sobrado', 'sobrados',
+        'sala', 'salas', 'sala comercial', 'salas comerciais',
+        'terreno', 'terrenos', 'lote', 'lotes',
+        'chácara', 'chacara', 'chácaras', 'chacaras', 'sitio', 'sítio',
+        'imovel', 'imóvel', 'imoveis', 'imóveis',
+        'kitnet', 'kitnets', 'kitinete', 'kitinetes',
+        'cobertura', 'coberturas',
+        'galpão', 'galpao', 'galpões', 'galpoes',
+        'barracão', 'barracao', 'barracões', 'barracoes'
+      ];
 
       const messageLower = context.message.toLowerCase();
 
@@ -451,28 +468,55 @@ export class AIService {
       console.log(`🔍 [PROPERTY_SEARCH] Histórico length: ${context.conversationHistory?.length || 0}`);
       console.log(`🔍 [PROPERTY_SEARCH] instance?.companyId: ${instance?.companyId}`);
 
+      // SEMPRE montar o texto completo: histórico + mensagem atual
+      // Isso garante que mesmo com histórico vazio, analisamos a conversa completa
+      const historicoTextoCompleto = [
+        ...(context.conversationHistory || []).map(m => m.content.toLowerCase()),
+        messageLower
+      ].join(' ');
+
+      console.log(`🔍 [PROPERTY_SEARCH] historicoTextoCompleto (hist+atual): "${historicoTextoCompleto.substring(0, 300)}..."`);
+
       // Verificar se mensagem atual tem keyword de busca
       let isPropertySearch = instance?.companyId && propertyService.isPropertySearchIntent(context.message);
       console.log(`🔍 [PROPERTY_SEARCH] isPropertySearchIntent(mensagem atual): ${propertyService.isPropertySearchIntent(context.message)}`);
       console.log(`🔍 [PROPERTY_SEARCH] isPropertySearch inicial: ${isPropertySearch}`);
 
-      // Se não detectou pela mensagem atual, verificar se é uma cidade E há contexto de busca no histórico
+      // NOVA LÓGICA: Verificar se no texto COMPLETO (histórico + atual) há cidade E tipo
+      // Isso funciona MESMO quando o histórico está vazio
+      if (!isPropertySearch && instance?.companyId) {
+        // Verificar se o texto completo menciona tipo de imóvel
+        const textoTemTipo = tiposImovelKeywords.some(tipo => historicoTextoCompleto.includes(tipo));
+        // Verificar se o texto completo menciona cidade
+        const textoTemCidade = cidadesConhecidas.some(cidade => historicoTextoCompleto.includes(cidade));
+
+        console.log(`🔍 [PROPERTY_SEARCH] textoTemTipo (no texto completo): ${textoTemTipo}`);
+        console.log(`🔍 [PROPERTY_SEARCH] textoTemCidade (no texto completo): ${textoTemCidade}`);
+
+        // Se o texto completo tem AMBOS tipo e cidade = é busca!
+        if (textoTemTipo && textoTemCidade) {
+          isPropertySearch = true;
+          console.log(`🏠 [AI] ✅ DETECTADA BUSCA COMPLETA: Tipo + Cidade no texto completo - FORÇANDO FUNCTION CALLING`);
+        }
+      }
+
+      // LÓGICA ADICIONAL: Se não detectou ainda, verificar mensagem atual vs histórico separadamente
       if (!isPropertySearch && instance?.companyId && context.conversationHistory && context.conversationHistory.length > 0) {
         const historicoText = context.conversationHistory.map(m => m.content.toLowerCase()).join(' ');
-        console.log(`🔍 [PROPERTY_SEARCH] historicoText: "${historicoText.substring(0, 200)}..."`);
 
         // Verificar se a mensagem atual é uma cidade
         const mensagemEhCidade = cidadesConhecidas.some(cidade => messageLower.includes(cidade));
-        console.log(`🔍 [PROPERTY_SEARCH] mensagemEhCidade: ${mensagemEhCidade}`);
-
         // Verificar se o histórico menciona tipo de imóvel
         const historicoMencionaTipo = tiposImovelKeywords.some(tipo => historicoText.includes(tipo));
+
+        console.log(`🔍 [PROPERTY_SEARCH] historicoText (só histórico): "${historicoText.substring(0, 200)}..."`);
+        console.log(`🔍 [PROPERTY_SEARCH] mensagemEhCidade: ${mensagemEhCidade}`);
         console.log(`🔍 [PROPERTY_SEARCH] historicoMencionaTipo: ${historicoMencionaTipo}`);
 
         // Se a mensagem atual é uma cidade E o histórico menciona tipo de imóvel = é busca!
         if (mensagemEhCidade && historicoMencionaTipo) {
           isPropertySearch = true;
-          console.log(`🏠 [AI] Detectada busca por CIDADE + TIPO no histórico - FORÇANDO FUNCTION CALLING`);
+          console.log(`🏠 [AI] ✅ Detectada busca: CIDADE atual + TIPO no histórico - FORÇANDO FUNCTION CALLING`);
         }
 
         // Verificar também o contrário: mensagem atual tem tipo E histórico tem cidade
@@ -483,17 +527,19 @@ export class AIService {
 
         if (mensagemTemTipo && historicoMencionaCidade) {
           isPropertySearch = true;
-          console.log(`🏠 [AI] Detectada busca por TIPO + CIDADE no histórico - FORÇANDO FUNCTION CALLING`);
+          console.log(`🏠 [AI] ✅ Detectada busca: TIPO atual + CIDADE no histórico - FORÇANDO FUNCTION CALLING`);
         }
-      } else {
-        console.log(`🔍 [PROPERTY_SEARCH] Não entrou na verificação de histórico. Condições: isPropertySearch=${isPropertySearch}, companyId=${!!instance?.companyId}, historyLength=${context.conversationHistory?.length || 0}`);
+      } else if (!isPropertySearch) {
+        console.log(`🔍 [PROPERTY_SEARCH] ⚠️ Verificação de histórico separado não executada. Condições: isPropertySearch=${isPropertySearch}, companyId=${!!instance?.companyId}, historyLength=${context.conversationHistory?.length || 0}`);
       }
 
       console.log(`🔍 [PROPERTY_SEARCH] isPropertySearch FINAL: ${isPropertySearch}`);
       console.log(`🔍 [PROPERTY_SEARCH] ================================================`);
 
       if (isPropertySearch) {
-        console.log(`🏠 [AI] Detectada intenção de busca de imóveis - FORÇANDO FUNCTION CALLING`);
+        console.log(`🏠 [AI] ✅ Detectada intenção de busca de imóveis - FORÇANDO FUNCTION CALLING`);
+      } else {
+        console.log(`🏠 [AI] ❌ Não detectada busca de imóveis - tool_choice será "auto"`);
       }
 
       // Adicionar contexto de delegação se for agente secundário
@@ -875,10 +921,21 @@ Responda sempre em português brasileiro de forma natural e helpful.\n\n`;
             // Buscar cidade no histórico se não fornecida
             if (!cidade) {
               console.log(`🔍 [FUNCTION_CALL] Cidade NÃO foi fornecida pelo OpenAI, tentando extrair...`);
-              const cidades = ['joaçaba', 'joacaba', 'campinas', 'são paulo', 'sao paulo', 'curitiba', 'florianópolis', 'florianopolis'];
+              // Lista expandida de cidades (mesma usada na detecção de busca)
+              const cidades = [
+                'joaçaba', 'joacaba', 'campinas', 'são paulo', 'sao paulo', 'curitiba',
+                'florianópolis', 'florianopolis', 'joinville', 'blumenau', 'chapecó', 'chapeco', 'lages',
+                'criciúma', 'criciuma', 'itajaí', 'itajai', 'jaraguá', 'jaragua', 'balneário', 'balneario',
+                'herval', "herval d'oeste", 'herval do oeste', 'catanduvas', 'ibicaré', 'ibicare',
+                'treze tílias', 'treze tilias', 'água doce', 'agua doce', 'lacerdópolis', 'lacerdopolis',
+                'ouro', 'capinzal', 'erval velho', 'vargem bonita', 'tangará', 'tangara',
+                'piratuba', 'ipira', 'peritiba', 'presidente castelo branco', 'jaborá', 'jabora',
+                'concórdia', 'concordia', 'videira', 'fraiburgo', 'caçador', 'cacador'
+              ];
               for (const c of cidades) {
                 if (conversationText.includes(c)) {
-                  cidade = c.charAt(0).toUpperCase() + c.slice(1);
+                  // Capitalizar corretamente (primeira letra maiúscula de cada palavra)
+                  cidade = c.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
                   console.log(`✅ [FUNCTION_CALL] Cidade extraída do histórico: ${cidade}`);
                   break;
                 }
