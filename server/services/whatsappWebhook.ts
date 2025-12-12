@@ -477,13 +477,19 @@ export class WhatsAppWebhookService {
         if (aiResponse.properties && aiResponse.properties.length > 0) {
           console.log(`🏠 [PROPERTIES] Enviando ${aiResponse.properties.length} imóveis com suas imagens sequencialmente...`);
 
-          if (!evolutionConfig?.urlGlobalSistema) {
-            console.error(`❌ [PROPERTIES] URL Global do Sistema não configurada`);
+          // Verificar configuração - urlGlobalSistema pode ser string vazia ""
+          const urlGlobalSistema = evolutionConfig?.urlGlobalSistema?.trim();
+          console.log(`🔍 [PROPERTIES] urlGlobalSistema configurada: "${urlGlobalSistema || 'NÃO CONFIGURADA'}"`);
+
+          if (!urlGlobalSistema) {
+            console.error(`❌ [PROPERTIES] URL Global do Sistema não configurada ou vazia!`);
+            console.error(`❌ [PROPERTIES] Configure em: Admin > Evolution API > URL Global do Sistema`);
+            console.error(`❌ [PROPERTIES] Exemplo: https://dev.alugamais.com`);
           } else if (!evolutionConfig?.evolutionURL || !evolutionConfig?.evolutionToken) {
             console.error(`❌ [PROPERTIES] Configuração da Evolution API incompleta`);
           } else {
-            const baseUrl = evolutionConfig.urlGlobalSistema.replace(/\/$/, '');
-            console.log(`🌐 [PROPERTIES] URL Base: ${baseUrl}`);
+            const baseUrl = urlGlobalSistema.replace(/\/$/, '');
+            console.log(`🌐 [PROPERTIES] URL Base configurada: ${baseUrl}`);
 
             const evolutionApi = new EvolutionApiService({
               baseURL: evolutionConfig.evolutionURL,
@@ -552,12 +558,16 @@ export class WhatsAppWebhookService {
           if (aiResponse.propertyImages && aiResponse.propertyImages.length > 0) {
             console.log(`📸 [IMAGES] Enviando ${aiResponse.propertyImages.length} imagens de imóveis (formato antigo)...`);
 
-            if (!evolutionConfig?.urlGlobalSistema) {
-              console.error(`❌ [IMAGES] URL Global do Sistema não configurada`);
+            // Verificar configuração - urlGlobalSistema pode ser string vazia ""
+            const urlGlobalSistemaOld = evolutionConfig?.urlGlobalSistema?.trim();
+
+            if (!urlGlobalSistemaOld) {
+              console.error(`❌ [IMAGES] URL Global do Sistema não configurada ou vazia!`);
+              console.error(`❌ [IMAGES] Configure em: Admin > Evolution API > URL Global do Sistema`);
             } else if (!evolutionConfig?.evolutionURL || !evolutionConfig?.evolutionToken) {
               console.error(`❌ [IMAGES] Configuração da Evolution API incompleta`);
             } else {
-              const baseUrl = evolutionConfig.urlGlobalSistema.replace(/\/$/, '');
+              const baseUrl = urlGlobalSistemaOld.replace(/\/$/, '');
               const evolutionApi = new EvolutionApiService({
                 baseURL: evolutionConfig.evolutionURL,
                 token: evolutionConfig.evolutionToken
@@ -873,7 +883,17 @@ export class WhatsAppWebhookService {
       console.log(`📤 [SEND-${sendId}] Response delivered to ${phone}`);
 
       // 🏠 ENVIAR IMAGENS E VÍDEOS DOS IMÓVEIS SE A MENSAGEM FOR SOBRE PROPRIEDADES
+      // NOTA: Esta lógica foi DESABILITADA pois as imagens já são enviadas no fluxo principal (handleEvolutionMessage)
+      // Deixar este código ativo causaria envio duplicado de imagens
+      /*
       if (userMessage && companyId && propertyService.isPropertySearchIntent(userMessage)) {
+        console.log(`🏠 [SEND-${sendId}] Detectada busca de imóveis - DESABILITADO (enviado no fluxo principal)`);
+      }
+      */
+      // FIM DO CÓDIGO DESABILITADO - as imagens são enviadas em handleEvolutionMessage
+
+      // Código antigo comentado - mantido para referência
+      if (false && userMessage && companyId && propertyService.isPropertySearchIntent(userMessage)) {
         console.log(`🏠 [SEND-${sendId}] Detectada busca de imóveis, buscando propriedades para enviar mídias...`);
 
         try {
@@ -882,52 +902,53 @@ export class WhatsAppWebhookService {
           if (properties.length > 0) {
             console.log(`🏠 [SEND-${sendId}] Encontradas ${properties.length} propriedades, enviando mídias...`);
 
-            for (const property of properties) {
-              // Enviar imagens
-              if (property.images && Array.isArray(property.images) && property.images.length > 0) {
-                console.log(`📸 [SEND-${sendId}] Enviando ${property.images.length} imagens do imóvel ${property.name}...`);
+            // Obter URL base do sistema
+            const urlGlobalSistema = evolutionConfig?.urlGlobalSistema?.trim();
+            if (!urlGlobalSistema) {
+              console.error(`❌ [SEND-${sendId}] URL Global do Sistema não configurada - não é possível enviar imagens`);
+            } else {
+              const baseUrl = urlGlobalSistema.replace(/\/$/, '');
 
-                for (let i = 0; i < Math.min(property.images.length, 3); i++) { // Limitar a 3 imagens por imóvel
-                  const imagePath = property.images[i];
+              for (const property of properties) {
+                // Enviar imagens usando URL (não base64)
+                if (property.images && Array.isArray(property.images) && property.images.length > 0) {
+                  console.log(`📸 [SEND-${sendId}] Enviando ${property.images.length} imagens do imóvel ${property.name}...`);
 
-                  try {
-                    // Verificar se o arquivo existe
-                    const fullPath = path.join(process.cwd(), imagePath);
-                    if (fs.existsSync(fullPath)) {
-                      // Ler arquivo e converter para base64
-                      const imageBuffer = fs.readFileSync(fullPath);
-                      const base64Image = imageBuffer.toString('base64');
+                  for (let i = 0; i < Math.min(property.images.length, 3); i++) { // Limitar a 3 imagens por imóvel
+                    const imagePath = property.images[i];
+
+                    try {
+                      // Montar URL completa da imagem
+                      const fullImageUrl = `${baseUrl}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
 
                       const caption = i === 0
                         ? `📍 *${property.name}* - Código: ${property.code}\n${property.bedrooms} quartos, ${property.bathrooms} banheiros, ${property.parkingSpaces} vagas`
                         : undefined;
 
-                      console.log(`📸 Enviando imagem ${i + 1}/${property.images.length}: ${imagePath}`);
-                      await evolutionService.sendImageMessage(instanceId, phone, base64Image, caption);
+                      console.log(`📸 [SEND-${sendId}] Enviando imagem ${i + 1}/${property.images.length}: ${fullImageUrl}`);
+                      await evolutionService.sendMediaUrl(instanceId, phone, fullImageUrl, caption);
 
                       // Delay entre envios para não sobrecarregar
                       await new Promise(resolve => setTimeout(resolve, 1500));
-                    } else {
-                      console.log(`⚠️ Imagem não encontrada: ${fullPath}`);
+                    } catch (imageError) {
+                      console.error(`❌ Erro ao enviar imagem ${imagePath}:`, imageError);
                     }
-                  } catch (imageError) {
-                    console.error(`❌ Erro ao enviar imagem ${imagePath}:`, imageError);
                   }
                 }
-              }
 
-              // Enviar link do vídeo do YouTube se disponível
-              if (property.youtubeVideoUrl) {
-                console.log(`🎥 [SEND-${sendId}] Enviando link do vídeo do YouTube para ${property.name}...`);
+                // Enviar link do vídeo do YouTube se disponível
+                if (property.youtubeVideoUrl) {
+                  console.log(`🎥 [SEND-${sendId}] Enviando link do vídeo do YouTube para ${property.name}...`);
 
-                try {
-                  const videoMessage = `🎥 *Vídeo do imóvel ${property.name}*\n\n${property.youtubeVideoUrl}`;
-                  await evolutionService.sendMessage(instanceId, phone, videoMessage);
+                  try {
+                    const videoMessage = `🎥 *Vídeo do imóvel ${property.name}*\n\n${property.youtubeVideoUrl}`;
+                    await evolutionService.sendMessage(instanceId, phone, videoMessage);
 
-                  // Delay entre envios
-                  await new Promise(resolve => setTimeout(resolve, 1000));
-                } catch (videoError) {
-                  console.error(`❌ Erro ao enviar link do vídeo:`, videoError);
+                    // Delay entre envios
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                  } catch (videoError) {
+                    console.error(`❌ Erro ao enviar link do vídeo:`, videoError);
+                  }
                 }
               }
             }

@@ -346,20 +346,47 @@ export class EvolutionApiService {
 
   async sendImageMessage(instanceName: string, phoneNumber: string, base64: string, caption?: string): Promise<any> {
     const endpoint = `/message/sendMedia/${instanceName}`;
-    
+
     // Format phone number with @s.whatsapp.net
     const remoteJid = phoneNumber.includes('@') ? phoneNumber : `${phoneNumber}@s.whatsapp.net`;
-    
+
     // Add data URL prefix if not present
     const mediaBase64 = base64.startsWith('data:') ? base64 : `data:image/jpeg;base64,${base64}`;
-    
-    return this.makeRequest(endpoint, 'POST', {
+
+    const payload = {
       number: remoteJid,
       mediatype: 'image',
       media: mediaBase64,
       caption: caption || '',
       delay: 1000
-    });
+    };
+
+    // Retry com backoff exponencial para falhas temporárias
+    const maxRetries = 3;
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`📸 [Evolution API] sendImageMessage - Tentativa ${attempt}/${maxRetries}...`);
+        const result = await this.makeRequest(endpoint, 'POST', payload);
+        console.log(`✅ [Evolution API] Imagem enviada com sucesso na tentativa ${attempt}`);
+        return result;
+      } catch (error) {
+        lastError = error as Error;
+        console.error(`❌ [Evolution API] Tentativa ${attempt}/${maxRetries} falhou:`, (error as Error).message);
+
+        if (attempt < maxRetries) {
+          // Backoff exponencial: 2s, 4s, 8s
+          const waitTime = Math.pow(2, attempt) * 1000;
+          console.log(`⏳ [Evolution API] Aguardando ${waitTime / 1000}s antes da próxima tentativa...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+      }
+    }
+
+    // Todas as tentativas falharam
+    console.error(`❌ [Evolution API] Todas as ${maxRetries} tentativas falharam para enviar imagem`);
+    throw lastError;
   }
 
   async sendAudioMessage(instanceName: string, phoneNumber: string, base64: string): Promise<any> {
@@ -406,12 +433,39 @@ export class EvolutionApiService {
     console.log(`📸 [Evolution API] Sending ${mediaType} URL to ${phoneNumber}`);
     console.log(`📸 [Evolution API] URL: ${mediaUrl}`);
 
-    return this.makeRequest(endpoint, 'POST', {
+    const payload = {
       number: remoteJid,
       mediatype: mediaType,
       media: mediaUrl,
       caption: caption || '',
       delay: 1000
-    });
+    };
+
+    // Retry com backoff exponencial para falhas temporárias
+    const maxRetries = 3;
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`📸 [Evolution API] Tentativa ${attempt}/${maxRetries} para enviar mídia...`);
+        const result = await this.makeRequest(endpoint, 'POST', payload);
+        console.log(`✅ [Evolution API] Mídia enviada com sucesso na tentativa ${attempt}`);
+        return result;
+      } catch (error) {
+        lastError = error as Error;
+        console.error(`❌ [Evolution API] Tentativa ${attempt}/${maxRetries} falhou:`, (error as Error).message);
+
+        if (attempt < maxRetries) {
+          // Backoff exponencial: 2s, 4s, 8s
+          const waitTime = Math.pow(2, attempt) * 1000;
+          console.log(`⏳ [Evolution API] Aguardando ${waitTime / 1000}s antes da próxima tentativa...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+      }
+    }
+
+    // Todas as tentativas falharam
+    console.error(`❌ [Evolution API] Todas as ${maxRetries} tentativas falharam para enviar mídia`);
+    throw lastError;
   }
 }
