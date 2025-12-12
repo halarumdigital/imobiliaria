@@ -4165,7 +4165,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (tipo_imovel) {
-        filters.propertyType = tipo_imovel;
+        filters.property_type = tipo_imovel;
       }
 
       console.log(`🔍 [BUSCA_IMOVEIS] Searching properties with filters:`, { companyId, filters });
