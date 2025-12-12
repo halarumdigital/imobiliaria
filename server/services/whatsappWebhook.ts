@@ -475,6 +475,9 @@ export class WhatsAppWebhookService {
 
         // Se há propriedades estruturadas (novo formato), enviar cada uma com suas imagens
         if (aiResponse.properties && aiResponse.properties.length > 0) {
+          console.log(`🏠 [PROPERTIES] ========== INICIANDO ENVIO DE IMÓVEIS ==========`);
+          console.log(`🏠 [PROPERTIES] Total de imóveis recebidos: ${aiResponse.properties.length}`);
+          console.log(`🏠 [PROPERTIES] Códigos: ${aiResponse.properties.map((p: any) => p.code).join(', ')}`);
           console.log(`🏠 [PROPERTIES] Enviando ${aiResponse.properties.length} imóveis com suas imagens sequencialmente...`);
 
           // Verificar configuração - urlGlobalSistema pode ser string vazia ""
