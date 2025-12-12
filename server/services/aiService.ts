@@ -139,10 +139,15 @@ export class AIService {
       // Buscar histórico da conversa ANTES de gerar resposta
       console.log(`📚 [DEBUG] Carregando histórico da conversa para ${context.phone}...`);
       console.log(`📚 [DEBUG] InstanceId recebido: ${context.instanceId}`);
-      
+      console.log(`📚 [DEBUG] DatabaseInstanceId disponível: ${(context as any).databaseInstanceId || 'NÃO DISPONÍVEL'}`);
+
       let conversationHistory: Array<{role: 'user' | 'assistant', content: string}> = [];
       try {
-        conversationHistory = await this.getConversationHistory(context.instanceId, context.phone);
+        // CORREÇÃO: Usar databaseInstanceId se disponível, pois é o ID real do banco
+        // O evolutionInstanceId pode ser um UUID diferente do que está salvo no banco
+        const instanceIdParaHistorico = (context as any).databaseInstanceId || context.instanceId;
+        console.log(`📚 [DEBUG] Usando instanceId para histórico: ${instanceIdParaHistorico}`);
+        conversationHistory = await this.getConversationHistory(instanceIdParaHistorico, context.phone);
         console.log(`📚 [DEBUG] Histórico carregado com SUCESSO: ${conversationHistory.length} mensagens`);
         
         if (conversationHistory.length > 0) {
@@ -193,26 +198,38 @@ export class AIService {
     }
   }
 
-  private async getConversationHistory(evolutionInstanceId: string, phone: string): Promise<Array<{role: 'user' | 'assistant', content: string}>> {
+  private async getConversationHistory(instanceIdOrDbId: string, phone: string): Promise<Array<{role: 'user' | 'assistant', content: string}>> {
     try {
       console.log(`📚 [HISTORY] ========== INICIANDO BUSCA DE HISTÓRICO ==========`);
-      console.log(`📚 [HISTORY] evolutionInstanceId: "${evolutionInstanceId}"`);
+      console.log(`📚 [HISTORY] instanceIdOrDbId: "${instanceIdOrDbId}"`);
       console.log(`📚 [HISTORY] phone: "${phone}"`);
       const storage = getStorage();
 
-      // PRIMEIRO: Encontrar a instância do nosso banco usando o evolutionInstanceId
-      console.log(`📚 [HISTORY] Buscando instância do banco...`);
-      const dbInstanceId = await this.findDatabaseInstanceId(evolutionInstanceId);
-      if (!dbInstanceId) {
-        console.log(`❌ [HISTORY] Instância do banco não encontrada para evolutionId: ${evolutionInstanceId}`);
-        return [];
+      // Verificar se o ID recebido já é um ID do banco (formato UUID do nosso banco)
+      // ou se é um evolutionInstanceId que precisa ser convertido
+      let dbInstanceId: string = instanceIdOrDbId;
+      let conversations: any[] = [];
+
+      // Tentar usar diretamente como ID do banco primeiro
+      console.log(`📚 [HISTORY] Tentando usar ID diretamente como dbInstanceId...`);
+      conversations = await storage.getConversationsByInstance(instanceIdOrDbId);
+
+      if (conversations && conversations.length >= 0) {
+        // O ID funcionou diretamente como ID do banco
+        console.log(`✅ [HISTORY] ID usado diretamente como dbInstanceId: ${dbInstanceId}`);
+      } else {
+        // Fallback: tentar encontrar pelo evolutionInstanceId
+        console.log(`📚 [HISTORY] ID não funcionou diretamente, buscando via findDatabaseInstanceId...`);
+        const foundDbId = await this.findDatabaseInstanceId(instanceIdOrDbId);
+        if (!foundDbId) {
+          console.log(`❌ [HISTORY] Instância do banco não encontrada para: ${instanceIdOrDbId}`);
+          return [];
+        }
+        dbInstanceId = foundDbId;
+        console.log(`✅ [HISTORY] Instância encontrada via fallback: ${dbInstanceId}`);
+        // Buscar conversas com o ID correto
+        conversations = await storage.getConversationsByInstance(dbInstanceId);
       }
-
-      console.log(`✅ [HISTORY] Instância do banco encontrada: ${dbInstanceId} (evolutionId: ${evolutionInstanceId})`);
-
-      // Buscar conversa existente usando o ID correto do banco
-      console.log(`📚 [HISTORY] Buscando conversas na instância ${dbInstanceId}...`);
-      const conversations = await storage.getConversationsByInstance(dbInstanceId);
       console.log(`📚 [HISTORY] Total de conversas encontradas: ${conversations.length}`);
 
       // Log detalhado de todas as conversas para debug
