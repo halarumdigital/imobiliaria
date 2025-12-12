@@ -13,7 +13,7 @@ async function testBuscaImoveis() {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        agentId: 'test-agent-id', // Você precisará substituir por um ID válido
+        agentId: '98e0230d-0c09-4395-aace-f851731255ea', // ID válido do agente
         tipo_imovel: 'apartamento'
       })
     });

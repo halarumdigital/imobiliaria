@@ -460,6 +460,15 @@ export class AIService {
       // Não adicionar regras conflitantes aqui
 
       systemPrompt += `\n\n⚠️⚠️⚠️ REGRA CRÍTICA SOBRE busca_imoveis ⚠️⚠️⚠️
+
+🔍 ANTES DE CHAMAR busca_imoveis:
+- SEMPRE passe TODOS os parâmetros que você conseguir identificar
+- Se o usuário mencionou "apartamento", "casa", "sala", "terreno", "sobrado" ou "chácara" em QUALQUER mensagem (atual ou histórico), você DEVE passar tipo_imovel
+- Se o usuário mencionou uma cidade, você DEVE passar cidade
+- Se o usuário mencionou "alugar", "locação", "venda", "comprar", você DEVE passar tipo_transacao
+- NUNCA chame busca_imoveis sem passar tipo_imovel se o usuário mencionou o tipo do imóvel
+- Analise TODO o histórico da conversa para identificar esses parâmetros
+
 QUANDO você chamar a função busca_imoveis:
 - Responda APENAS: "Encontrei X imóveis! Vou te mostrar:" (NO MÁXIMO 1-2 linhas)
 - NÃO LISTE OS IMÓVEIS
@@ -629,22 +638,23 @@ Responda sempre em português brasileiro de forma natural e helpful.\n\n`;
           type: "function" as const,
           function: {
             name: "busca_imoveis",
-            description: "Busca imóveis cadastrados no banco de dados da empresa. Retorna 3 imóveis por vez. Se o usuário pedir 'mais' ou 'mostre mais', chame a função novamente para retornar os próximos 3. Utilize as informações fornecidas pelo usuário no histórico da conversa.",
+            description: "Busca imóveis cadastrados no banco de dados da empresa. Retorna 3 imóveis por vez. Se o usuário pedir 'mais' ou 'mostre mais', chame a função novamente para retornar os próximos 3. IMPORTANTE: Utilize TODAS as informações fornecidas pelo usuário (cidade, tipo de imóvel, tipo de transação) tanto na mensagem atual quanto no histórico da conversa. SEMPRE passe os parâmetros que você conseguir identificar.",
             parameters: {
               type: "object",
               properties: {
                 cidade: {
                   type: "string",
-                  description: "Nome da cidade onde o usuário procura imóvel"
+                  description: "Nome da cidade onde o usuário procura imóvel. Exemplos: Joaçaba, Campinas, São Paulo. Extraia da mensagem atual ou do histórico da conversa."
                 },
                 tipo_transacao: {
                   type: "string",
                   enum: ["venda", "aluguel", "locacao"],
-                  description: "Tipo de transação (venda ou aluguel)"
+                  description: "Tipo de transação desejada pelo usuário. Use 'venda' se o usuário quer comprar, 'aluguel' ou 'locacao' se quer alugar. Extraia da mensagem atual ou do histórico."
                 },
                 tipo_imovel: {
                   type: "string",
-                  description: "Tipo do imóvel: apartamento, casa, sala, terreno, sobrado, chácara"
+                  enum: ["apartamento", "casa", "sala", "terreno", "sobrado", "chácara"],
+                  description: "CRÍTICO: Tipo específico do imóvel que o usuário procura. Valores aceitos: 'apartamento', 'casa', 'sala', 'terreno', 'sobrado', 'chácara'. Se o usuário mencionar 'ap', 'apto' = use 'apartamento'. SEMPRE forneça este parâmetro quando o usuário mencionar o tipo (ex: 'quero um apartamento', 'procuro casa', etc). Extraia da mensagem atual ou do histórico da conversa."
                 },
                 limite: {
                   type: "number",

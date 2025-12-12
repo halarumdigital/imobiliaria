@@ -2247,9 +2247,9 @@ export class MySQLStorage implements IStorage {
     if (filters.propertyType) {
       // Busca APENAS no campo property_type (já populamos todos os imóveis)
       // Converter para lowercase para comparação case-insensitive
-      query += ' AND LOWER(property_type) = ?';
-      params.push(filters.propertyType.toLowerCase());
-      console.log('🔍 [SEARCH_PROPERTIES] Adicionando filtro de tipo de imóvel:', filters.propertyType.toLowerCase());
+      query += ' AND LOWER(property_type) = LOWER(?)';
+      params.push(filters.propertyType);
+      console.log('🔍 [SEARCH_PROPERTIES] Adicionando filtro de tipo de imóvel:', filters.propertyType);
     } else {
       console.log('⚠️ [SEARCH_PROPERTIES] ATENÇÃO: propertyType NÃO foi fornecido! Filtro de tipo NÃO será aplicado!');
     }
@@ -2602,7 +2602,7 @@ export class MySQLStorage implements IStorage {
       companyId: row.company_id,
       code: row.code,
       name: row.name,
-      propertyType: (row.property_type || "").toLowerCase(), // Garantir lowercase para consistência
+      propertyType: row.property_type ? row.property_type.toLowerCase() : "N/A", // Manter "N/A" para valores NULL
       street: row.street,
       number: row.number,
       proximity: row.proximity || "",
@@ -2610,7 +2610,7 @@ export class MySQLStorage implements IStorage {
       city: row.city || "",
       state: row.state || "",
       zipCode: row.zip_code || "",
-      privateArea: parseFloat(row.private_area?.toString() || '0'),
+      privateArea: parseFloat(row.private_area?.toString() || '0') as number,
       parkingSpaces: row.parking_spaces || 0,
       bathrooms: row.bathrooms || 1,
       bedrooms: row.bedrooms || 0,
