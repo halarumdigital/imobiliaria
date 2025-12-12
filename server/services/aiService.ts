@@ -445,18 +445,29 @@ export class AIService {
 
       const messageLower = context.message.toLowerCase();
 
+      console.log(`🔍 [PROPERTY_SEARCH] ========== DETECTANDO BUSCA DE IMÓVEIS ==========`);
+      console.log(`🔍 [PROPERTY_SEARCH] Mensagem atual: "${context.message}"`);
+      console.log(`🔍 [PROPERTY_SEARCH] Histórico existe: ${!!context.conversationHistory}`);
+      console.log(`🔍 [PROPERTY_SEARCH] Histórico length: ${context.conversationHistory?.length || 0}`);
+      console.log(`🔍 [PROPERTY_SEARCH] instance?.companyId: ${instance?.companyId}`);
+
       // Verificar se mensagem atual tem keyword de busca
       let isPropertySearch = instance?.companyId && propertyService.isPropertySearchIntent(context.message);
+      console.log(`🔍 [PROPERTY_SEARCH] isPropertySearchIntent(mensagem atual): ${propertyService.isPropertySearchIntent(context.message)}`);
+      console.log(`🔍 [PROPERTY_SEARCH] isPropertySearch inicial: ${isPropertySearch}`);
 
       // Se não detectou pela mensagem atual, verificar se é uma cidade E há contexto de busca no histórico
       if (!isPropertySearch && instance?.companyId && context.conversationHistory && context.conversationHistory.length > 0) {
         const historicoText = context.conversationHistory.map(m => m.content.toLowerCase()).join(' ');
+        console.log(`🔍 [PROPERTY_SEARCH] historicoText: "${historicoText.substring(0, 200)}..."`);
 
         // Verificar se a mensagem atual é uma cidade
         const mensagemEhCidade = cidadesConhecidas.some(cidade => messageLower.includes(cidade));
+        console.log(`🔍 [PROPERTY_SEARCH] mensagemEhCidade: ${mensagemEhCidade}`);
 
         // Verificar se o histórico menciona tipo de imóvel
         const historicoMencionaTipo = tiposImovelKeywords.some(tipo => historicoText.includes(tipo));
+        console.log(`🔍 [PROPERTY_SEARCH] historicoMencionaTipo: ${historicoMencionaTipo}`);
 
         // Se a mensagem atual é uma cidade E o histórico menciona tipo de imóvel = é busca!
         if (mensagemEhCidade && historicoMencionaTipo) {
@@ -467,12 +478,19 @@ export class AIService {
         // Verificar também o contrário: mensagem atual tem tipo E histórico tem cidade
         const mensagemTemTipo = tiposImovelKeywords.some(tipo => messageLower.includes(tipo));
         const historicoMencionaCidade = cidadesConhecidas.some(cidade => historicoText.includes(cidade));
+        console.log(`🔍 [PROPERTY_SEARCH] mensagemTemTipo: ${mensagemTemTipo}`);
+        console.log(`🔍 [PROPERTY_SEARCH] historicoMencionaCidade: ${historicoMencionaCidade}`);
 
         if (mensagemTemTipo && historicoMencionaCidade) {
           isPropertySearch = true;
           console.log(`🏠 [AI] Detectada busca por TIPO + CIDADE no histórico - FORÇANDO FUNCTION CALLING`);
         }
+      } else {
+        console.log(`🔍 [PROPERTY_SEARCH] Não entrou na verificação de histórico. Condições: isPropertySearch=${isPropertySearch}, companyId=${!!instance?.companyId}, historyLength=${context.conversationHistory?.length || 0}`);
       }
+
+      console.log(`🔍 [PROPERTY_SEARCH] isPropertySearch FINAL: ${isPropertySearch}`);
+      console.log(`🔍 [PROPERTY_SEARCH] ================================================`);
 
       if (isPropertySearch) {
         console.log(`🏠 [AI] Detectada intenção de busca de imóveis - FORÇANDO FUNCTION CALLING`);
