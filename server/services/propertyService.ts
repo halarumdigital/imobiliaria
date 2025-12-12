@@ -3,6 +3,7 @@ import { getStorage } from "../storage";
 export interface PropertySearchCriteria {
   companyId: string;
   transactionType?: 'venda' | 'locacao';
+  propertyType?: string;
   bedrooms?: number;
   minBedrooms?: number;
   maxBedrooms?: number;
@@ -47,6 +48,12 @@ export class PropertyService {
 
     // Filtrar imóveis baseado nos critérios
     let filteredProperties = activeProperties;
+
+    // Filtrar por tipo de imóvel
+    if (criteria.propertyType) {
+      filteredProperties = filteredProperties.filter(p => p.propertyType === criteria.propertyType);
+      console.log(`🏠 [PROPERTY] Após filtro tipo imóvel (${criteria.propertyType}): ${filteredProperties.length}`);
+    }
 
     // Filtrar por tipo de transação (venda/locação)
     if (criteria.transactionType) {
@@ -120,6 +127,24 @@ export class PropertyService {
   private extractSearchCriteria(message: string): PropertySearchCriteria {
     const messageLower = message.toLowerCase();
     const criteria: any = {};
+
+    // Detectar tipo de imóvel
+    if (messageLower.includes('apartamento') || messageLower.includes('apto') ||
+        messageLower.includes('apartamentos') || messageLower.includes('apts')) {
+      criteria.propertyType = 'apartamento';
+    } else if (messageLower.includes('casa') || messageLower.includes('casas')) {
+      criteria.propertyType = 'casa';
+    } else if (messageLower.includes('terreno') || messageLower.includes('terrenos')) {
+      criteria.propertyType = 'terreno';
+    } else if (messageLower.includes('sala') || messageLower.includes('salas') ||
+               messageLower.includes('sala comercial')) {
+      criteria.propertyType = 'sala';
+    } else if (messageLower.includes('sobrado') || messageLower.includes('sobrados')) {
+      criteria.propertyType = 'sobrado';
+    } else if (messageLower.includes('chácara') || messageLower.includes('chacara') ||
+               messageLower.includes('chácaras') || messageLower.includes('chacaras')) {
+      criteria.propertyType = 'chácara';
+    }
 
     // Detectar tipo de transação
     if (messageLower.includes('alugar') || messageLower.includes('aluguel') || messageLower.includes('locação') || messageLower.includes('locacao')) {
