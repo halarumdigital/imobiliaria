@@ -429,54 +429,15 @@ export class AIService {
         }
       }
 
-      // REABILITADO: Busca automática como fallback quando function calling não funciona
-      // Quando o function calling do OpenAI não funciona ou não extrai parâmetros corretamente,
-      // esta busca automática garante que o usuário ainda receba os imóveis.
-      // A tool busca_imoveis continua sendo a opção preferencial quando funciona corretamente.
+      // DESABILITADO: Busca automática impedia o function calling de funcionar
+      // Quando os imóveis eram adicionados ao prompt ANTES de chamar o OpenAI,
+      // o modelo não via necessidade de chamar a tool busca_imoveis.
       // Data: 2025-12-12
-      if (instance?.companyId && propertyService.isPropertySearchIntent(context.message)) {
-        console.log(`🏠 [AI] Detectada intenção de busca de imóveis!`);
-
-        try {
-          const properties = await propertyService.searchPropertiesFromMessage(context.message, instance.companyId);
-
-          if (properties.length > 0) {
-            console.log(`🏠 [AI] ${properties.length} imóveis encontrados, adicionando ao contexto`);
-
-            propertiesContext = `\n\n=== IMÓVEIS DISPONÍVEIS ===\n`;
-            propertiesContext += `Encontrei ${properties.length} imóvel(is) que corresponde(m) à busca:\n\n`;
-
-            properties.forEach((property, index) => {
-              propertiesContext += `--- IMÓVEL ${index + 1} ---\n`;
-              propertiesContext += propertyService.formatPropertyInfo(property);
-
-              // Adicionar informações sobre mídias disponíveis
-              if (property.images && Array.isArray(property.images) && property.images.length > 0) {
-                propertiesContext += `📸 Imagens disponíveis: ${property.images.length}\n`;
-              }
-              if (property.youtubeVideoUrl) {
-                propertiesContext += `🎥 Vídeo: ${property.youtubeVideoUrl}\n`;
-              }
-              propertiesContext += `\n`;
-            });
-
-            propertiesContext += `=== FIM IMÓVEIS DISPONÍVEIS ===\n\n`;
-            propertiesContext += `INSTRUÇÕES IMPORTANTES:\n`;
-            propertiesContext += `- Apresente os imóveis encontrados de forma clara e organizada\n`;
-            propertiesContext += `- Destaque as características principais de cada imóvel\n`;
-            propertiesContext += `- Informe que você pode enviar as fotos e vídeos dos imóveis\n`;
-            propertiesContext += `- Seja prestativo e ofereça ajuda adicional\n`;
-            propertiesContext += `- SEMPRE respeite o prompt original salvo no agente (${agent.name})\n`;
-            propertiesContext += `- Mantenha o tom e personalidade definidos no prompt do agente\n`;
-
-            systemPrompt += propertiesContext;
-          } else {
-            console.log(`🏠 [AI] Nenhum imóvel encontrado com os critérios da busca`);
-            systemPrompt += `\n\nINFORMAÇÃO: Não encontrei imóveis disponíveis que correspondam exatamente aos critérios mencionados. Informe isso educadamente ao usuário e pergunte se ele gostaria de ver outras opções ou ajustar os critérios de busca.`;
-          }
-        } catch (error) {
-          console.error(`❌ [AI] Erro ao buscar imóveis:`, error);
-        }
+      //
+      // Detectar se é uma busca de imóveis para forçar o function calling
+      const isPropertySearch = instance?.companyId && propertyService.isPropertySearchIntent(context.message);
+      if (isPropertySearch) {
+        console.log(`🏠 [AI] Detectada intenção de busca de imóveis - FORÇANDO FUNCTION CALLING`);
       }
 
       // Adicionar contexto de delegação se for agente secundário
@@ -523,6 +484,11 @@ EXEMPLOS CORRETOS:
 EXEMPLOS ERRADOS:
 ❌ "Encontrei 5 apartamentos: 1. Apto Centro - 3 quartos..."
 ❌ "Veja esses imóveis: Apartamento tal, Casa tal..."
+
+🚨 FORÇAR FUNCTION CALL:
+Se o usuário mencionou QUALQUER tipo de imóvel E/OU cidade, você DEVE chamar a função busca_imoveis imediatamente!
+NÃO faça perguntas adicionais, NÃO peça esclarecimentos, NÃO diga que vai procurar.
+SIMPLESMENTE CHAME A FUNÇÃO com os parâmetros que você conseguiu identificar!
 
 Responda sempre em português brasileiro de forma natural e helpful.\n\n`;
       systemPrompt += `IMPORTANTE: SEMPRE siga o prompt e personalidade definidos no início desta mensagem. Não mude seu comportamento ou tom.`;
@@ -676,7 +642,7 @@ Responda sempre em português brasileiro de forma natural e helpful.\n\n`;
           type: "function" as const,
           function: {
             name: "busca_imoveis",
-            description: "Busca imóveis cadastrados no banco de dados da empresa. Retorna 3 imóveis por vez. Se o usuário pedir 'mais' ou 'mostre mais', chame a função novamente para retornar os próximos 3. IMPORTANTE: Utilize TODAS as informações fornecidas pelo usuário (cidade, tipo de imóvel, tipo de transação) tanto na mensagem atual quanto no histórico da conversa. SEMPRE passe os parâmetros que você conseguir identificar.",
+            description: "OBRIGATÓRIO: Use esta função SEMPRE que o usuário mencionar QUALQUER tipo de imóvel (apartamento, casa, sala, terreno, sobrado, chácara, ap, apto) OU cidade. NÃO FAÇA PERGUNTAS - chame a função imediatamente! Busca imóveis cadastrados no banco de dados da empresa. Retorna 3 imóveis por vez. Se o usuário pedir 'mais' ou 'mostre mais', chame a função novamente para retornar os próximos 3. IMPORTANTE: Utilize TODAS as informações fornecidas pelo usuário (cidade, tipo de imóvel, tipo de transação) tanto na mensagem atual quanto no histórico da conversa. SEMPRE passe os parâmetros que você conseguir identificar.",
             parameters: {
               type: "object",
               properties: {
@@ -705,13 +671,23 @@ Responda sempre em português brasileiro de forma natural e helpful.\n\n`;
         }
       ];
 
+      // Se detectou intenção de busca de imóveis, FORÇAR a chamada da tool
+      // tool_choice: "auto" = modelo decide | "required" = forçado a chamar alguma tool
+      // tool_choice: {type: "function", function: {name: "X"}} = forçar tool específica
+      const toolChoice = isPropertySearch
+        ? { type: "function" as const, function: { name: "busca_imoveis" } }
+        : "auto" as const;
+
+      console.log(`🔧 [OPENAI] tool_choice: ${JSON.stringify(toolChoice)}`);
+      console.log(`🔧 [OPENAI] isPropertySearch: ${isPropertySearch}`);
+
       const response = await openai.chat.completions.create({
         model: aiConfig.modelo || "gpt-4o",
         messages: messages,
         max_tokens: Number(aiConfig.numeroTokens) || 1000,
         temperature: Number(aiConfig.temperatura) || 0.7,
         tools: tools,
-        tool_choice: "auto"
+        tool_choice: toolChoice
       });
 
       console.log(`✅ [OPENAI] OpenAI call successful`);
