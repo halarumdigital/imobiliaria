@@ -795,6 +795,27 @@ Responda sempre em português brasileiro de forma natural e helpful.\n\n`;
               }
             }
 
+            // NORMALIZAR tipo_imovel SEMPRE (não apenas quando não fornecido)
+            if (tipo_imovel) {
+              const tiposImovelMap: Record<string, string> = {
+                'apartamento': 'apartamento',
+                'ap': 'apartamento',
+                'apto': 'apartamento',
+                'casa': 'casa',
+                'sobrado': 'sobrado',
+                'sala': 'sala',
+                'terreno': 'terreno',
+                'chácara': 'chácara',
+                'chacara': 'chácara'
+              };
+
+              const tipoNormalizado = tiposImovelMap[tipo_imovel.toLowerCase()];
+              if (tipoNormalizado) {
+                console.log(`🔄 [FUNCTION_CALL] Normalizando tipo_imovel: "${tipo_imovel}" → "${tipoNormalizado}"`);
+                tipo_imovel = tipoNormalizado;
+              }
+            }
+
             console.log(`🔎 [FUNCTION_CALL] Parâmetros finais - Cidade: ${cidade || 'não especificada'}, Tipo: ${tipo_imovel || 'não especificado'}, Transação: ${tipo_transacao || 'não especificada'}, Limite: ${limite}, Offset: ${offset}`);
 
             // LOGS DETALHADOS DOS FILTROS
