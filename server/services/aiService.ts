@@ -648,7 +648,7 @@ Responda sempre em português brasileiro de forma natural e helpful.\n\n`;
                 },
                 limite: {
                   type: "number",
-                  description: "Número máximo de imóveis a retornar. Padrão: 5. Use um valor maior apenas se o usuário pedir explicitamente mais resultados."
+                  description: "Número máximo de imóveis a retornar. Padrão: 3. O sistema mostra de 3 em 3 automaticamente."
                 }
               },
               required: []
@@ -658,10 +658,10 @@ Responda sempre em português brasileiro de forma natural e helpful.\n\n`;
       ];
 
       const response = await openai.chat.completions.create({
-        model: "gpt-4", // GPT-4 clássico
+        model: aiConfig.modelo || "gpt-4o",
         messages: messages,
-        max_tokens: 2000,
-        temperature: 0.5,
+        max_tokens: Number(aiConfig.numeroTokens) || 1000,
+        temperature: Number(aiConfig.temperatura) || 0.7,
         tools: tools,
         tool_choice: "auto"
       });
@@ -803,10 +803,13 @@ Responda sempre em português brasileiro de forma natural e helpful.\n\n`;
 
             const totalEncontrados = properties.length;
 
+            console.log(`📊 [FUNCTION_CALL] ANTES DO SLICE - Total encontrados: ${totalEncontrados}, Offset: ${offset}, Limite: ${limite}`);
+
             // Aplicar offset e limite (paginação de 3 em 3)
             properties = properties.slice(offset, offset + limite);
 
-            console.log(`🏠 [FUNCTION_CALL] Encontrados ${totalEncontrados} imóveis, retornando ${properties.length} (offset: ${offset}, limite: ${limite})`);
+            console.log(`🏠 [FUNCTION_CALL] DEPOIS DO SLICE - Retornando ${properties.length} imóveis (de ${offset} até ${offset + limite})`);
+            console.log(`📋 [FUNCTION_CALL] Códigos dos imóveis que serão retornados: ${properties.map(p => p.code).join(', ')}`);
 
             // Log detalhado das imagens
             properties.forEach((p, idx) => {

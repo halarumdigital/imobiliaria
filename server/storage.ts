@@ -2235,15 +2235,26 @@ export class MySQLStorage implements IStorage {
     }
 
     if (filters.propertyType) {
-      // Busca por tipo de imóvel no campo property_type OU no nome (fallback para imóveis sem property_type)
-      query += ' AND (property_type = ? OR (property_type IS NULL AND LOWER(name) LIKE ?))';
+      // Busca APENAS no campo property_type (já populamos todos os imóveis)
+      query += ' AND property_type = ?';
       params.push(filters.propertyType.toLowerCase());
-      params.push(`%${filters.propertyType.toLowerCase()}%`);
     }
 
     query += ' ORDER BY created_at DESC';
 
+    console.log('🔍 [SEARCH_PROPERTIES] SQL Query:', query);
+    console.log('🔍 [SEARCH_PROPERTIES] Parameters:', params);
+
     const [rows] = await this.connection.execute(query, params) as [any[], mysql.FieldPacket[]];
+
+    console.log(`🔍 [SEARCH_PROPERTIES] Found ${rows.length} properties`);
+    if (rows.length > 0) {
+      console.log('🔍 [SEARCH_PROPERTIES] First 3 results:', rows.slice(0, 3).map((r: any) => ({
+        name: r.name,
+        property_type: r.property_type,
+        transaction_type: r.transaction_type
+      })));
+    }
 
     return rows.map(row => this.parseProperty(row));
   }
