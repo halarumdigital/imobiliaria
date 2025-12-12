@@ -629,7 +629,7 @@ Responda sempre em português brasileiro de forma natural e helpful.\n\n`;
           type: "function" as const,
           function: {
             name: "busca_imoveis",
-            description: "Busca imóveis cadastrados no banco de dados da empresa. Utilize as informações fornecidas pelo usuário no histórico da conversa. Por padrão retorna 5 imóveis, mas pode retornar mais se o usuário solicitar explicitamente.",
+            description: "Busca imóveis cadastrados no banco de dados da empresa. Retorna 3 imóveis por vez. Se o usuário pedir 'mais' ou 'mostre mais', chame a função novamente para retornar os próximos 3. Utilize as informações fornecidas pelo usuário no histórico da conversa.",
             parameters: {
               type: "object",
               properties: {
@@ -704,7 +704,30 @@ Responda sempre em português brasileiro de forma natural e helpful.\n\n`;
             let cidade = functionArgs.cidade;
             let tipo_imovel = functionArgs.tipo_imovel;
             let tipo_transacao = functionArgs.tipo_transacao;
-            let limite = functionArgs.limite || 5; // Padrão: 5 resultados
+            let limite = functionArgs.limite || 3; // Padrão: 3 resultados
+            let offset = 0; // Quantos resultados pular
+
+            // Percorrer histórico de trás para frente (mensagens mais recentes primeiro)
+            const conversationText = context.conversationHistory
+              ?.slice()
+              .reverse()
+              .map(m => m.content.toLowerCase())
+              .join(' ') || '';
+
+            // Detectar se o usuário está pedindo "mais" resultados
+            const currentMessage = context.message.toLowerCase();
+            const pedindoMais = /\b(mais|mostre mais|quero ver mais|tem mais|próximos|proximos)\b/.test(currentMessage);
+
+            if (pedindoMais) {
+              console.log(`🔄 [FUNCTION_CALL] Usuário pediu MAIS resultados!`);
+              // Contar quantas vezes a função foi chamada nesta conversa
+              const functionCallsCount = context.conversationHistory?.filter(m =>
+                m.sender === 'ai' && m.content.includes('Encontrei')
+              ).length || 0;
+
+              offset = functionCallsCount * 3; // Pular os já mostrados
+              console.log(`📊 [FUNCTION_CALL] Offset calculado: ${offset} (chamadas anteriores: ${functionCallsCount})`);
+            }
 
             // Se cidade ou tipo não foram fornecidos, tentar extrair do histórico
             if (!cidade || !tipo_imovel) {
@@ -732,13 +755,6 @@ Responda sempre em português brasileiro de forma natural e helpful.\n\n`;
                 'vender': 'venda',
                 'comprar': 'venda'
               };
-
-              // Percorrer histórico de trás para frente (mensagens mais recentes primeiro)
-              const conversationText = context.conversationHistory
-                ?.slice()
-                .reverse()
-                .map(m => m.content.toLowerCase())
-                .join(' ') || '';
 
               // Buscar cidade no histórico
               if (!cidade) {
@@ -776,7 +792,7 @@ Responda sempre em português brasileiro de forma natural e helpful.\n\n`;
               }
             }
 
-            console.log(`🔎 [FUNCTION_CALL] Parâmetros finais - Cidade: ${cidade || 'não especificada'}, Tipo: ${tipo_imovel || 'não especificado'}, Transação: ${tipo_transacao || 'não especificada'}, Limite: ${limite}`);
+            console.log(`🔎 [FUNCTION_CALL] Parâmetros finais - Cidade: ${cidade || 'não especificada'}, Tipo: ${tipo_imovel || 'não especificado'}, Transação: ${tipo_transacao || 'não especificada'}, Limite: ${limite}, Offset: ${offset}`);
 
             // Buscar imóveis usando o companyId da instância
             let properties = await storage.searchProperties(instanceForSearch.companyId, {
@@ -787,10 +803,10 @@ Responda sempre em português brasileiro de forma natural e helpful.\n\n`;
 
             const totalEncontrados = properties.length;
 
-            // Aplicar limite (padrão: 5)
-            properties = properties.slice(0, limite);
+            // Aplicar offset e limite (paginação de 3 em 3)
+            properties = properties.slice(offset, offset + limite);
 
-            console.log(`🏠 [FUNCTION_CALL] Encontrados ${totalEncontrados} imóveis, retornando ${properties.length} (limite: ${limite})`);
+            console.log(`🏠 [FUNCTION_CALL] Encontrados ${totalEncontrados} imóveis, retornando ${properties.length} (offset: ${offset}, limite: ${limite})`);
 
             // Log detalhado das imagens
             properties.forEach((p, idx) => {
@@ -821,12 +837,19 @@ Responda sempre em português brasileiro de forma natural e helpful.\n\n`;
             // Formatar resultado SIMPLIFICADO para o modelo
             // NÃO enviar detalhes dos imóveis, apenas estatísticas
             // Isso evita que o modelo liste os imóveis no texto da resposta
+            const totalRestante = totalEncontrados - (offset + properties.length);
+            const mensagemInicial = offset === 0
+              ? `Encontrei ${totalEncontrados} imóveis. Mostrando os primeiros ${properties.length}.`
+              : `Mostrando mais ${properties.length} imóveis.`;
+
             const functionResult = {
               total: totalEncontrados,
               total_retornado: properties.length,
+              offset: offset,
               limite_aplicado: limite,
-              tem_mais_resultados: totalEncontrados > limite,
-              mensagem: `Encontrei ${totalEncontrados} imóveis. Retornando os primeiros ${properties.length}.${totalEncontrados > limite ? ` Há mais ${totalEncontrados - limite} imóveis disponíveis.` : ''} O sistema enviará cada imóvel automaticamente com suas fotos.`
+              tem_mais_resultados: totalRestante > 0,
+              total_restante: totalRestante,
+              mensagem: `${mensagemInicial}${totalRestante > 0 ? ` Ainda há mais ${totalRestante} imóveis disponíveis. Peça "mostre mais" para ver os próximos 3.` : ''} O sistema enviará cada imóvel automaticamente com suas fotos.`
             };
 
             // Adicionar a resposta da função ao contexto e fazer nova chamada

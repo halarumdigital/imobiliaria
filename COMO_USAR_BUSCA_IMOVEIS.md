@@ -32,7 +32,8 @@ O SISTEMA irá enviar automaticamente cada imóvel com suas fotos sequencialment
 
 INSTRUÇÕES:
 - Quando souber a CIDADE e o TIPO de imóvel que o cliente quer, chame busca_imoveis
-- Por padrão, busque 5 imóveis. Se o cliente pedir mais, use o parâmetro 'limite'
+- Por padrão, busque 3 imóveis. O sistema automaticamente mostra de 3 em 3
+- Se o cliente pedir "mais" ou "mostre mais", chame busca_imoveis novamente para retornar os próximos 3
 - Não faça a mesma pergunta duas vezes
 - Após chamar busca_imoveis, responda APENAS: "Encontrei X imóveis! Vou te mostrar:" ou similar
 - NÃO liste detalhes dos imóveis (endereço, quartos, etc) - o sistema fará isso
@@ -55,7 +56,7 @@ Seja amigável e direto.
 [O agente chama automaticamente: busca_imoveis(tipo_imovel="apartamento", tipo_transacao="venda", limite=5)]
 
 📱 Mensagem 1 (Agente):
-"Encontrei 12 apartamentos para venda! Vou te mostrar os primeiros 5:"
+"Encontrei 12 apartamentos para venda! Vou te mostrar os primeiros 3:"
 
 📱 Mensagem 2 (Sistema - Imóvel 1):
 Apartamento 3 Quartos - Centro
@@ -83,7 +84,7 @@ Apartamento 2 Quartos - Jardins
 [... e assim por diante para cada imóvel ...]
 
 Cliente pode responder: "Quero ver mais apartamentos"
-[O agente então chama: busca_imoveis(tipo_imovel="apartamento", tipo_transacao="venda", limite=10)]
+[O agente então chama busca_imoveis novamente e o sistema retorna os próximos 3 imóveis automaticamente]
 ```
 
 ---
@@ -141,13 +142,14 @@ A função `busca_imoveis` aceita os seguintes parâmetros (todos opcionais):
 | `cidade` | string | Nome da cidade | - | "São Paulo", "Campinas" |
 | `tipo_transacao` | string | Tipo de negócio | - | "venda", "aluguel", "locacao" |
 | `tipo_imovel` | string | Tipo do imóvel | - | "casa", "apartamento", "sala", "terreno" |
-| `limite` | number | Número máximo de resultados | **5** | 5, 10, 20 |
+| `limite` | number | Número máximo de resultados | **3** | 3 (fixo) |
 
 **Notas Importantes**:
-- ✅ **Limite padrão**: A função retorna **5 imóveis** por padrão
-- ✅ **Como pedir mais**: O cliente pode pedir "mostre mais" e o agente deve aumentar o limite
+- ✅ **Limite padrão**: A função retorna **3 imóveis** por padrão
+- ✅ **Paginação automática**: Quando o cliente pede "mais", o sistema automaticamente retorna os próximos 3
+- ✅ **Como pedir mais**: O cliente pode pedir "mostre mais" ou "quero ver mais" e o agente deve chamar a função novamente
 - ✅ **Informação sobre mais resultados**: O sistema informa ao agente quando há mais resultados disponíveis
-- ✅ Se nenhum parâmetro for fornecido, retorna os primeiros 5 imóveis ativos da empresa
+- ✅ Se nenhum parâmetro for fornecido, retorna os primeiros 3 imóveis ativos da empresa
 
 ---
 
@@ -295,9 +297,9 @@ O agente TEM acesso ao histórico - você só precisa instruí-lo a usá-lo!
 ✅ **Seguro**: Cada empresa vê apenas seus imóveis
 ✅ **Rápido**: Busca direta no banco de dados
 ✅ **Flexível**: Aceita múltiplos filtros combinados
-✅ **Limite Inteligente**: Mostra 5 resultados por padrão, evitando sobrecarga
+✅ **Paginação de 3 em 3**: Mostra 3 resultados por vez, evitando sobrecarga
 ✅ **Envio Organizado**: Cada imóvel enviado sequencialmente com suas fotos
-✅ **Escalável**: Cliente pode pedir mais resultados quando quiser
+✅ **Navegação Simples**: Cliente pode pedir "mais" para ver os próximos 3 imóveis
 
 ---
 
