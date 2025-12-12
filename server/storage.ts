@@ -2235,9 +2235,9 @@ export class MySQLStorage implements IStorage {
     }
 
     if (filters.propertyType) {
-      // Busca por tipo de imóvel no campo name (casa, apartamento, sala, etc.)
-      query += ' AND LOWER(name) LIKE ?';
-      params.push(`%${filters.propertyType.toLowerCase()}%`);
+      // Busca por tipo de imóvel no campo property_type
+      query += ' AND property_type = ?';
+      params.push(filters.propertyType.toLowerCase());
     }
 
     query += ' ORDER BY created_at DESC';
@@ -2249,25 +2249,25 @@ export class MySQLStorage implements IStorage {
 
   async createProperty(property: InsertProperty): Promise<Property> {
     if (!this.connection) throw new Error('No database connection');
-    
+
     const id = randomUUID();
-    
+
     await this.connection.execute(`
-      INSERT INTO properties (id, company_id, code, name, street, number, proximity, 
-        neighborhood, city, state, zip_code, private_area, parking_spaces, bathrooms, 
+      INSERT INTO properties (id, company_id, code, name, property_type, street, number, proximity,
+        neighborhood, city, state, zip_code, private_area, parking_spaces, bathrooms,
         bedrooms, description, map_location, transaction_type, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
-      id, property.companyId, property.code, property.name, property.street, 
-      property.number, property.proximity || null, property.neighborhood || null, property.city || null, 
-      property.state || null, property.zipCode || null, property.privateArea, property.parkingSpaces || 0, 
-      property.bathrooms || 1, property.bedrooms || 0, property.description || null, property.mapLocation || null, 
+      id, property.companyId, property.code, property.name, property.propertyType || null, property.street,
+      property.number, property.proximity || null, property.neighborhood || null, property.city || null,
+      property.state || null, property.zipCode || null, property.privateArea, property.parkingSpaces || 0,
+      property.bathrooms || 1, property.bedrooms || 0, property.description || null, property.mapLocation || null,
       property.transactionType || 'venda', property.status || 'active'
     ]);
-    
+
     const newProperty = await this.getProperty(id);
     if (!newProperty) throw new Error('Failed to create property');
-    
+
     return newProperty;
   }
 
@@ -2284,6 +2284,10 @@ export class MySQLStorage implements IStorage {
     if (updates.name !== undefined) {
       fields.push('name = ?');
       values.push(updates.name);
+    }
+    if (updates.propertyType !== undefined) {
+      fields.push('property_type = ?');
+      values.push(updates.propertyType);
     }
     if (updates.street !== undefined) {
       fields.push('street = ?');
@@ -2565,6 +2569,7 @@ export class MySQLStorage implements IStorage {
       companyId: row.company_id,
       code: row.code,
       name: row.name,
+      propertyType: row.property_type || "",
       street: row.street,
       number: row.number,
       proximity: row.proximity || "",

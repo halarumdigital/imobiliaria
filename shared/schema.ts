@@ -228,6 +228,7 @@ export const properties = mysqlTable("properties", {
   companyId: varchar("company_id", { length: 36 }).notNull(),
   code: varchar("code", { length: 50 }).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
+  propertyType: varchar("property_type", { length: 50 }), // 'casa' | 'apartamento' | 'sala' | 'terreno' | 'sobrado' | 'chácara'
   street: varchar("street", { length: 255 }).notNull(),
   number: varchar("number", { length: 20 }).notNull(),
   proximity: varchar("proximity", { length: 255 }),
@@ -489,6 +490,7 @@ export const insertPropertySchema = createInsertSchema(properties).pick({
   companyId: true,
   code: true,
   name: true,
+  propertyType: true,
   street: true,
   number: true,
   proximity: true,
@@ -511,6 +513,7 @@ export const insertPropertySchema = createInsertSchema(properties).pick({
   youtubeVideoUrl: true,
   featured: true,
 }).extend({
+  propertyType: z.string().nullable().optional(),
   proximity: z.string().nullable().optional(),
   neighborhood: z.string().nullable().optional(),
   city: z.string().nullable().optional(),

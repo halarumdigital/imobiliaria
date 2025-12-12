@@ -44,12 +44,7 @@
       "Bash(npx tsx:*)",
       "Bash(ls:*)",
       "Bash(xargs:*)",
-      "Bash(npm --version:*)",
-      "Bash(/usr/bin/node:*)",
-      "Bash(bash -c 'source ~/.nvm/nvm.sh && npm run db:push')",
-      "Bash(pkill:*)",
-      "Bash(bash -c 'source ~/.nvm/nvm.sh && mysql -u root -proot imobiliaria -e \"DESCRIBE properties;\" 2>/dev/null':*)",
-      "Bash(bash -c:*)"
+      "Bash(npm --version:*)"
     ],
     "deny": [],
     "ask": []

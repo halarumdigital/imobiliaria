@@ -21,6 +21,7 @@ interface Property {
   companyId: string;
   code: string;
   name: string;
+  propertyType?: string;
   street: string;
   number: string;
   proximity?: string;
@@ -63,6 +64,7 @@ interface Amenity {
 interface PropertyFormData {
   code: string;
   name: string;
+  propertyType?: string;
   street: string;
   number: string;
   proximity?: string;
@@ -136,6 +138,7 @@ export default function MeusImoveis() {
     bedrooms: "0",
     description: "",
     mapLocation: "",
+    propertyType: "",
     transactionType: "venda",
     images: [],
     youtubeVideoUrl: "",
@@ -332,6 +335,7 @@ export default function MeusImoveis() {
       bedrooms: "0",
       description: "",
       mapLocation: "",
+      propertyType: "",
       transactionType: "venda",
       images: [],
       youtubeVideoUrl: "",
@@ -455,6 +459,7 @@ export default function MeusImoveis() {
       bedrooms: property.bedrooms.toString(),
       description: property.description || "",
       mapLocation: property.mapLocation || "",
+      propertyType: property.propertyType || "",
       transactionType: property.transactionType || "venda",
       images: property.images || [],
       youtubeVideoUrl: property.youtubeVideoUrl || "",
@@ -593,6 +598,23 @@ export default function MeusImoveis() {
                     placeholder="Ex: Apartamento Centro"
                     required
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="propertyType">Tipo de Imóvel</Label>
+                  <Select value={formData.propertyType || ""} onValueChange={(value) => setFormData({...formData, propertyType: value})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o tipo de imóvel" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="casa">Casa</SelectItem>
+                      <SelectItem value="apartamento">Apartamento</SelectItem>
+                      <SelectItem value="sala">Sala Comercial</SelectItem>
+                      <SelectItem value="terreno">Terreno</SelectItem>
+                      <SelectItem value="sobrado">Sobrado</SelectItem>
+                      <SelectItem value="chácara">Chácara</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
