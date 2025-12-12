@@ -195,9 +195,11 @@ export class AIService {
 
   private async getConversationHistory(evolutionInstanceId: string, phone: string): Promise<Array<{role: 'user' | 'assistant', content: string}>> {
     try {
-      console.log(`📚 [HISTORY] Iniciando busca de histórico para evolutionId: ${evolutionInstanceId}, phone: ${phone}`);
+      console.log(`📚 [HISTORY] ========== INICIANDO BUSCA DE HISTÓRICO ==========`);
+      console.log(`📚 [HISTORY] evolutionInstanceId: "${evolutionInstanceId}"`);
+      console.log(`📚 [HISTORY] phone: "${phone}"`);
       const storage = getStorage();
-      
+
       // PRIMEIRO: Encontrar a instância do nosso banco usando o evolutionInstanceId
       console.log(`📚 [HISTORY] Buscando instância do banco...`);
       const dbInstanceId = await this.findDatabaseInstanceId(evolutionInstanceId);
@@ -205,19 +207,40 @@ export class AIService {
         console.log(`❌ [HISTORY] Instância do banco não encontrada para evolutionId: ${evolutionInstanceId}`);
         return [];
       }
-      
+
       console.log(`✅ [HISTORY] Instância do banco encontrada: ${dbInstanceId} (evolutionId: ${evolutionInstanceId})`);
-      
+
       // Buscar conversa existente usando o ID correto do banco
       console.log(`📚 [HISTORY] Buscando conversas na instância ${dbInstanceId}...`);
       const conversations = await storage.getConversationsByInstance(dbInstanceId);
       console.log(`📚 [HISTORY] Total de conversas encontradas: ${conversations.length}`);
-      
-      const conversation = conversations.find(c => c.contactPhone === phone);
-      
+
+      // Log detalhado de todas as conversas para debug
+      conversations.forEach((c, idx) => {
+        console.log(`📚 [HISTORY] Conversa [${idx}]: phone="${c.contactPhone}", id="${c.id}"`);
+      });
+
+      // Normalizar telefone para comparação (remover caracteres especiais)
+      const normalizePhone = (p: string) => p.replace(/\D/g, '');
+      const phoneNormalized = normalizePhone(phone);
+
+      console.log(`📚 [HISTORY] Buscando conversa para phone normalizado: "${phoneNormalized}"`);
+
+      // Buscar por telefone exato OU normalizado
+      let conversation = conversations.find(c => c.contactPhone === phone);
       if (!conversation) {
-        console.log(`❌ [HISTORY] Nenhuma conversa encontrada para ${phone} na instância ${dbInstanceId}`);
-        console.log(`📚 [HISTORY] Conversas disponíveis:`, conversations.map(c => ({ id: c.id, phone: c.contactPhone })));
+        conversation = conversations.find(c => normalizePhone(c.contactPhone) === phoneNormalized);
+        if (conversation) {
+          console.log(`✅ [HISTORY] Conversa encontrada via phone normalizado!`);
+        }
+      }
+
+      if (!conversation) {
+        console.log(`❌ [HISTORY] Nenhuma conversa encontrada para ${phone} (normalizado: ${phoneNormalized})`);
+        console.log(`📚 [HISTORY] Phones das conversas disponíveis:`, conversations.map(c => ({
+          original: c.contactPhone,
+          normalized: normalizePhone(c.contactPhone)
+        })));
         return [];
       }
       
