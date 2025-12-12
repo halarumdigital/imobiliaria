@@ -429,6 +429,12 @@ export class AIService {
         }
       }
 
+      // DESABILITADO: Busca automática conflitava com o function calling da tool busca_imoveis
+      // Quando esta busca automática estava ativa, os imóveis eram adicionados ao prompt ANTES de chamar o OpenAI,
+      // fazendo com que o modelo NÃO chamasse a tool busca_imoveis (pois já tinha os resultados).
+      // A tool busca_imoveis é mais robusta pois extrai parâmetros do histórico da conversa (cidade, tipo, etc.)
+      // Data: 2025-12-12
+      /*
       if (instance?.companyId && propertyService.isPropertySearchIntent(context.message)) {
         console.log(`🏠 [AI] Detectada intenção de busca de imóveis!`);
 
@@ -473,16 +479,27 @@ export class AIService {
           console.error(`❌ [AI] Erro ao buscar imóveis:`, error);
         }
       }
+      */
 
       // Adicionar contexto de delegação se for agente secundário
       if (agent.agentType === 'secondary') {
         systemPrompt += `\n\nVocê é um agente especializado. Responda com base em sua especialização e conhecimento específico.`;
       }
 
-      // Instruções sobre busca de imóveis são definidas no prompt do agente
-      // Não adicionar regras conflitantes aqui
+      // Instruções sobre busca de imóveis - OBRIGATÓRIO usar a tool busca_imoveis
 
-      systemPrompt += `\n\n⚠️⚠️⚠️ REGRA CRÍTICA SOBRE busca_imoveis ⚠️⚠️⚠️
+      systemPrompt += `\n\n⚠️⚠️⚠️ REGRA CRÍTICA SOBRE BUSCA DE IMÓVEIS ⚠️⚠️⚠️
+
+🏠 QUANDO USAR A FUNÇÃO busca_imoveis:
+Você DEVE chamar a função busca_imoveis SEMPRE que o usuário:
+- Mencionar tipos de imóvel: "apartamento", "casa", "sala", "terreno", "sobrado", "chácara", "ap", "apto"
+- Perguntar sobre imóveis disponíveis
+- Mencionar cidades ou localizações para buscar imóveis
+- Pedir para ver, mostrar ou buscar imóveis
+- Demonstrar interesse em alugar ou comprar
+
+IMPORTANTE: Você NÃO tem acesso aos imóveis sem usar a função busca_imoveis!
+Se o usuário perguntar sobre imóveis e você NÃO chamar a função, você não terá dados para responder.
 
 🔍 ANTES DE CHAMAR busca_imoveis:
 - SEMPRE passe TODOS os parâmetros que você conseguir identificar
