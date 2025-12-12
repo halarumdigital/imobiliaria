@@ -29,6 +29,24 @@ import {
 } from "@shared/schema";
 import { getEmailService } from "./services/emailService";
 
+// Cache para evitar processamento duplicado de mensagens
+// Armazena IDs de mensagens já processadas com timestamp de expiração
+const processedMessagesCache = new Map<string, number>();
+const CACHE_EXPIRY_MS = 60000; // 60 segundos - tempo suficiente para evitar duplicação
+
+// Função para limpar cache expirado periodicamente
+function cleanExpiredCache() {
+  const now = Date.now();
+  for (const [key, timestamp] of processedMessagesCache.entries()) {
+    if (now - timestamp > CACHE_EXPIRY_MS) {
+      processedMessagesCache.delete(key);
+    }
+  }
+}
+
+// Limpar cache a cada 30 segundos
+setInterval(cleanExpiredCache, 30000);
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize storage connection
   const storage = getStorage();
@@ -2407,6 +2425,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // VERIFICAR DUPLICAÇÃO: usar ID da mensagem para evitar processamento duplo
+      const messageId = req.body.data?.key?.id;
+      if (messageId) {
+        if (processedMessagesCache.has(messageId)) {
+          console.log(`⏭️ [WEBHOOK-${requestId}] Mensagem já processada (ID: ${messageId}), ignorando duplicata`);
+          return res.status(200).json({
+            success: true,
+            processed: false,
+            ignored: true,
+            reason: "Message already processed (duplicate)",
+            requestId
+          });
+        }
+        // Marcar como processada
+        processedMessagesCache.set(messageId, Date.now());
+        console.log(`🆔 [WEBHOOK-${requestId}] Mensagem registrada no cache: ${messageId}`);
+      }
+
       console.log(`⏱️ [WEBHOOK-${requestId}] Starting message processing...`);
       const { whatsappWebhookService } = await import("./services/whatsappWebhook");
       await whatsappWebhookService.handleEvolutionMessage(req.body);
@@ -2454,7 +2490,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("🎤 [UPSERT] AudioMessage:", JSON.stringify(req.body.data.message.audioMessage, null, 2));
       }
       console.log("🔥🔥🔥 [MESSAGES-UPSERT] Full request body:", JSON.stringify(req.body, null, 2));
-      
+
+      // VERIFICAR DUPLICAÇÃO: usar ID da mensagem para evitar processamento duplo
+      const messageIdUpsert = req.body.data?.key?.id;
+      if (messageIdUpsert) {
+        if (processedMessagesCache.has(messageIdUpsert)) {
+          console.log(`⏭️ [MESSAGES-UPSERT] Mensagem já processada (ID: ${messageIdUpsert}), ignorando duplicata`);
+          return res.status(200).json({
+            success: true,
+            processed: false,
+            ignored: true,
+            reason: "Message already processed (duplicate)",
+            type: "messages_upsert"
+          });
+        }
+        // Marcar como processada
+        processedMessagesCache.set(messageIdUpsert, Date.now());
+        console.log(`🆔 [MESSAGES-UPSERT] Mensagem registrada no cache: ${messageIdUpsert}`);
+      }
+
       // Redirecionar para o processamento principal
       await whatsappWebhookService.handleEvolutionMessage(req.body);
       
