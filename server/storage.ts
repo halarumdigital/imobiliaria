@@ -139,6 +139,7 @@ export interface IStorage {
   // Cities (Cidades)
   getCity(id: string): Promise<City | undefined>;
   getCitiesByCompany(companyId: string): Promise<City[]>;
+  getCityByName(name: string, companyId: string): Promise<City | undefined>;
   createCity(city: InsertCity): Promise<City>;
   updateCity(id: string, updates: Partial<City>): Promise<City>;
   deleteCity(id: string): Promise<void>;
@@ -1916,8 +1917,8 @@ export class MySQLStorage implements IStorage {
     
     try {
       await this.connection.execute(
-        `INSERT INTO customers (id, company_id, name, phone, email, company, funnel_stage_id, last_contact, notes, value, source, conversation_id) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO customers (id, company_id, name, phone, email, company, funnel_stage_id, last_contact, notes, value, source, conversation_id, interested_city_id, interested_property_type)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id,
           customer.companyId,
@@ -1930,7 +1931,9 @@ export class MySQLStorage implements IStorage {
           customer.notes || null,
           customer.value || null,
           customer.source || 'WhatsApp',
-          customer.conversationId || null
+          customer.conversationId || null,
+          customer.interestedCityId || null,
+          customer.interestedPropertyType || null
         ]
       );
       
@@ -1997,21 +2000,29 @@ export class MySQLStorage implements IStorage {
       fields.push('conversation_id = ?');
       values.push(updates.conversationId);
     }
-    
+    if (updates.interestedCityId !== undefined) {
+      fields.push('interested_city_id = ?');
+      values.push(updates.interestedCityId);
+    }
+    if (updates.interestedPropertyType !== undefined) {
+      fields.push('interested_property_type = ?');
+      values.push(updates.interestedPropertyType);
+    }
+
     if (fields.length === 0) {
       throw new Error('No fields to update');
     }
-    
+
     values.push(id);
-    
+
     await this.connection.execute(
       `UPDATE customers SET ${fields.join(', ')}, updated_at = NOW() WHERE id = ?`,
       values
     );
-    
+
     const updatedCustomer = await this.getCustomer(id);
     if (!updatedCustomer) throw new Error('Customer not found after update');
-    
+
     return updatedCustomer;
   }
 
@@ -2035,6 +2046,8 @@ export class MySQLStorage implements IStorage {
       value: row.value ? parseFloat(row.value) : undefined,
       source: row.source,
       conversationId: row.conversation_id,
+      interestedCityId: row.interested_city_id,
+      interestedPropertyType: row.interested_property_type,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -2089,8 +2102,9 @@ export class MySQLStorage implements IStorage {
     await this.connection.execute(
       `INSERT INTO leads (
         id, company_id, name, phone, email, source, status, notes,
+        interested_city_id, interested_property_type,
         converted_to_customer, customer_id, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
       [
         id,
         lead.companyId,
@@ -2100,6 +2114,8 @@ export class MySQLStorage implements IStorage {
         lead.source || 'Manual',
         lead.status || 'new',
         lead.notes || null,
+        lead.interestedCityId || null,
+        lead.interestedPropertyType || null,
         lead.convertedToCustomer || false,
         lead.customerId || null
       ]
@@ -2151,6 +2167,14 @@ export class MySQLStorage implements IStorage {
       setClause.push('customer_id = ?');
       values.push(updates.customerId);
     }
+    if (updates.interestedCityId !== undefined) {
+      setClause.push('interested_city_id = ?');
+      values.push(updates.interestedCityId);
+    }
+    if (updates.interestedPropertyType !== undefined) {
+      setClause.push('interested_property_type = ?');
+      values.push(updates.interestedPropertyType);
+    }
 
     setClause.push('updated_at = NOW()');
     values.push(id);
@@ -2184,6 +2208,8 @@ export class MySQLStorage implements IStorage {
       source: row.source,
       status: row.status,
       notes: row.notes,
+      interestedCityId: row.interested_city_id,
+      interestedPropertyType: row.interested_property_type,
       convertedToCustomer: row.converted_to_customer,
       customerId: row.customer_id,
       createdAt: row.created_at,
@@ -2535,6 +2561,21 @@ export class MySQLStorage implements IStorage {
     );
 
     return (rows as any[]).map(row => this.parseCity(row));
+  }
+
+  async getCityByName(name: string, companyId: string): Promise<City | undefined> {
+    if (!this.connection) throw new Error('No database connection');
+
+    // Busca case-insensitive
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM cities WHERE LOWER(name) LIKE LOWER(?) AND company_id = ? LIMIT 1',
+      [`%${name}%`, companyId]
+    );
+
+    const cities = rows as any[];
+    if (cities.length === 0) return undefined;
+
+    return this.parseCity(cities[0]);
   }
 
   async createCity(city: InsertCity): Promise<City> {

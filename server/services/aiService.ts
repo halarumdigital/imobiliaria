@@ -1274,6 +1274,33 @@ Responda sempre em português brasileiro de forma natural e helpful.\n\n`;
         messageType: 'text'
       });
 
+      // 🏠 ATUALIZAR LEAD COM CIDADE E TIPO DE IMÓVEL (se detectados na conversa)
+      try {
+        // Obter a instância para determinar a empresa
+        const instance = await storage.getWhatsappInstance(dbInstanceId);
+        if (instance?.companyId) {
+          // Buscar histórico da conversa para análise completa
+          const messages = await storage.getMessagesByConversation(conversation.id);
+          const conversationHistory = messages
+            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+            .slice(-20) // Últimas 20 mensagens
+            .map(msg => ({
+              role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
+              content: msg.content
+            }));
+
+          // Chamar função para atualizar customer com interesse em imóvel
+          await this.updateCustomerWithPropertyInterest(
+            phone,
+            instance.companyId,
+            userMessage,
+            conversationHistory
+          );
+        }
+      } catch (leadUpdateError) {
+        console.error(`⚠️ [SAVE] Erro ao atualizar lead (não crítico):`, leadUpdateError);
+      }
+
       console.log(`💾 Conversa salva com sucesso: ${conversation.id}`);
       return conversation;
     } catch (error) {
@@ -1384,6 +1411,107 @@ Responda sempre em português brasileiro de forma natural e helpful.\n\n`;
     } catch (error) {
       console.error("❌ [LEAD+CUSTOMER] ERRO ao criar lead e customer:", error);
       console.error("❌ [LEAD+CUSTOMER] Stack:", (error as Error).stack);
+    }
+  }
+
+  // 🎯 FUNCIONALIDADE: Atualizar customer com cidade e tipo de imóvel extraídos da conversa
+  async updateCustomerWithPropertyInterest(
+    phone: string,
+    companyId: string,
+    message: string,
+    conversationHistory?: Array<{role: 'user' | 'assistant', content: string}>
+  ) {
+    try {
+      console.log(`🏠 [CUSTOMER_UPDATE] === VERIFICANDO INTERESSE EM IMÓVEL ===`);
+      console.log(`📞 [CUSTOMER_UPDATE] Phone: ${phone}`);
+      console.log(`🏢 [CUSTOMER_UPDATE] Company ID: ${companyId}`);
+      console.log(`💬 [CUSTOMER_UPDATE] Mensagem: "${message.substring(0, 100)}..."`);
+
+      const storage = getStorage();
+
+      // Buscar customer existente pelo telefone
+      const customer = await storage.getCustomerByPhone(phone, companyId);
+      if (!customer) {
+        console.log(`⚠️ [CUSTOMER_UPDATE] Customer não encontrado para phone: ${phone}`);
+        return;
+      }
+
+      console.log(`✅ [CUSTOMER_UPDATE] Customer encontrado: ${customer.id} - ${customer.name}`);
+      console.log(`📊 [CUSTOMER_UPDATE] Estado atual - cityId: ${customer.interestedCityId || 'null'}, propertyType: ${customer.interestedPropertyType || 'null'}`);
+
+      // Combinar histórico + mensagem atual para análise
+      const fullConversation = [
+        ...(conversationHistory || []).map(m => m.content.toLowerCase()),
+        message.toLowerCase()
+      ].join(' ');
+
+      console.log(`🔍 [CUSTOMER_UPDATE] Analisando conversa: "${fullConversation.substring(0, 200)}..."`);
+
+      // Lista de tipos de imóvel (ordenados por tamanho para evitar falsos positivos)
+      const tiposImovelMap: Array<[string, string]> = [
+        ['apartamento', 'apartamento'],
+        ['chácara', 'chácara'],
+        ['chacara', 'chácara'],
+        ['sobrado', 'sobrado'],
+        ['terreno', 'terreno'],
+        ['apto', 'apartamento'],
+        ['casa', 'casa'],
+        ['sala', 'sala'],
+        ['ap', 'apartamento'],
+      ];
+
+      let updates: { interestedCityId?: string; interestedPropertyType?: string } = {};
+      let shouldUpdate = false;
+
+      // Detectar tipo de imóvel (se ainda não tiver)
+      if (!customer.interestedPropertyType) {
+        for (const [variacao, tipo] of tiposImovelMap) {
+          const regex = new RegExp(`(^|\\s|[^a-záàâãéèêíìîóòôõúùûç])${variacao}($|\\s|[^a-záàâãéèêíìîóòôõúùûç])`, 'i');
+          if (regex.test(fullConversation)) {
+            updates.interestedPropertyType = tipo;
+            shouldUpdate = true;
+            console.log(`🏠 [CUSTOMER_UPDATE] Tipo de imóvel detectado: ${tipo}`);
+            break;
+          }
+        }
+      }
+
+      // Detectar cidade - buscar diretamente nas cidades cadastradas para a empresa
+      if (!customer.interestedCityId) {
+        const cities = await storage.getCitiesByCompany(companyId);
+        console.log(`🌆 [CUSTOMER_UPDATE] Verificando ${cities.length} cidades cadastradas...`);
+
+        for (const city of cities) {
+          const cityNameLower = city.name.toLowerCase();
+          // Normalizar removendo acentos para comparação
+          const cityNameNormalized = cityNameLower
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+          const conversationNormalized = fullConversation
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+
+          // Verificar se o nome da cidade aparece na conversa (com ou sem acento)
+          if (fullConversation.includes(cityNameLower) || conversationNormalized.includes(cityNameNormalized)) {
+            updates.interestedCityId = city.name; // Salva o NOME da cidade, não o ID
+            shouldUpdate = true;
+            console.log(`🌆 [CUSTOMER_UPDATE] Cidade detectada: ${city.name}`);
+            break;
+          }
+        }
+      }
+
+      // Atualizar customer se houver novos dados
+      if (shouldUpdate) {
+        console.log(`📝 [CUSTOMER_UPDATE] Atualizando customer com:`, updates);
+        await storage.updateCustomer(customer.id, updates);
+        console.log(`✅ [CUSTOMER_UPDATE] Customer atualizado com sucesso!`);
+      } else {
+        console.log(`ℹ️ [CUSTOMER_UPDATE] Nenhuma atualização necessária`);
+      }
+
+    } catch (error) {
+      console.error(`❌ [CUSTOMER_UPDATE] Erro ao atualizar customer:`, error);
     }
   }
 }

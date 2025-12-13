@@ -204,6 +204,8 @@ export const customers = mysqlTable("customers", {
   value: decimal("value", { precision: 10, scale: 2 }),
   source: varchar("source", { length: 255 }).default("WhatsApp"),
   conversationId: varchar("conversation_id", { length: 36 }), // Link to the conversation that created this customer
+  interestedCityId: varchar("interested_city_id", { length: 36 }), // Cidade de interesse extraída da conversa
+  interestedPropertyType: varchar("interested_property_type", { length: 50 }), // Tipo de imóvel extraído da conversa
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });
@@ -217,6 +219,8 @@ export const leads = mysqlTable("leads", {
   source: varchar("source", { length: 255 }).default("Manual"),
   status: varchar("status", { length: 20 }).default("new"), // 'new' | 'contacted' | 'qualified' | 'converted' | 'lost'
   notes: text("notes"),
+  interestedCityId: varchar("interested_city_id", { length: 36 }), // City the lead is interested in
+  interestedPropertyType: varchar("interested_property_type", { length: 50 }), // 'casa' | 'apartamento' | 'sala' | 'terreno' | 'sobrado' | 'chácara'
   convertedToCustomer: boolean("converted_to_customer").default(false),
   customerId: varchar("customer_id", { length: 36 }), // Link to customer if converted
   createdAt: timestamp("created_at").defaultNow(),
@@ -482,6 +486,8 @@ export const insertLeadSchema = createInsertSchema(leads).pick({
   source: true,
   status: true,
   notes: true,
+  interestedCityId: true,
+  interestedPropertyType: true,
   convertedToCustomer: true,
   customerId: true,
 });

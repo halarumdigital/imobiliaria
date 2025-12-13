@@ -10,11 +10,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
-import { apiGet, apiPut } from "@/lib/api";
+import { apiGet, apiPut, apiDelete } from "@/lib/api";
 import { FunnelStage, Customer } from "@/types";
+
+interface City {
+  id: string;
+  name: string;
+}
 import {
   Users, MessageCircle, Phone, Calendar,
-  MoreVertical, Edit, Trash2, Filter, Plus
+  MoreVertical, Edit, Trash2, Filter, Plus, Home, MapPin
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -41,7 +46,9 @@ export default function ComercialAtendimentos() {
     notes: "",
     value: "",
     source: "",
-    funnelStageId: ""
+    funnelStageId: "",
+    interestedCityId: "",
+    interestedPropertyType: "",
   });
   const [createForm, setCreateForm] = useState({
     name: "",
@@ -50,12 +57,20 @@ export default function ComercialAtendimentos() {
     notes: "",
     value: "",
     source: "Kanban",
+    interestedCityId: "",
+    interestedPropertyType: "",
   });
 
   // Fetch funnel stages
   const { data: funnelStages = [], isLoading: stagesLoading } = useQuery<FunnelStage[]>({
     queryKey: ["/api/funnel-stages"],
     queryFn: () => apiGet("/funnel-stages"),
+  });
+
+  // Fetch cities
+  const { data: cities = [] } = useQuery<City[]>({
+    queryKey: ["/api/cities"],
+    queryFn: () => apiGet("/cities"),
   });
 
   // Fetch customers
@@ -118,6 +133,29 @@ export default function ComercialAtendimentos() {
     },
   });
 
+  // Delete customer mutation
+  const deleteCustomerMutation = useMutation({
+    mutationFn: async (customerId: string) => {
+      return apiDelete(`/customers/${customerId}`);
+    },
+    onSuccess: (_, deletedId) => {
+      setLocalCustomers(prev => prev.filter(customer => customer.id !== deletedId));
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      toast({
+        title: "Sucesso",
+        description: "Cliente excluído com sucesso!",
+      });
+    },
+    onError: (error) => {
+      console.error("Error deleting customer:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao excluir cliente.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Create customer mutation (also creates lead)
   const createCustomerMutation = useMutation({
     mutationFn: async (newCustomer: {
@@ -128,6 +166,8 @@ export default function ComercialAtendimentos() {
       value?: number;
       source: string;
       funnelStageId: string;
+      interestedCityId?: string;
+      interestedPropertyType?: string;
     }) => {
       // Create customer
       const customerResponse = await fetch("/api/customers", {
@@ -153,6 +193,8 @@ export default function ComercialAtendimentos() {
         source: newCustomer.source,
         status: "converted",
         notes: newCustomer.notes,
+        interestedCityId: newCustomer.interestedCityId,
+        interestedPropertyType: newCustomer.interestedPropertyType,
         convertedToCustomer: true,
         customerId: customer.id,
       };
@@ -208,6 +250,8 @@ export default function ComercialAtendimentos() {
       notes: "",
       value: "",
       source: "Kanban",
+      interestedCityId: "",
+      interestedPropertyType: "",
     });
   };
 
@@ -219,7 +263,9 @@ export default function ComercialAtendimentos() {
       notes: "",
       value: "",
       source: "",
-      funnelStageId: ""
+      funnelStageId: "",
+      interestedCityId: "",
+      interestedPropertyType: "",
     });
   };
 
@@ -232,7 +278,9 @@ export default function ComercialAtendimentos() {
       notes: customer.notes || "",
       value: customer.value?.toString() || "",
       source: customer.source || "",
-      funnelStageId: customer.funnelStageId
+      funnelStageId: customer.funnelStageId,
+      interestedCityId: customer.interestedCityId || "",
+      interestedPropertyType: customer.interestedPropertyType || "",
     });
   };
 
@@ -256,7 +304,9 @@ export default function ComercialAtendimentos() {
       notes: editForm.notes.trim() || undefined,
       value: editForm.value ? parseFloat(editForm.value) : undefined,
       source: editForm.source.trim() || undefined,
-      funnelStageId: editForm.funnelStageId
+      funnelStageId: editForm.funnelStageId,
+      interestedCityId: editForm.interestedCityId || undefined,
+      interestedPropertyType: editForm.interestedPropertyType || undefined,
     });
   };
 
@@ -289,6 +339,8 @@ export default function ComercialAtendimentos() {
       value: createForm.value ? parseFloat(createForm.value) : undefined,
       source: createForm.source,
       funnelStageId: createStageId,
+      interestedCityId: createForm.interestedCityId || undefined,
+      interestedPropertyType: createForm.interestedPropertyType || undefined,
     });
   };
 
@@ -492,7 +544,14 @@ export default function ComercialAtendimentos() {
                             <Edit className="w-4 h-4 mr-2" />
                             Editar
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive">
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => {
+                              if (confirm(`Deseja excluir o cliente "${customer.name}"?`)) {
+                                deleteCustomerMutation.mutate(customer.id);
+                              }
+                            }}
+                          >
                             <Trash2 className="w-4 h-4 mr-2" />
                             Excluir
                           </DropdownMenuItem>
@@ -672,6 +731,26 @@ export default function ComercialAtendimentos() {
                 value={editForm.source}
                 onChange={(e) => setEditForm(prev => ({ ...prev, source: e.target.value }))}
                 placeholder="Website, Indicação, etc."
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-city">Cidade de Interesse</Label>
+              <Input
+                id="edit-city"
+                value={editForm.interestedCityId}
+                onChange={(e) => setEditForm(prev => ({ ...prev, interestedCityId: e.target.value }))}
+                placeholder="Ex: Joaçaba"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-property-type">Tipo de Imóvel</Label>
+              <Input
+                id="edit-property-type"
+                value={editForm.interestedPropertyType}
+                onChange={(e) => setEditForm(prev => ({ ...prev, interestedPropertyType: e.target.value }))}
+                placeholder="Ex: Apartamento"
               />
             </div>
 

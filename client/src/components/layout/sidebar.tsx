@@ -35,11 +35,9 @@ const clientNavItems: NavItem[] = [
     label: "WhatsApp", 
     icon: <MessageSquare className="w-5 h-5" />,
     children: [
-      { href: "/client/whatsapp", label: "Instâncias", icon: <MessageSquare className="w-4 h-4" /> },
-      { href: "/client/conversations", label: "Conversas", icon: <MessageCircle className="w-4 h-4" /> },
+      { href: "/client/whatsapp", label: "Números conectados", icon: <MessageSquare className="w-4 h-4" /> },
       { href: "/client/whatsapp/disparo", label: "Disparo", icon: <Send className="w-4 h-4" /> },
       { href: "/client/whatsapp/lista-transmissao", label: "Lista de transmissão", icon: <List className="w-4 h-4" /> },
-      { href: "/client/whatsapp/proxy", label: "Proxy", icon: <Globe className="w-4 h-4" /> },
     ]
   },
   {

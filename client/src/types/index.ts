@@ -158,6 +158,8 @@ export interface Customer {
   value?: number;
   source?: string;
   conversationId?: string;
+  interestedCityId?: string;
+  interestedPropertyType?: string;
   createdAt: string;
   updatedAt: string;
 }
