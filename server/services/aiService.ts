@@ -1246,6 +1246,14 @@ Responda sempre em português brasileiro de forma natural e helpful.\n\n`;
         } else {
           console.log(`👤 [PUSHNAME] Nenhum pushName fornecido para atualização`);
         }
+
+        // 🎯 Verificar e criar lead/customer se não existir (mesmo com conversa existente)
+        console.log(`🔍 [LEAD+CUSTOMER] Verificando se lead/customer existe para conversa existente...`);
+        try {
+          await this.createLeadAndCustomerFromNewMessage(dbInstanceId, phone, conversation.id, messageData?.pushName || conversation.contactName);
+        } catch (error) {
+          console.error(`❌ [LEAD+CUSTOMER] Erro ao verificar/criar lead+customer:`, error);
+        }
       }
 
       // Salvar mensagem do usuário (com dados de imagem se presente)
